@@ -5,6 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 import "../src/tokens/RisingTidesCurrency.sol";
 import "../src/registries/ShipRegistry.sol";
 import "../src/registries/FishRegistry.sol";
+import "../src/registries/MapRegistry.sol";
 import "../src/core/GameState.sol";
 import "../src/core/FishMarket.sol";
 import "../src/core/SeasonPass.sol";
@@ -38,16 +39,31 @@ contract Deploy is Script {
         FishRegistry fishRegistry = new FishRegistry();
         console.log("FishRegistry deployed to:", address(fishRegistry));
 
-        // 4. Deploy Game State
+        // 4. Deploy Map Registry
+        console.log("\n=== Deploying MapRegistry ===");
+        MapRegistry mapRegistry = new MapRegistry();
+        console.log("MapRegistry deployed to:", address(mapRegistry));
+
+        // 5. Deploy Game State
         console.log("\n=== Deploying GameState ===");
+        // Note: Using placeholder VRF coordinator address for deployment
+        // In production, replace with actual Chainlink VRF coordinator
+        address vrfCoordinator = address(0x1); // Placeholder
+        uint64 subscriptionId = 1;
+        bytes32 keyHash = 0x0;
+        
         GameState gameState = new GameState(
             address(currency),
             address(shipRegistry),
-            address(fishRegistry)
+            address(fishRegistry),
+            address(mapRegistry),
+            vrfCoordinator,
+            subscriptionId,
+            keyHash
         );
         console.log("GameState deployed to:", address(gameState));
 
-        // 5. Deploy Fish Market
+        // 6. Deploy Fish Market
         console.log("\n=== Deploying FishMarket ===");
         FishMarket fishMarket = new FishMarket(
             address(currency),
@@ -56,12 +72,12 @@ contract Deploy is Script {
         );
         console.log("FishMarket deployed to:", address(fishMarket));
 
-        // 6. Deploy Season Pass
+        // 7. Deploy Season Pass
         console.log("\n=== Deploying SeasonPass ===");
         SeasonPass seasonPass = new SeasonPass();
         console.log("SeasonPass deployed to:", address(seasonPass));
 
-        // 7. Setup Roles and Permissions
+        // 8. Setup Roles and Permissions
         console.log("\n=== Setting up roles and permissions ===");
         
         // Grant MINTER_ROLE to FishMarket for currency rewards
@@ -76,7 +92,7 @@ contract Deploy is Script {
         seasonPass.grantRole(seasonPass.ADMIN_ROLE(), address(gameState));
         console.log("Granted ADMIN_ROLE to SeasonPass for GameState");
 
-        // 8. Initialize with sample data
+        // 9. Initialize with sample data
         console.log("\n=== Initializing sample data ===");
         
         // Add a basic starter ship
@@ -87,14 +103,18 @@ contract Deploy is Script {
         
         // Add basic bait types
         _addBasicBait(fishRegistry);
+        
+        // Add starter map
+        _addStarterMap(mapRegistry);
 
         vm.stopBroadcast();
 
-        // 9. Log deployment summary
+        // 10. Log deployment summary
         console.log("\n=== DEPLOYMENT SUMMARY ===");
         console.log("RisingTidesCurrency:", address(currency));
         console.log("ShipRegistry:", address(shipRegistry));
         console.log("FishRegistry:", address(fishRegistry));
+        console.log("MapRegistry:", address(mapRegistry));
         console.log("GameState:", address(gameState));
         console.log("FishMarket:", address(fishMarket));
         console.log("SeasonPass:", address(seasonPass));
@@ -244,5 +264,43 @@ contract Deploy is Script {
         );
         
         console.log("Added basic bait types");
+    }
+    
+    function _addStarterMap(MapRegistry mapRegistry) private {
+        // Register the starting ocean map
+        mapRegistry.registerMap(
+            1,                    // id
+            "Starting Waters",    // name
+            1,                    // tier
+            0,                    // travel cost (free starting map)
+            -100,                 // minX
+            100,                  // maxX
+            -100,                 // minY
+            100                   // maxY
+        );
+        
+        // Add a bait shop at the origin (0,0)
+        uint8[] memory availableBait = new uint8[](3);
+        availableBait[0] = 1; // Basic bait
+        availableBait[1] = 2; // Premium bait
+        availableBait[2] = 3; // Specialized bait
+        
+        mapRegistry.addBaitShop(1, 0, 0, availableBait);
+        
+        // Add some fish distributions for testing
+        uint8[] memory fishSpecies = new uint8[](2);
+        fishSpecies[0] = 1; // Sardine
+        fishSpecies[1] = 2; // Cod
+        
+        uint16[] memory probabilities = new uint16[](2);
+        probabilities[0] = 6000; // 60% sardine
+        probabilities[1] = 4000; // 40% cod
+        
+        // Add fish distribution at a few locations
+        mapRegistry.updateFishDistribution(1, 5, 5, fishSpecies, probabilities);
+        mapRegistry.updateFishDistribution(1, -10, 10, fishSpecies, probabilities);
+        mapRegistry.updateFishDistribution(1, 15, -5, fishSpecies, probabilities);
+        
+        console.log("Added starter map with bait shop and fish distributions");
     }
 }

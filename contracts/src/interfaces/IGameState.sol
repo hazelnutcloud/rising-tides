@@ -10,9 +10,13 @@ interface IGameState {
     struct PlayerState {
         Position position;
         uint8 shard;
+        uint256 mapId;
         uint256 shipId;
         uint256 currentFuel;
         uint256 lastMoveTimestamp;
+        uint256 nextMoveTime;
+        uint256 movementSpeed;
+        uint256 totalWeight;
         bool isActive;
     }
 
@@ -22,22 +26,25 @@ interface IGameState {
         uint256 caughtAt;
     }
 
+
     // Events
     event PlayerRegistered(address indexed player, uint8 shard);
-    event PlayerMoved(address indexed player, uint8 shard, int32 x, int32 y, uint256 fuelConsumed);
+    event PlayerMoved(address indexed player, uint8 shard, uint256 mapId, int32 x, int32 y, uint256 fuelConsumed);
     event FishCaught(address indexed player, uint8 species, uint16 weight, uint256 inventorySlot);
     event FuelPurchased(address indexed player, uint256 amount, uint256 cost);
     event ShipChanged(address indexed player, uint256 newShipId);
     event ShardChanged(address indexed player, uint8 oldShard, uint8 newShard);
+    event MapChanged(address indexed player, uint256 oldMapId, uint256 newMapId, uint256 cost);
+    event BaitPurchased(address indexed player, uint8 baitType, uint256 amount, uint256 cost);
 
     // Player Management
-    function registerPlayer(uint8 shard) external;
+    function registerPlayer(uint8 shard, uint256 mapId) external;
     function getPlayerState(address player) external view returns (PlayerState memory);
     function isPlayerRegistered(address player) external view returns (bool);
 
     // Movement
-    function move(int32 newX, int32 newY) external;
-    function calculateFuelCost(address player, int32 targetX, int32 targetY) external view returns (uint256);
+    function move(uint8[] calldata directions) external;
+    function calculateFuelCost(address player, uint8[] calldata directions) external view returns (uint256);
 
     // Fuel Management
     function purchaseFuel(uint256 amount) external;
@@ -45,10 +52,21 @@ interface IGameState {
 
     // Fishing
     function fish(uint8 baitType) external returns (uint8 species, uint16 weight);
+    
+    // Bait Management
+    function purchaseBait(uint8 baitType, uint256 amount) external;
+    function getPlayerBait(address player, uint8 baitType) external view returns (uint256);
+    function getPlayerAvailableBait(address player) external view returns (uint8[] memory baitTypes, uint256[] memory amounts);
+    
+    // Map Travel
+    function travelToMap(uint256 newMapId) external;
 
     // Ship Management
     function changeShip(uint256 newShipId) external;
 
     // Shard Management
     function changeShard(uint8 newShard) external;
+    
+    // Weight Management
+    function updatePlayerWeight(address player) external;
 }
