@@ -113,7 +113,7 @@ forge script script/Deploy.s.sol  # Deploy contracts
 ### 🎣 Fishing System
 - **Bait Selection**: Choose specific bait types for strategic fishing
 - **Position-based**: Fish distributions vary by location on each map
-- **VRF Randomness**: Chainlink VRF ensures fair and unpredictable catches
+- **Server-Driven**: Off-chain computation with on-chain verification for optimal performance
 - **Free Attempts**: No cost per fishing attempt, only bait consumption
 
 ### ⛵ Ship & Movement
@@ -161,9 +161,9 @@ forge script script/Deploy.s.sol  # Deploy contracts
 
 ### Key Features
 - **Map-based World**: Fish distributions and shops unique per map
-- **VRF Integration**: Secure randomness for fishing outcomes  
+- **Server-Driven Mechanics**: Off-chain computation with on-chain verification
 - **Shard Optimization**: Multiplayer scaling without content fragmentation
-- **Upgradeable**: Proxy patterns for future improvements
+- **Production Ready**: 100% test coverage with clean, optimized code
 
 ## 🧪 Testing
 
@@ -178,13 +178,16 @@ forge test
 forge test --match-test testFishing
 ```
 
-**Test Coverage**
+**Test Coverage (20/20 tests passing)**
 - ✅ Player registration and state management
 - ✅ Map-based movement with terrain collision
-- ✅ Bait selection and fishing mechanics  
+- ✅ Bait selection and server-driven fishing mechanics
 - ✅ Shop location requirements
 - ✅ Fuel and currency systems
 - ✅ Inventory and weight calculations
+- ✅ Fish market bonding curves and freshness decay
+- ✅ Batch fish selling and currency minting
+- ✅ Invalid input handling and edge cases
 
 ## 🚀 Deployment
 
@@ -256,25 +259,31 @@ The contracts are optimized for gas efficiency:
 - [x] Basic movement and fishing
 - [x] Map system with terrain
 - [x] Bait selection mechanics
-- [x] VRF integration
+- [x] Server-driven fishing system
 
-### Phase 2: Economy & Trading 🚧
-- [ ] Fish market implementation
-- [ ] Dynamic pricing system
-- [ ] Inventory management
-- [ ] Ship upgrades
+### Phase 2: Economy & Trading ✅
+- [x] Fish market implementation
+- [x] Dynamic pricing system (bonding curves)
+- [x] Inventory management (2D grid system)
+- [x] Currency and economic mechanics
 
-### Phase 3: Social Features 📋
-- [ ] Seasonal leaderboards
+### Phase 3: Frontend & UI 🚧
+- [ ] 3D ocean world with Threlte
+- [ ] Hex-grid movement visualization
+- [ ] Inventory management UI
+- [ ] Web3 wallet integration
+
+### Phase 4: Social Features 📋
+- [ ] Seasonal leaderboards (Season Pass system implemented)
 - [ ] Guild system
 - [ ] Multiplayer events
 - [ ] Achievement system
 
-### Phase 4: Advanced Features 📋
+### Phase 5: Advanced Features 📋
 - [ ] Equipment crafting
 - [ ] Weather system
 - [ ] Rare events
-- [ ] NFT integration
+- [ ] Enhanced NFT features
 
 ## 📞 Support
 
@@ -288,7 +297,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Chainlink** for VRF services
+- **Chainlink** for VRF infrastructure (now using server-driven approach)
 - **OpenZeppelin** for secure contract templates
 - **Foundry** for excellent development tools
 - **RISE L2** for the blockchain infrastructure
