@@ -5,6 +5,8 @@ import {Test, console} from "forge-std/Test.sol";
 import "../src/tokens/RisingTidesCurrency.sol";
 import "../src/registries/ShipRegistry.sol";
 import "../src/registries/FishRegistry.sol";
+import "../src/registries/EngineRegistry.sol";
+import "../src/registries/EquipmentRegistry.sol";
 import "../src/registries/MapRegistry.sol";
 import "../src/core/GameState.sol";
 import "../src/interfaces/IGameState.sol";
@@ -13,6 +15,8 @@ contract GameStateTest is Test {
     RisingTidesCurrency public currency;
     ShipRegistry public shipRegistry;
     FishRegistry public fishRegistry;
+    EngineRegistry public engineRegistry;
+    EquipmentRegistry public equipmentRegistry;
     MapRegistry public mapRegistry;
     GameState public gameState;
 
@@ -29,12 +33,22 @@ contract GameStateTest is Test {
         currency = new RisingTidesCurrency();
         shipRegistry = new ShipRegistry();
         fishRegistry = new FishRegistry();
+        engineRegistry = new EngineRegistry();
+        equipmentRegistry = new EquipmentRegistry();
         mapRegistry = new MapRegistry();
         
         // Set up test server signer
         testServerSigner = vm.addr(TEST_SERVER_PRIVATE_KEY);
 
-        gameState = new GameState(address(currency), address(shipRegistry), address(fishRegistry), address(mapRegistry), testServerSigner);
+        gameState = new GameState(
+            address(currency), 
+            address(shipRegistry), 
+            address(fishRegistry), 
+            address(engineRegistry),
+            address(equipmentRegistry),
+            address(mapRegistry), 
+            testServerSigner
+        );
 
         // Setup roles
         currency.grantRole(currency.MINTER_ROLE(), address(this));
@@ -276,7 +290,7 @@ contract GameStateTest is Test {
         // Set equipment slot
         slotTypes[15] = 2; // Bottom-right corner
 
-        shipRegistry.registerShip(1, "Test Ship", 100, 50, 100, 4, 4, cargoShape, slotTypes, 0, 10 * 10 ** 18);
+        shipRegistry.registerShip(1, "Test Ship", 100, 100, 4, 4, cargoShape, slotTypes, 0, 10 * 10 ** 18);
     }
 
     function _addTestFish() private {

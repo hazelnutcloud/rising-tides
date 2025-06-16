@@ -6,7 +6,6 @@ interface IShipRegistry {
         uint256 id;
         string name;
         uint256 fuelCapacity;
-        uint256 enginePower;
         uint256 durability;
         uint256 maxDurability;
         uint8 cargoWidth;
@@ -18,8 +17,8 @@ interface IShipRegistry {
     }
 
     struct ShipStats {
-        uint256 enginePower;
-        uint256 fuelEfficiency; // Lower is better
+        uint256 enginePower;        // Deprecated - kept for backward compatibility
+        uint256 fuelEfficiency;     // Deprecated - kept for backward compatibility
         uint256 cargoCapacity;
         uint256 durability;
     }
@@ -33,7 +32,6 @@ interface IShipRegistry {
         uint256 id,
         string calldata name,
         uint256 fuelCapacity,
-        uint256 enginePower,
         uint256 maxDurability,
         uint8 cargoWidth,
         uint8 cargoHeight,

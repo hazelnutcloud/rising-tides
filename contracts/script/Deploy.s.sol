@@ -5,6 +5,9 @@ import {Script, console} from "forge-std/Script.sol";
 import "../src/tokens/RisingTidesCurrency.sol";
 import "../src/registries/ShipRegistry.sol";
 import "../src/registries/FishRegistry.sol";
+import "../src/registries/EngineRegistry.sol";
+import "../src/registries/EquipmentRegistry.sol";
+import "../src/interfaces/IEquipmentRegistry.sol";
 import "../src/registries/MapRegistry.sol";
 import "../src/core/GameState.sol";
 import "../src/core/FishMarket.sol";
@@ -39,19 +42,36 @@ contract Deploy is Script {
         FishRegistry fishRegistry = new FishRegistry();
         console.log("FishRegistry deployed to:", address(fishRegistry));
 
-        // 4. Deploy Map Registry
+        // 4. Deploy Engine Registry
+        console.log("\n=== Deploying EngineRegistry ===");
+        EngineRegistry engineRegistry = new EngineRegistry();
+        console.log("EngineRegistry deployed to:", address(engineRegistry));
+
+        // 5. Deploy Equipment Registry
+        console.log("\n=== Deploying EquipmentRegistry ===");
+        EquipmentRegistry equipmentRegistry = new EquipmentRegistry();
+        console.log("EquipmentRegistry deployed to:", address(equipmentRegistry));
+
+        // 6. Deploy Map Registry
         console.log("\n=== Deploying MapRegistry ===");
         MapRegistry mapRegistry = new MapRegistry();
         console.log("MapRegistry deployed to:", address(mapRegistry));
 
-        // 5. Deploy Game State
+        // 7. Deploy Game State
         console.log("\n=== Deploying GameState ===");
         // Note: Using deployer address as initial server signer (should be changed after deployment)
-        GameState gameState =
-            new GameState(address(currency), address(shipRegistry), address(fishRegistry), address(mapRegistry), deployerAddress);
+        GameState gameState = new GameState(
+            address(currency), 
+            address(shipRegistry), 
+            address(fishRegistry), 
+            address(engineRegistry),
+            address(equipmentRegistry),
+            address(mapRegistry), 
+            deployerAddress
+        );
         console.log("GameState deployed to:", address(gameState));
 
-        // 6. Deploy Fish Market
+        // 8. Deploy Fish Market
         console.log("\n=== Deploying FishMarket ===");
         FishMarket fishMarket = new FishMarket(
             address(currency),
@@ -60,12 +80,12 @@ contract Deploy is Script {
         );
         console.log("FishMarket deployed to:", address(fishMarket));
 
-        // 7. Deploy Season Pass
+        // 9. Deploy Season Pass
         console.log("\n=== Deploying SeasonPass ===");
         SeasonPass seasonPass = new SeasonPass();
         console.log("SeasonPass deployed to:", address(seasonPass));
 
-        // 8. Setup Roles and Permissions
+        // 10. Setup Roles and Permissions
         console.log("\n=== Setting up roles and permissions ===");
 
         // Grant MINTER_ROLE to FishMarket for currency rewards
@@ -80,11 +100,17 @@ contract Deploy is Script {
         seasonPass.grantRole(seasonPass.ADMIN_ROLE(), address(gameState));
         console.log("Granted ADMIN_ROLE to SeasonPass for GameState");
 
-        // 9. Initialize with sample data
+        // 11. Initialize with sample data
         console.log("\n=== Initializing sample data ===");
 
         // Add a basic starter ship
         _addStarterShip(shipRegistry);
+
+        // Add basic engines
+        _addBasicEngines(engineRegistry);
+
+        // Add basic equipment
+        _addBasicEquipment(equipmentRegistry);
 
         // Add some basic fish species
         _addBasicFish(fishRegistry);
@@ -97,11 +123,13 @@ contract Deploy is Script {
 
         vm.stopBroadcast();
 
-        // 10. Log deployment summary
+        // 12. Log deployment summary
         console.log("\n=== DEPLOYMENT SUMMARY ===");
         console.log("RisingTidesCurrency:", address(currency));
         console.log("ShipRegistry:", address(shipRegistry));
         console.log("FishRegistry:", address(fishRegistry));
+        console.log("EngineRegistry:", address(engineRegistry));
+        console.log("EquipmentRegistry:", address(equipmentRegistry));
         console.log("MapRegistry:", address(mapRegistry));
         console.log("GameState:", address(gameState));
         console.log("FishMarket:", address(fishMarket));
@@ -139,7 +167,6 @@ contract Deploy is Script {
             1, // id
             "Starter Boat", // name
             100, // fuelCapacity
-            50, // enginePower
             100, // maxDurability
             4, // cargoWidth
             4, // cargoHeight
@@ -257,5 +284,133 @@ contract Deploy is Script {
         mapRegistry.updateFishDistribution(1, 15, -5, fishSpecies);
 
         console.log("Added starter map with bait shop and fish distributions");
+    }
+
+    function _addBasicEngines(EngineRegistry engineRegistry) private {
+        // 1. Small Engine (1x1)
+        bytes memory smallEngineShape = new bytes(1);
+        smallEngineShape[0] = 0x01; // 1x1 shape
+
+        engineRegistry.registerEngine(
+            1, // id
+            "Small Engine", // name
+            30, // enginePower
+            90, // fuelEfficiency (90% of base)
+            1, // shapeWidth
+            1, // shapeHeight
+            smallEngineShape,
+            100 * 10 ** 18, // purchasePrice (100 RTC)
+            50 // weight
+        );
+
+        // 2. Medium Engine (1x2)
+        bytes memory mediumEngineShape = new bytes(1);
+        mediumEngineShape[0] = 0x03; // 1x2 shape (bits: 11)
+
+        engineRegistry.registerEngine(
+            2, // id
+            "Medium Engine", // name
+            60, // enginePower
+            110, // fuelEfficiency (110% of base - less efficient but more power)
+            1, // shapeWidth
+            2, // shapeHeight
+            mediumEngineShape,
+            250 * 10 ** 18, // purchasePrice (250 RTC)
+            80 // weight
+        );
+
+        // 3. Large Engine (2x2)
+        bytes memory largeEngineShape = new bytes(1);
+        largeEngineShape[0] = 0x0F; // 2x2 shape (bits: 1111)
+
+        engineRegistry.registerEngine(
+            3, // id
+            "Large Engine", // name
+            100, // enginePower
+            130, // fuelEfficiency (130% of base - least efficient but most power)
+            2, // shapeWidth
+            2, // shapeHeight
+            largeEngineShape,
+            500 * 10 ** 18, // purchasePrice (500 RTC)
+            120 // weight
+        );
+
+        console.log("Added basic engines");
+    }
+
+    function _addBasicEquipment(EquipmentRegistry equipmentRegistry) private {
+        // 1. Basic Fishing Rod (1x1)
+        bytes memory rodShape = new bytes(1);
+        rodShape[0] = 0x01; // 1x1 shape
+
+        equipmentRegistry.registerEquipment(
+            1, // id
+            "Basic Fishing Rod", // name
+            IEquipmentRegistry.EquipmentType.FISHING_ROD, // type
+            1, // shapeWidth
+            1, // shapeHeight
+            rodShape,
+            50 * 10 ** 18, // purchasePrice (50 RTC)
+            10 // weight
+        );
+
+        // Set fishing success rate bonus
+        equipmentRegistry.setEquipmentStat(1, "fishingSuccessRate", 10); // +10% success rate
+
+        // 2. Fishing Net (1x2)
+        bytes memory netShape = new bytes(1);
+        netShape[0] = 0x03; // 1x2 shape
+
+        equipmentRegistry.registerEquipment(
+            2, // id
+            "Fishing Net", // name
+            IEquipmentRegistry.EquipmentType.FISHING_NET, // type
+            1, // shapeWidth
+            2, // shapeHeight
+            netShape,
+            150 * 10 ** 18, // purchasePrice (150 RTC)
+            20 // weight
+        );
+
+        // Set batch fishing capability
+        equipmentRegistry.setEquipmentStat(2, "batchFishingCount", 3); // Can catch 3 fish at once
+
+        // 3. Sonar (1x1)
+        bytes memory sonarShape = new bytes(1);
+        sonarShape[0] = 0x01; // 1x1 shape
+
+        equipmentRegistry.registerEquipment(
+            3, // id
+            "Sonar", // name
+            IEquipmentRegistry.EquipmentType.SONAR, // type
+            1, // shapeWidth
+            1, // shapeHeight
+            sonarShape,
+            200 * 10 ** 18, // purchasePrice (200 RTC)
+            15 // weight
+        );
+
+        // Set fish detection range
+        equipmentRegistry.setEquipmentStat(3, "detectionRange", 5); // Can detect fish within 5 hexes
+
+        // 4. Fuel Tank (2x1)
+        bytes memory tankShape = new bytes(1);
+        tankShape[0] = 0x03; // 2x1 shape
+
+        equipmentRegistry.registerEquipment(
+            4, // id
+            "Extra Fuel Tank", // name
+            IEquipmentRegistry.EquipmentType.FUEL_TANK, // type
+            2, // shapeWidth
+            1, // shapeHeight
+            tankShape,
+            100 * 10 ** 18, // purchasePrice (100 RTC)
+            30 // weight
+        );
+
+        // Set fuel capacity bonus
+        equipmentRegistry.setEquipmentStat(4, "fuelCapacityBonus", 50); // +50 fuel capacity
+
+        console.log("Added basic equipment");
     }
 }

@@ -11,6 +11,8 @@ import "../interfaces/IShipRegistry.sol";
 import "../interfaces/IMapRegistry.sol";
 import "../tokens/RisingTidesCurrency.sol";
 import "../registries/FishRegistry.sol";
+import "../registries/EngineRegistry.sol";
+import "../registries/EquipmentRegistry.sol";
 import "../libraries/InventoryLib.sol";
 
 /**
@@ -30,6 +32,8 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
     RisingTidesCurrency public currency;
     IShipRegistry public shipRegistry;
     FishRegistry public fishRegistry;
+    EngineRegistry public engineRegistry;
+    EquipmentRegistry public equipmentRegistry;
     IMapRegistry public mapRegistry;
 
     // Fishing system
@@ -89,21 +93,33 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
     }
 
     modifier validShard(uint8 shard) {
+        // TODO: set max players per shard
         require(shard < MAX_SHARDS, "Invalid shard ID");
         _;
     }
 
-    constructor(address _currency, address _shipRegistry, address _fishRegistry, address _mapRegistry, address _serverSigner) 
-        EIP712("RisingTides", "1") {
+    constructor(
+        address _currency, 
+        address _shipRegistry, 
+        address _fishRegistry, 
+        address _engineRegistry,
+        address _equipmentRegistry,
+        address _mapRegistry, 
+        address _serverSigner
+    ) EIP712("RisingTides", "1") {
         require(_currency != address(0), "Currency address cannot be zero");
         require(_shipRegistry != address(0), "Ship registry address cannot be zero");
         require(_fishRegistry != address(0), "Fish registry address cannot be zero");
+        require(_engineRegistry != address(0), "Engine registry address cannot be zero");
+        require(_equipmentRegistry != address(0), "Equipment registry address cannot be zero");
         require(_mapRegistry != address(0), "Map registry address cannot be zero");
         require(_serverSigner != address(0), "Server signer address cannot be zero");
 
         currency = RisingTidesCurrency(_currency);
         shipRegistry = IShipRegistry(_shipRegistry);
         fishRegistry = FishRegistry(_fishRegistry);
+        engineRegistry = EngineRegistry(_engineRegistry);
+        equipmentRegistry = EquipmentRegistry(_equipmentRegistry);
         mapRegistry = IMapRegistry(_mapRegistry);
         serverSigner = _serverSigner;
 
@@ -134,12 +150,13 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
             currentFuel: 100, // Starting fuel
             lastMoveTimestamp: block.timestamp,
             nextMoveTime: block.timestamp,
-            movementSpeed: _calculateMovementSpeed(shipStats.enginePower, totalWeight),
+            movementSpeed: _calculateMovementSpeed(shipStats.enginePower, totalWeight), // Will use ship's default until engines equipped
             totalWeight: totalWeight,
             isActive: true
         });
 
         // Initialize inventory grid based on default ship
+        // TODO: provide default engine and equipment
         _initializeInventory(msg.sender, 1);
 
         registeredPlayers[msg.sender] = true;
@@ -192,16 +209,14 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
      * @dev Calculate fuel cost for movement directions
      */
     function calculateFuelCost(address player, uint8[] calldata directions) public view returns (uint256) {
-        PlayerState memory playerState = playerStates[player];
-
         // Each direction costs base amount
         uint256 distance = directions.length;
 
-        // Get ship stats to calculate fuel efficiency
-        IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(playerState.shipId);
+        // Use equipped engine efficiency or fallback to ship default
+        uint256 fuelEfficiency = calculateCombinedFuelEfficiency(player);
 
         // Fuel cost = distance * base_cost * fuel_efficiency_modifier
-        return distance * HEX_MOVE_COST * shipStats.fuelEfficiency / 100;
+        return distance * HEX_MOVE_COST * fuelEfficiency / 100;
     }
 
     /**
@@ -283,10 +298,12 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         player.shipId = newShipId;
 
         // Recalculate weight and movement speed based on new ship
-        IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(newShipId);
         uint256 newWeight = _calculatePlayerWeight(msg.sender, newShipId);
         player.totalWeight = newWeight;
-        player.movementSpeed = _calculateMovementSpeed(shipStats.enginePower, newWeight);
+        
+        // Use equipped engine power or fallback to ship default
+        uint256 enginePower = calculateTotalEnginePower(msg.sender);
+        player.movementSpeed = _calculateMovementSpeed(enginePower, newWeight);
 
         // Reinitialize inventory for new ship
         _initializeInventory(msg.sender, newShipId);
@@ -302,8 +319,6 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         uint8 oldShard = player.shard;
 
         require(newShard != oldShard, "Already in this shard");
-
-        // TODO: Add shard change cost logic
 
         player.shard = newShard;
 
@@ -608,6 +623,65 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
     }
 
     /**
+     * @dev Validate engine placement in engine slots
+     */
+    function validateEngineEquipment(address player, uint256 engineId, uint8 x, uint8 y) external view returns (bool) {
+        require(engineRegistry.isValidEngine(engineId), "Invalid engine ID");
+        
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
+        
+        // Check if position is within bounds
+        if (x >= ship.cargoWidth || y >= ship.cargoHeight) {
+            return false;
+        }
+        
+        // Convert 2D coordinates to 1D index
+        uint256 index = uint256(y) * uint256(ship.cargoWidth) + uint256(x);
+        
+        // Check if position is an engine slot
+        if (index >= ship.slotTypes.length || ship.slotTypes[index] != 1) {
+            return false;
+        }
+        
+        return true;
+    }
+
+    /**
+     * @dev Validate equipment placement in equipment slots
+     */
+    function validateEquipmentPlacement(address player, uint256 equipmentId, uint8 x, uint8 y) external view returns (bool) {
+        require(equipmentRegistry.isValidEquipment(equipmentId), "Invalid equipment ID");
+        
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
+        
+        // Check if position is within bounds
+        if (x >= ship.cargoWidth || y >= ship.cargoHeight) {
+            return false;
+        }
+        
+        // Convert 2D coordinates to 1D index
+        uint256 index = uint256(y) * uint256(ship.cargoWidth) + uint256(x);
+        
+        // Check if position is an equipment slot
+        if (index >= ship.slotTypes.length || ship.slotTypes[index] != 2) {
+            return false;
+        }
+        
+        return true;
+    }
+
+    /**
+     * @dev Get engine and equipment registries (for external access)
+     */
+    function getEngineRegistry() external view returns (address) {
+        return address(engineRegistry);
+    }
+
+    function getEquipmentRegistry() external view returns (address) {
+        return address(equipmentRegistry);
+    }
+
+    /**
      * @dev Update server signer address (admin only)
      */
     function updateServerSigner(address newSigner) external onlyRole(ADMIN_ROLE) {
@@ -619,6 +693,7 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
      * @dev Initialize player inventory based on ship
      */
     function _initializeInventory(address player, uint256 shipId) private {
+        // TODO: validate inventory items placement when changing ships
         IShipRegistry.Ship memory ship = shipRegistry.getShip(shipId);
 
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
@@ -655,6 +730,90 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
     }
 
     /**
+     * @dev Calculate total engine power from equipped engines
+     */
+    function calculateTotalEnginePower(address player) public view returns (uint256 totalPower) {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
+        
+        // Iterate through inventory slots looking for engines in engine slots
+        for (uint256 i = 0; i < ship.slotTypes.length; i++) {
+            if (ship.slotTypes[i] == 1) { // Engine slot
+                InventoryLib.GridItem memory item = inventory.grid[i];
+                if (item.isOccupied && item.itemType == 2) { // Engine item type
+                    if (engineRegistry.isValidEngine(item.itemId)) {
+                        IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(item.itemId);
+                        totalPower += stats.enginePower;
+                    }
+                }
+            }
+        }
+        
+        // Fallback to ship's base engine power if no engines equipped
+        if (totalPower == 0) {
+            IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(playerStates[player].shipId);
+            return shipStats.enginePower;
+        }
+        
+        return totalPower;
+    }
+
+    /**
+     * @dev Calculate combined fuel efficiency from equipped engines
+     */
+    function calculateCombinedFuelEfficiency(address player) public view returns (uint256 avgEfficiency) {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
+        
+        uint256 totalPower = 0;
+        uint256 weightedEfficiency = 0;
+        uint256 engineCount = 0;
+        
+        // Iterate through inventory slots looking for engines in engine slots
+        for (uint256 i = 0; i < ship.slotTypes.length; i++) {
+            if (ship.slotTypes[i] == 1) { // Engine slot
+                InventoryLib.GridItem memory item = inventory.grid[i];
+                if (item.isOccupied && item.itemType == 2) { // Engine item type
+                    if (engineRegistry.isValidEngine(item.itemId)) {
+                        IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(item.itemId);
+                        totalPower += stats.enginePower;
+                        weightedEfficiency += stats.enginePower * stats.fuelEfficiency;
+                        engineCount++;
+                    }
+                }
+            }
+        }
+        
+        if (totalPower == 0) {
+            // Fallback to ship's default efficiency
+            IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(playerStates[player].shipId);
+            return shipStats.fuelEfficiency;
+        }
+        
+        return weightedEfficiency / totalPower;
+    }
+
+    /**
+     * @dev Calculate equipment effect for a specific stat
+     */
+    function calculateEquipmentEffect(address player, string memory statName) public view returns (uint256 totalEffect) {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
+        
+        // Iterate through inventory slots looking for equipment in equipment slots
+        for (uint256 i = 0; i < ship.slotTypes.length; i++) {
+            if (ship.slotTypes[i] == 2) { // Equipment slot
+                InventoryLib.GridItem memory item = inventory.grid[i];
+                if (item.isOccupied && item.itemType == 3) { // Equipment item type
+                    if (equipmentRegistry.isValidEquipment(item.itemId)) {
+                        totalEffect += equipmentRegistry.getEquipmentStat(item.itemId, statName);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * @dev Update player's total weight (used when inventory changes)
      */
     function updatePlayerWeight(address player) external onlyRegisteredPlayer {
@@ -664,9 +823,9 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         uint256 newWeight = _calculatePlayerWeight(player, playerState.shipId);
         playerState.totalWeight = newWeight;
 
-        // Recalculate movement speed with new weight
-        IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(playerState.shipId);
-        playerState.movementSpeed = _calculateMovementSpeed(shipStats.enginePower, newWeight);
+        // Recalculate movement speed with new weight and engine power
+        uint256 enginePower = calculateTotalEnginePower(player);
+        playerState.movementSpeed = _calculateMovementSpeed(enginePower, newWeight);
     }
 
     /**
@@ -838,10 +997,14 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
     /**
      * @dev Update contract dependencies (admin only)
      */
-    function updateDependencies(address _currency, address _shipRegistry, address _fishRegistry, address _mapRegistry)
-        external
-        onlyRole(ADMIN_ROLE)
-    {
+    function updateDependencies(
+        address _currency, 
+        address _shipRegistry, 
+        address _fishRegistry, 
+        address _engineRegistry,
+        address _equipmentRegistry,
+        address _mapRegistry
+    ) external onlyRole(ADMIN_ROLE) {
         if (_currency != address(0)) {
             currency = RisingTidesCurrency(_currency);
         }
@@ -850,6 +1013,12 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         }
         if (_fishRegistry != address(0)) {
             fishRegistry = FishRegistry(_fishRegistry);
+        }
+        if (_engineRegistry != address(0)) {
+            engineRegistry = EngineRegistry(_engineRegistry);
+        }
+        if (_equipmentRegistry != address(0)) {
+            equipmentRegistry = EquipmentRegistry(_equipmentRegistry);
         }
         if (_mapRegistry != address(0)) {
             mapRegistry = IMapRegistry(_mapRegistry);

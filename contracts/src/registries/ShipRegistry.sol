@@ -36,7 +36,6 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         uint256 id,
         string calldata name,
         uint256 fuelCapacity,
-        uint256 enginePower,
         uint256 maxDurability,
         uint8 cargoWidth,
         uint8 cargoHeight,
@@ -52,7 +51,6 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
             id: id,
             name: name,
             fuelCapacity: fuelCapacity,
-            enginePower: enginePower,
             durability: maxDurability,
             maxDurability: maxDurability,
             cargoWidth: cargoWidth,
@@ -83,8 +81,8 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         Ship memory ship = ships[shipId];
 
         return ShipStats({
-            enginePower: ship.enginePower,
-            fuelEfficiency: calculateFuelEfficiency(ship.enginePower),
+            enginePower: 50,  // Deprecated default value for backward compatibility
+            fuelEfficiency: 100,  // Deprecated default value for backward compatibility
             cargoCapacity: uint256(ship.cargoWidth) * uint256(ship.cargoHeight),
             durability: ship.durability
         });
@@ -172,7 +170,6 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
     function updateShipStats(
         uint256 shipId,
         uint256 fuelCapacity,
-        uint256 enginePower,
         uint256 maxDurability,
         uint256 purchasePrice,
         uint256 repairCostPerPoint
@@ -180,7 +177,6 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         Ship storage ship = ships[shipId];
 
         ship.fuelCapacity = fuelCapacity;
-        ship.enginePower = enginePower;
         ship.maxDurability = maxDurability;
         ship.purchasePrice = purchasePrice;
         ship.repairCostPerPoint = repairCostPerPoint;
@@ -193,24 +189,14 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         emit ShipStatsUpdated(
             shipId,
             ShipStats({
-                enginePower: enginePower,
-                fuelEfficiency: calculateFuelEfficiency(enginePower),
+                enginePower: 50,  // Deprecated default
+                fuelEfficiency: 100,  // Deprecated default
                 cargoCapacity: uint256(ship.cargoWidth) * uint256(ship.cargoHeight),
                 durability: ship.durability
             })
         );
     }
 
-    /**
-     * @dev Calculate fuel efficiency based on engine power
-     * @param enginePower Engine power rating
-     * @return Fuel efficiency multiplier (lower is better)
-     */
-    function calculateFuelEfficiency(uint256 enginePower) internal pure returns (uint256) {
-        // Base efficiency decreases as power increases
-        // Formula: efficiency = 100 + (enginePower / 10)
-        return 100 + (enginePower / 10);
-    }
 
     /**
      * @dev Remove a ship type (admin only)
