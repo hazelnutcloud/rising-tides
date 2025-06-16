@@ -61,12 +61,12 @@ contract Deploy is Script {
         console.log("\n=== Deploying GameStateCore ===");
         // Note: Using deployer address as initial server signer (should be changed after deployment)
         GameStateCore gameState = new GameStateCore(
-            address(currency), 
-            address(shipRegistry), 
-            address(fishRegistry), 
+            address(currency),
+            address(shipRegistry),
+            address(fishRegistry),
             address(engineRegistry),
             address(fishingRodRegistry),
-            address(mapRegistry), 
+            address(mapRegistry),
             deployerAddress
         );
         console.log("GameStateCore deployed to:", address(gameState));

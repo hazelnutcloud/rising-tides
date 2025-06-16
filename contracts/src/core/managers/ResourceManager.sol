@@ -132,9 +132,9 @@ abstract contract ResourceManager is InventoryManager {
         // Recalculate weight and movement speed based on new ship
         uint256 newWeight = _calculatePlayerWeight(msg.sender, newShipId);
         player.totalWeight = newWeight;
-        
+
         // Use equipped engine power or fallback to ship default
-        uint256 enginePower = _calculateTotalEnginePower(msg.sender);
+        uint256 enginePower = _calculateTotalEnginePower(msg.sender, newShipId);
         player.movementSpeed = _calculateMovementSpeed(enginePower, newWeight);
 
         // Reinitialize inventory for new ship
@@ -146,7 +146,11 @@ abstract contract ResourceManager is InventoryManager {
     /**
      * @dev Find bait shop at specific position on a map
      */
-    function _findBaitShopAtPosition(uint256 mapId, IGameState.Position memory position) private view returns (uint256) {
+    function _findBaitShopAtPosition(uint256 mapId, IGameState.Position memory position)
+        private
+        view
+        returns (uint256)
+    {
         uint256 shopCount = mapRegistry.getBaitShopsCount(mapId);
         for (uint256 i = 0; i < shopCount; i++) {
             IMapRegistry.BaitShop memory shop = mapRegistry.getBaitShop(mapId, i);

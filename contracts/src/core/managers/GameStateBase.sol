@@ -73,9 +73,8 @@ abstract contract GameStateBase is AccessControl, Pausable, ReentrancyGuard, EIP
     int32[6] internal hexDirectionsY = [int32(0), int32(-1), int32(-1), int32(0), int32(1), int32(1)];
 
     // EIP712 type hashes
-    bytes32 internal constant FISHING_RESULT_TYPEHASH = keccak256(
-        "FishingResult(address player,uint256 nonce,uint256 species,uint16 weight,uint256 timestamp)"
-    );
+    bytes32 internal constant FISHING_RESULT_TYPEHASH =
+        keccak256("FishingResult(address player,uint256 nonce,uint256 species,uint16 weight,uint256 timestamp)");
 
     // Modifiers
     modifier onlyRegisteredPlayer() {

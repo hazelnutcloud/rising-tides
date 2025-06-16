@@ -7,13 +7,13 @@ import "../src/interfaces/IEngineRegistry.sol";
 
 contract EngineRegistryTest is Test {
     EngineRegistry public engineRegistry;
-    
+
     address public admin = address(this);
     address public user = address(0x1);
 
     function setUp() public {
         engineRegistry = new EngineRegistry();
-        
+
         // Add test engines
         _addTestEngines();
     }
@@ -36,7 +36,7 @@ contract EngineRegistryTest is Test {
 
         assertTrue(engineRegistry.isValidEngine(10));
         assertEq(engineRegistry.getEngineCount(), 4); // 3 from setup + 1 new
-        
+
         IEngineRegistry.Engine memory engine = engineRegistry.getEngine(10);
         assertEq(engine.id, 10);
         assertEq(engine.name, "Test Engine");
@@ -56,7 +56,7 @@ contract EngineRegistryTest is Test {
         uint256[] memory engineIds = new uint256[](2);
         engineIds[0] = 1; // 30 power
         engineIds[1] = 2; // 60 power
-        
+
         uint256 totalPower = engineRegistry.calculateCombinedPower(engineIds);
         assertEq(totalPower, 90);
     }
@@ -65,7 +65,7 @@ contract EngineRegistryTest is Test {
         uint256[] memory engineIds = new uint256[](2);
         engineIds[0] = 1; // 30 power, 90% efficiency
         engineIds[1] = 2; // 60 power, 110% efficiency
-        
+
         uint256 avgEfficiency = engineRegistry.calculateCombinedEfficiency(engineIds);
         // Weighted average: (30*90 + 60*110) / (30+60) = (2700 + 6600) / 90 = 103.33...
         assertEq(avgEfficiency, 103);
@@ -74,9 +74,9 @@ contract EngineRegistryTest is Test {
     function testCombinedWeight() public {
         uint256[] memory engineIds = new uint256[](3);
         engineIds[0] = 1; // 50 weight
-        engineIds[1] = 2; // 80 weight  
+        engineIds[1] = 2; // 80 weight
         engineIds[2] = 3; // 120 weight
-        
+
         uint256 totalWeight = engineRegistry.calculateCombinedWeight(engineIds);
         assertEq(totalWeight, 250);
     }
@@ -85,7 +85,7 @@ contract EngineRegistryTest is Test {
         // Test invalid engine ID
         vm.expectRevert("Invalid engine ID");
         engineRegistry.getEngine(999);
-        
+
         // Test getting stats for invalid engine
         vm.expectRevert("Invalid engine ID");
         engineRegistry.getEngineStats(999);
@@ -93,28 +93,28 @@ contract EngineRegistryTest is Test {
 
     function testUpdateEngineStats() public {
         engineRegistry.updateEngineStats(1, 35, 95, 55, 120 * 10 ** 18);
-        
+
         IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(1);
         assertEq(stats.enginePower, 35);
         assertEq(stats.fuelEfficiency, 95);
         assertEq(stats.weight, 55);
-        
+
         IEngineRegistry.Engine memory engine = engineRegistry.getEngine(1);
         assertEq(engine.purchasePrice, 120 * 10 ** 18);
     }
 
     function testEngineStatusUpdate() public {
         assertTrue(engineRegistry.isValidEngine(1));
-        
+
         engineRegistry.setEngineStatus(1, false);
-        
+
         IEngineRegistry.Engine memory engine = engineRegistry.getEngine(1);
         assertFalse(engine.isActive);
-        
+
         // Inactive engines shouldn't contribute to combined calculations
         uint256[] memory engineIds = new uint256[](1);
         engineIds[0] = 1;
-        
+
         uint256 totalPower = engineRegistry.calculateCombinedPower(engineIds);
         assertEq(totalPower, 0);
     }
@@ -122,7 +122,7 @@ contract EngineRegistryTest is Test {
     function testGetAllEngines() public {
         IEngineRegistry.Engine[] memory allEngines = engineRegistry.getAllEngines();
         assertEq(allEngines.length, 3);
-        
+
         assertEq(allEngines[0].name, "Small Engine");
         assertEq(allEngines[1].name, "Medium Engine");
         assertEq(allEngines[2].name, "Large Engine");
@@ -132,7 +132,7 @@ contract EngineRegistryTest is Test {
         vm.prank(user);
         vm.expectRevert();
         engineRegistry.registerEngine(100, "Unauthorized", 10, 100, 1, 1, new bytes(1), 0, 1);
-        
+
         vm.prank(user);
         vm.expectRevert();
         engineRegistry.updateEngineStats(1, 100, 100, 100, 100);

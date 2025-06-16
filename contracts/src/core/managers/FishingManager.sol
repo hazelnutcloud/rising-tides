@@ -44,13 +44,7 @@ abstract contract FishingManager is MovementManager {
         // Emit event for server to process
         IGameState.PlayerState memory player = playerStates[msg.sender];
         emit IGameState.FishingInitiated(
-            msg.sender,
-            player.shard,
-            player.mapId,
-            player.position.x,
-            player.position.y,
-            baitType,
-            fishingNonce
+            msg.sender, player.shard, player.mapId, player.position.x, player.position.y, baitType, fishingNonce
         );
 
         return fishingNonce;
@@ -67,31 +61,28 @@ abstract contract FishingManager is MovementManager {
         require(result.player == msg.sender, "Result not for caller");
         require(pendingFishingRequest[msg.sender] == result.nonce, "Invalid or expired fishing request");
         require(result.nonce > 0, "Invalid nonce");
-        
+
         // Verify signature timestamp is recent
         require(block.timestamp <= result.timestamp + SIGNATURE_TIMEOUT, "Signature expired");
         require(result.timestamp <= block.timestamp, "Future timestamp not allowed");
-        
+
         // Verify signature hasn't been used before
         bytes32 signatureHash = keccak256(signature);
         require(!usedSignatures[signatureHash], "Signature already used");
-        
+
         // Verify server signature
-        bytes32 structHash = keccak256(abi.encode(
-            FISHING_RESULT_TYPEHASH,
-            result.player,
-            result.nonce,
-            result.species,
-            result.weight,
-            result.timestamp
-        ));
+        bytes32 structHash = keccak256(
+            abi.encode(
+                FISHING_RESULT_TYPEHASH, result.player, result.nonce, result.species, result.weight, result.timestamp
+            )
+        );
         bytes32 hash = _hashTypedDataV4(structHash);
         address recoveredSigner = hash.recover(signature);
         require(recoveredSigner == serverSigner, "Invalid signature");
-        
+
         // Mark signature as used
         usedSignatures[signatureHash] = true;
-        
+
         // Clear pending request
         delete pendingFishingRequest[msg.sender];
         delete pendingBaitType[msg.sender];
@@ -99,17 +90,14 @@ abstract contract FishingManager is MovementManager {
         // If server determined a catch occurred, process inventory actions
         if (result.species > 0) {
             require(fishRegistry.isValidSpecies(result.species), "Invalid species");
-            
+
             // Process inventory management actions
             _processInventoryActions(msg.sender, inventoryActions);
-            
+
             // Store caught fish if it was successfully placed in inventory
             uint256 fishId = playerFishCount[msg.sender];
-            playerFish[msg.sender][fishId] = IGameState.FishCatch({
-                species: result.species, 
-                weight: result.weight, 
-                caughtAt: block.timestamp
-            });
+            playerFish[msg.sender][fishId] =
+                IGameState.FishCatch({species: result.species, weight: result.weight, caughtAt: block.timestamp});
             playerFishCount[msg.sender]++;
 
             emit IGameState.FishCaught(msg.sender, result.species, result.weight, fishId);

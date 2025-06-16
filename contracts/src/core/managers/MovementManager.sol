@@ -76,7 +76,7 @@ abstract contract MovementManager is PlayerManager {
      * @dev Calculate total engine power from equipped engines
      */
     function calculateTotalEnginePower(address player) public view returns (uint256) {
-        return _calculateTotalEnginePower(player);
+        return _calculateTotalEnginePower(player, playerStates[player].shipId);
     }
 
     /**
@@ -85,16 +85,18 @@ abstract contract MovementManager is PlayerManager {
     function calculateCombinedFuelEfficiency(address player) public view returns (uint256 avgEfficiency) {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
         IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
-        
+
         uint256 totalPower = 0;
         uint256 weightedEfficiency = 0;
         uint256 engineCount = 0;
-        
+
         // Iterate through inventory slots looking for engines in engine slots
         for (uint256 i = 0; i < ship.slotTypes.length; i++) {
-            if (ship.slotTypes[i] == 1) { // Engine slot
+            if (ship.slotTypes[i] == 1) {
+                // Engine slot
                 InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == 2) { // Engine item type
+                if (item.isOccupied && item.itemType == 2) {
+                    // Engine item type
                     if (engineRegistry.isValidEngine(item.itemId)) {
                         IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(item.itemId);
                         totalPower += stats.enginePower;
@@ -104,13 +106,12 @@ abstract contract MovementManager is PlayerManager {
                 }
             }
         }
-        
+
         if (totalPower == 0) {
-            // Fallback to ship's default efficiency
-            IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(playerStates[player].shipId);
-            return shipStats.fuelEfficiency;
+            // Fallback to default fuel efficiency if no engines equipped (should not happen with default equipment)
+            return 100; // 100% efficiency (no modifier)
         }
-        
+
         return weightedEfficiency / totalPower;
     }
 

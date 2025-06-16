@@ -11,12 +11,12 @@ import "../interfaces/IGameState.sol";
  */
 contract GameStateCore is ResourceManager {
     constructor(
-        address _currency, 
-        address _shipRegistry, 
-        address _fishRegistry, 
+        address _currency,
+        address _shipRegistry,
+        address _fishRegistry,
         address _engineRegistry,
         address _fishingRodRegistry,
-        address _mapRegistry, 
+        address _mapRegistry,
         address _serverSigner
     ) EIP712("RisingTides", "1") {
         require(_currency != address(0), "Currency address cannot be zero");
@@ -45,9 +45,9 @@ contract GameStateCore is ResourceManager {
      * @dev Update contract dependencies (admin only)
      */
     function updateDependencies(
-        address _currency, 
-        address _shipRegistry, 
-        address _fishRegistry, 
+        address _currency,
+        address _shipRegistry,
+        address _fishRegistry,
         address _engineRegistry,
         address _fishingRodRegistry,
         address _mapRegistry
@@ -92,10 +92,10 @@ contract GameStateCore is ResourceManager {
     function setMaxPlayersPerShard(uint256 newLimit) external onlyRole(ADMIN_ROLE) {
         require(newLimit > 0, "Limit must be greater than zero");
         require(newLimit <= 10000, "Limit too high"); // Reasonable upper bound
-        
+
         uint256 oldLimit = maxPlayersPerShard;
         maxPlayersPerShard = newLimit;
-        
+
         emit MaxPlayersPerShardUpdated(oldLimit, newLimit);
     }
 

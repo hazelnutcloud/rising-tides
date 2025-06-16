@@ -81,8 +81,6 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         Ship memory ship = ships[shipId];
 
         return ShipStats({
-            enginePower: 50,  // Deprecated default value for backward compatibility
-            fuelEfficiency: 100,  // Deprecated default value for backward compatibility
             cargoCapacity: uint256(ship.cargoWidth) * uint256(ship.cargoHeight),
             durability: ship.durability
         });
@@ -188,15 +186,9 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
 
         emit ShipStatsUpdated(
             shipId,
-            ShipStats({
-                enginePower: 50,  // Deprecated default
-                fuelEfficiency: 100,  // Deprecated default
-                cargoCapacity: uint256(ship.cargoWidth) * uint256(ship.cargoHeight),
-                durability: ship.durability
-            })
+            ShipStats({cargoCapacity: uint256(ship.cargoWidth) * uint256(ship.cargoHeight), durability: ship.durability})
         );
     }
-
 
     /**
      * @dev Remove a ship type (admin only)

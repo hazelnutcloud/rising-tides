@@ -44,22 +44,18 @@ contract FishingRodRegistry is IFishingRodRegistry, Ownable {
         emit FishingRodRegistered(id, name);
     }
 
-    function updateFishingRod(
-        uint256 id,
-        uint256 purchasePrice,
-        uint256 weight
-    ) external override onlyOwner {
+    function updateFishingRod(uint256 id, uint256 purchasePrice, uint256 weight) external override onlyOwner {
         require(isValidFishingRod(id), "Invalid fishing rod ID");
-        
+
         fishingRods[id].purchasePrice = purchasePrice;
         fishingRods[id].weight = weight;
-        
+
         emit FishingRodUpdated(id, purchasePrice, weight);
     }
 
     function setFishingRodStatus(uint256 id, bool isActive) external override onlyOwner {
         require(fishingRods[id].id > 0, "Fishing rod does not exist");
-        
+
         fishingRods[id].isActive = isActive;
         emit FishingRodStatusChanged(id, isActive);
     }
@@ -85,12 +81,7 @@ contract FishingRodRegistry is IFishingRodRegistry, Ownable {
         return fishingRods[id].id > 0 && fishingRods[id].isActive;
     }
 
-    function calculateCombinedWeight(uint256[] memory _fishingRodIds) 
-        external 
-        view 
-        override 
-        returns (uint256) 
-    {
+    function calculateCombinedWeight(uint256[] memory _fishingRodIds) external view override returns (uint256) {
         uint256 totalWeight = 0;
         for (uint256 i = 0; i < _fishingRodIds.length; i++) {
             if (isValidFishingRod(_fishingRodIds[i])) {

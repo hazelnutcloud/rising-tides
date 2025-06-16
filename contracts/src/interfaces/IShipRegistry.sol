@@ -17,8 +17,6 @@ interface IShipRegistry {
     }
 
     struct ShipStats {
-        uint256 enginePower;        // Deprecated - kept for backward compatibility
-        uint256 fuelEfficiency;     // Deprecated - kept for backward compatibility
         uint256 cargoCapacity;
         uint256 durability;
     }

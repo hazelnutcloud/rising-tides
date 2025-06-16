@@ -86,11 +86,8 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
      */
     function getEngineStats(uint256 engineId) external view validEngineId(engineId) returns (EngineStats memory) {
         Engine memory engine = engines[engineId];
-        return EngineStats({
-            enginePower: engine.enginePower,
-            fuelEfficiency: engine.fuelEfficiency,
-            weight: engine.weight
-        });
+        return
+            EngineStats({enginePower: engine.enginePower, fuelEfficiency: engine.fuelEfficiency, weight: engine.weight});
     }
 
     /**
@@ -141,23 +138,18 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
         engine.purchasePrice = purchasePrice;
 
         emit EngineStatsUpdated(
-            engineId,
-            EngineStats({
-                enginePower: enginePower,
-                fuelEfficiency: fuelEfficiency,
-                weight: weight
-            })
+            engineId, EngineStats({enginePower: enginePower, fuelEfficiency: fuelEfficiency, weight: weight})
         );
     }
 
     /**
      * @dev Set engine active status (admin only)
      */
-    function setEngineStatus(uint256 engineId, bool isActive) 
-        external 
-        onlyRole(ADMIN_ROLE) 
-        validEngineId(engineId) 
-        whenNotPaused 
+    function setEngineStatus(uint256 engineId, bool isActive)
+        external
+        onlyRole(ADMIN_ROLE)
+        validEngineId(engineId)
+        whenNotPaused
     {
         engines[engineId].isActive = isActive;
         emit EngineStatusUpdated(engineId, isActive);
@@ -185,7 +177,7 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
             if (isValidEngine(_engineIds[i]) && engines[_engineIds[i]].isActive) {
                 uint256 power = engines[_engineIds[i]].enginePower;
                 uint256 efficiency = engines[_engineIds[i]].fuelEfficiency;
-                
+
                 totalPower += power;
                 weightedEfficiency += power * efficiency;
             }

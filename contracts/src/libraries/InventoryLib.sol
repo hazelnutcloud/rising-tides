@@ -271,13 +271,13 @@ library InventoryLib {
      */
     function rotateItemShape(ItemShape memory shape, uint8 rotation) internal pure returns (ItemShape memory) {
         require(rotation < 4, "Invalid rotation value");
-        
+
         if (rotation == 0) {
             return shape; // No rotation needed
         }
-        
+
         ItemShape memory rotated;
-        
+
         if (rotation == 1 || rotation == 3) {
             // 90° or 270° rotation - swap width and height
             rotated.width = shape.height;
@@ -287,10 +287,10 @@ library InventoryLib {
             rotated.width = shape.width;
             rotated.height = shape.height;
         }
-        
+
         // Calculate rotated bitmap data
         rotated.data = _rotateShapeData(shape, rotation);
-        
+
         return rotated;
     }
 
@@ -351,7 +351,7 @@ library InventoryLib {
         returns (uint8 width, uint8 height)
     {
         require(rotation < 4, "Invalid rotation value");
-        
+
         if (rotation == 1 || rotation == 3) {
             // 90° or 270° rotation - swap dimensions
             return (shape.height, shape.width);
@@ -391,10 +391,10 @@ library InventoryLib {
         if (rotation == 0) {
             return shape.data;
         }
-        
+
         uint8 newWidth;
         uint8 newHeight;
-        
+
         if (rotation == 1 || rotation == 3) {
             newWidth = shape.height;
             newHeight = shape.width;
@@ -402,18 +402,18 @@ library InventoryLib {
             newWidth = shape.width;
             newHeight = shape.height;
         }
-        
+
         uint256 totalBits = uint256(newWidth) * uint256(newHeight);
         uint256 totalBytes = (totalBits + 7) / 8; // Round up to nearest byte
         bytes memory rotatedData = new bytes(totalBytes);
-        
+
         // Rotate each bit position
         for (uint8 y = 0; y < shape.height; y++) {
             for (uint8 x = 0; x < shape.width; x++) {
                 if (isShapeOccupied(shape, x, y)) {
                     uint8 newX;
                     uint8 newY;
-                    
+
                     if (rotation == 1) {
                         // 90° clockwise: (x,y) -> (height-1-y, x)
                         newX = shape.height - 1 - y;
@@ -427,19 +427,19 @@ library InventoryLib {
                         newX = y;
                         newY = shape.width - 1 - x;
                     }
-                    
+
                     // Set bit in rotated data
                     uint256 bitIndex = uint256(newY) * uint256(newWidth) + uint256(newX);
                     uint256 byteIndex = bitIndex / 8;
                     uint256 bitOffset = bitIndex % 8;
-                    
+
                     if (byteIndex < rotatedData.length) {
                         rotatedData[byteIndex] |= bytes1(uint8(uint256(1) << bitOffset));
                     }
                 }
             }
         }
-        
+
         return rotatedData;
     }
 }

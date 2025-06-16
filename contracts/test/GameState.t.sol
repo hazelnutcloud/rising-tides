@@ -23,7 +23,7 @@ contract GameStateTest is Test {
     address public player1 = address(0x1);
     address public player2 = address(0x2);
     address public admin = address(this);
-    
+
     // Test server signer address and private key for testing
     uint256 public constant TEST_SERVER_PRIVATE_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
     address public testServerSigner;
@@ -36,17 +36,17 @@ contract GameStateTest is Test {
         engineRegistry = new EngineRegistry();
         fishingRodRegistry = new FishingRodRegistry();
         mapRegistry = new MapRegistry();
-        
+
         // Set up test server signer
         testServerSigner = vm.addr(TEST_SERVER_PRIVATE_KEY);
 
         gameState = new GameStateCore(
-            address(currency), 
-            address(shipRegistry), 
-            address(fishRegistry), 
+            address(currency),
+            address(shipRegistry),
+            address(fishRegistry),
             address(engineRegistry),
             address(fishingRodRegistry),
-            address(mapRegistry), 
+            address(mapRegistry),
             testServerSigner
         );
 
@@ -56,6 +56,8 @@ contract GameStateTest is Test {
 
         // Add test ship, map, fish and bait
         _addTestShip();
+        _addTestEngines();
+        _addTestFishingRods();
         _addTestMap();
         _addTestFish();
         _addTestBait();
@@ -141,7 +143,7 @@ contract GameStateTest is Test {
         uint256 species = 1;
         uint16 weight = 500;
         uint256 timestamp = block.timestamp;
-        
+
         // Create fishing result
         FishingResult memory result = FishingResult({
             player: player1,
@@ -150,13 +152,13 @@ contract GameStateTest is Test {
             weight: weight,
             timestamp: timestamp
         });
-        
+
         // Create signature (simplified for testing - in production would be created server-side)
         bytes memory signature = _createTestSignature(result);
-        
+
         // Create inventory actions (empty for this basic test)
         InventoryAction[] memory actions = new InventoryAction[](0);
-        
+
         // Fulfill fishing
         vm.prank(player1);
         gameState.fulfillFishing(result, signature, actions);
@@ -199,10 +201,10 @@ contract GameStateTest is Test {
             weight: 0,
             timestamp: block.timestamp
         });
-        
+
         bytes memory noCatchSignature = _createTestSignature(noCatchResult);
         InventoryAction[] memory emptyActions = new InventoryAction[](0);
-        
+
         vm.prank(player1);
         gameState.fulfillFishing(noCatchResult, noCatchSignature, emptyActions);
 
@@ -304,6 +306,40 @@ contract GameStateTest is Test {
         fishRegistry.registerBaitType(1, "Test Bait", 5 * 10 ** 18);
     }
 
+    function _addTestEngines() private {
+        // Add basic test engine (ID 1)
+        bytes memory engineShape = new bytes(1);
+        engineShape[0] = 0x01; // 1x1 shape
+
+        engineRegistry.registerEngine(
+            1, // id
+            "Test Engine", // name
+            30, // enginePower
+            100, // fuelEfficiency
+            1, // shapeWidth
+            1, // shapeHeight
+            engineShape,
+            100 * 10 ** 18, // purchasePrice
+            50 // weight
+        );
+    }
+
+    function _addTestFishingRods() private {
+        // Add basic test fishing rod (ID 1)
+        bytes memory rodShape = new bytes(1);
+        rodShape[0] = 0x01; // 1x1 shape
+
+        fishingRodRegistry.registerFishingRod(
+            1, // id
+            "Test Fishing Rod", // name
+            1, // shapeWidth
+            1, // shapeHeight
+            rodShape,
+            50 * 10 ** 18, // purchasePrice
+            10 // weight
+        );
+    }
+
     function _addTestMap() private {
         // Register a test map
         mapRegistry.registerMap(
@@ -390,16 +426,27 @@ contract GameStateTest is Test {
         gameState.registerPlayer(0, 1); // shard 0, map 1
 
         // Test getting initial empty inventory
-        (uint8 width, uint8 height, uint8[] memory slotTypes, InventoryLib.GridItem[] memory items) = 
+        (uint8 width, uint8 height, uint8[] memory slotTypes, InventoryLib.GridItem[] memory items) =
             gameState.getPlayerInventory(player1);
-        
+
         assertEq(width, 4);
         assertEq(height, 4);
         assertEq(slotTypes.length, 16);
         assertEq(items.length, 16);
-        
-        // Check that initial inventory is empty
-        for (uint256 i = 0; i < items.length; i++) {
+
+        // Check that initial inventory has default equipment
+        // Slot 0 should have default engine (ID 1)
+        assertTrue(items[0].isOccupied);
+        assertEq(items[0].itemType, 2); // Engine item type
+        assertEq(items[0].itemId, 1); // Default engine ID
+
+        // Slot 15 should have default fishing rod (ID 1)
+        assertTrue(items[15].isOccupied);
+        assertEq(items[15].itemType, 3); // Equipment item type
+        assertEq(items[15].itemId, 1); // Default fishing rod ID
+
+        // All other slots should be empty
+        for (uint256 i = 1; i < 15; i++) {
             assertFalse(items[i].isOccupied);
         }
     }
@@ -409,18 +456,17 @@ contract GameStateTest is Test {
         gameState.registerPlayer(0, 1); // shard 0, map 1
 
         // Test getting available space for different item sizes
-        (uint8[] memory validX, uint8[] memory validY) = 
-            gameState.getAvailableInventorySpace(player1, 1, 1);
-        
-        // Should have many valid positions for 1x1 items in empty 4x4 grid
-        assertEq(validX.length, 16);
-        assertEq(validY.length, 16);
-        
+        (uint8[] memory validX, uint8[] memory validY) = gameState.getAvailableInventorySpace(player1, 1, 1);
+
+        // Should have 14 valid positions for 1x1 items (16 - 2 occupied by default equipment)
+        assertEq(validX.length, 14);
+        assertEq(validY.length, 14);
+
         // Test with 2x2 item
         (validX, validY) = gameState.getAvailableInventorySpace(player1, 2, 2);
-        // Should have 9 valid positions for 2x2 items (3x3 possible placements)
-        assertEq(validX.length, 9);
-        assertEq(validY.length, 9);
+        // Should have 7 valid positions for 2x2 items (9 - 2 blocked by default equipment)
+        assertEq(validX.length, 7);
+        assertEq(validY.length, 7);
     }
 
     function testFulfillFishingWithInventoryActions() public {
@@ -439,7 +485,7 @@ contract GameStateTest is Test {
         uint256 species = 1;
         uint16 weight = 500;
         uint256 timestamp = block.timestamp;
-        
+
         FishingResult memory result = FishingResult({
             player: player1,
             nonce: fishingNonce,
@@ -447,9 +493,9 @@ contract GameStateTest is Test {
             weight: weight,
             timestamp: timestamp
         });
-        
+
         bytes memory signature = _createTestSignature(result);
-        
+
         // Create inventory actions to place the fish with rotation
         InventoryAction[] memory actions = new InventoryAction[](1);
         actions[0] = InventoryAction({
@@ -461,14 +507,14 @@ contract GameStateTest is Test {
             rotation: 2, // 180 degree rotation
             itemId: 1
         });
-        
+
         // Fulfill fishing with inventory management
         vm.prank(player1);
         gameState.fulfillFishing(result, signature, actions);
 
         // Check fish was added
         assertEq(gameState.getPlayerFishCount(player1), 1);
-        
+
         // Check inventory item was placed
         InventoryLib.GridItem memory item = gameState.getInventoryItem(player1, 1, 1);
         assertTrue(item.isOccupied);
@@ -483,27 +529,31 @@ contract GameStateTest is Test {
      */
     function _createTestSignature(FishingResult memory result) private view returns (bytes memory) {
         // Create EIP712 domain separator
-        bytes32 domainSeparator = keccak256(abi.encode(
-            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-            keccak256("RisingTides"),
-            keccak256("1"),
-            block.chainid,
-            address(gameState)
-        ));
-        
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("RisingTides"),
+                keccak256("1"),
+                block.chainid,
+                address(gameState)
+            )
+        );
+
         // Create struct hash
-        bytes32 structHash = keccak256(abi.encode(
-            keccak256("FishingResult(address player,uint256 nonce,uint256 species,uint16 weight,uint256 timestamp)"),
-            result.player,
-            result.nonce,
-            result.species,
-            result.weight,
-            result.timestamp
-        ));
-        
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256("FishingResult(address player,uint256 nonce,uint256 species,uint16 weight,uint256 timestamp)"),
+                result.player,
+                result.nonce,
+                result.species,
+                result.weight,
+                result.timestamp
+            )
+        );
+
         // Create digest
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
-        
+
         // Create a test signature by simulating server signing
         // In production, this would be done by the server with its private key
         // For testing, we'll create a mock signature that matches the test server signer
@@ -514,15 +564,15 @@ contract GameStateTest is Test {
     function testShardLimits() public {
         // Test default limit is set
         assertEq(gameState.getMaxPlayersPerShard(), 1000);
-        
+
         // Test shard 0 starts empty
         assertEq(gameState.getShardPlayerCount(0), 0);
         assertTrue(gameState.isShardAvailable(0));
-        
+
         // Register player1 to shard 0
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         // Check shard count updated
         assertEq(gameState.getShardPlayerCount(0), 1);
         assertTrue(gameState.isShardAvailable(0));
@@ -532,19 +582,19 @@ contract GameStateTest is Test {
         // Register player1 to shard 0
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         // Register player2 to shard 1
         vm.prank(player2);
         gameState.registerPlayer(1, 1);
-        
+
         // Verify counts
         assertEq(gameState.getShardPlayerCount(0), 1);
         assertEq(gameState.getShardPlayerCount(1), 1);
-        
+
         // Move player1 from shard 0 to shard 1
         vm.prank(player1);
         gameState.changeShard(1);
-        
+
         // Verify counts updated
         assertEq(gameState.getShardPlayerCount(0), 0);
         assertEq(gameState.getShardPlayerCount(1), 2);
@@ -553,20 +603,20 @@ contract GameStateTest is Test {
     function testShardFullRegistration() public {
         // Set a very low limit for testing
         gameState.setMaxPlayersPerShard(1);
-        
+
         // Register player1 to shard 0 (should succeed)
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         // Try to register player2 to shard 0 (should fail)
         vm.prank(player2);
         vm.expectRevert("Shard is full");
         gameState.registerPlayer(0, 1);
-        
+
         // But player2 can register to shard 1
         vm.prank(player2);
         gameState.registerPlayer(1, 1);
-        
+
         assertEq(gameState.getShardPlayerCount(0), 1);
         assertEq(gameState.getShardPlayerCount(1), 1);
     }
@@ -574,19 +624,19 @@ contract GameStateTest is Test {
     function testShardFullChangeAttempt() public {
         // Set limit to 1
         gameState.setMaxPlayersPerShard(1);
-        
+
         // Register players to different shards
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         vm.prank(player2);
         gameState.registerPlayer(1, 1);
-        
+
         // Try to move player2 to shard 0 (should fail)
         vm.prank(player2);
         vm.expectRevert("Target shard is full");
         gameState.changeShard(0);
-        
+
         // Verify no changes
         assertEq(gameState.getShardPlayerCount(0), 1);
         assertEq(gameState.getShardPlayerCount(1), 1);
@@ -596,11 +646,11 @@ contract GameStateTest is Test {
         // Test updating the limit
         gameState.setMaxPlayersPerShard(500);
         assertEq(gameState.getMaxPlayersPerShard(), 500);
-        
+
         // Test zero limit should fail
         vm.expectRevert("Limit must be greater than zero");
         gameState.setMaxPlayersPerShard(0);
-        
+
         // Test very high limit should fail
         vm.expectRevert("Limit too high");
         gameState.setMaxPlayersPerShard(20000);
@@ -610,28 +660,28 @@ contract GameStateTest is Test {
         // Register some players to different shards
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         vm.prank(player2);
         gameState.registerPlayer(2, 1);
-        
+
         // Get all shard data
-        (uint8[] memory shardIds, uint256[] memory playerCounts, bool[] memory available) = 
+        (uint8[] memory shardIds, uint256[] memory playerCounts, bool[] memory available) =
             gameState.getAllShardOccupancy();
-        
+
         // Verify data structure
         assertEq(shardIds.length, 100); // MAX_SHARDS
         assertEq(playerCounts.length, 100);
         assertEq(available.length, 100);
-        
+
         // Check specific shard data
         assertEq(shardIds[0], 0);
         assertEq(playerCounts[0], 1);
         assertTrue(available[0]);
-        
+
         assertEq(shardIds[2], 2);
         assertEq(playerCounts[2], 1);
         assertTrue(available[2]);
-        
+
         assertEq(playerCounts[1], 0); // Empty shard
         assertTrue(available[1]);
     }
@@ -647,21 +697,21 @@ contract GameStateTest is Test {
         // Register player1 to shard 0
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         // Verify initial state
         assertEq(gameState.getShardPlayerCount(0), 1);
         assertEq(gameState.getShardPlayerCount(1), 0);
-        
+
         IGameState.PlayerState memory state = gameState.getPlayerState(player1);
         assertEq(state.shard, 0);
-        
+
         // Admin moves player1 from shard 0 to shard 1
         gameState.adminChangePlayerShard(player1, 1, false);
-        
+
         // Verify shard counts updated
         assertEq(gameState.getShardPlayerCount(0), 0);
         assertEq(gameState.getShardPlayerCount(1), 1);
-        
+
         // Verify player's shard updated
         state = gameState.getPlayerState(player1);
         assertEq(state.shard, 1);
@@ -670,25 +720,25 @@ contract GameStateTest is Test {
     function testAdminChangePlayerShardWithBypass() public {
         // Set very low limit
         gameState.setMaxPlayersPerShard(1);
-        
+
         // Register player1 to shard 0, player2 to shard 1
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         vm.prank(player2);
         gameState.registerPlayer(1, 1);
-        
+
         // Both shards are now full
         assertFalse(gameState.isShardAvailable(0));
         assertFalse(gameState.isShardAvailable(1));
-        
+
         // Admin can still move player2 to shard 0 by bypassing the limit
         gameState.adminChangePlayerShard(player2, 0, true);
-        
+
         // Verify the move worked despite the limit
         assertEq(gameState.getShardPlayerCount(0), 2); // Over the limit!
         assertEq(gameState.getShardPlayerCount(1), 0);
-        
+
         IGameState.PlayerState memory state = gameState.getPlayerState(player2);
         assertEq(state.shard, 0);
     }
@@ -696,18 +746,18 @@ contract GameStateTest is Test {
     function testAdminChangePlayerShardRespectLimit() public {
         // Set low limit
         gameState.setMaxPlayersPerShard(1);
-        
+
         // Register players to different shards
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         vm.prank(player2);
         gameState.registerPlayer(1, 1);
-        
+
         // Admin tries to move player2 to full shard 0 without bypass (should fail)
         vm.expectRevert("Target shard is full");
         gameState.adminChangePlayerShard(player2, 0, false);
-        
+
         // Verify no changes
         assertEq(gameState.getShardPlayerCount(0), 1);
         assertEq(gameState.getShardPlayerCount(1), 1);
@@ -717,15 +767,15 @@ contract GameStateTest is Test {
         // Register player1
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         // Test moving to same shard fails
         vm.expectRevert("Player already in target shard");
         gameState.adminChangePlayerShard(player1, 0, false);
-        
+
         // Test moving unregistered player fails
         vm.expectRevert("Player not registered");
         gameState.adminChangePlayerShard(player2, 1, false);
-        
+
         // Test invalid shard fails
         vm.expectRevert("Invalid shard ID");
         gameState.adminChangePlayerShard(player1, 200, false);
@@ -735,12 +785,12 @@ contract GameStateTest is Test {
         // Register player1
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         // Non-admin cannot change player's shard
         vm.prank(player2);
         vm.expectRevert();
         gameState.adminChangePlayerShard(player1, 1, false);
-        
+
         // Player cannot use admin function on themselves
         vm.prank(player1);
         vm.expectRevert();
@@ -751,15 +801,15 @@ contract GameStateTest is Test {
         // Register player1
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         // Expect both events to be emitted
         vm.expectEmit(true, true, true, true);
         emit IGameState.ShardChanged(player1, 0, 1);
-        
+
         // The admin event is internal to PlayerManager, so we can't test it directly
         // but we can verify the functionality works
         gameState.adminChangePlayerShard(player1, 1, false);
-        
+
         // Verify the change took effect
         IGameState.PlayerState memory state = gameState.getPlayerState(player1);
         assertEq(state.shard, 1);

@@ -16,11 +16,17 @@ abstract contract PlayerManager is GameStateBase {
         require(mapRegistry.isValidMap(mapId), "Invalid map ID");
         require(playersPerShard[shard] < maxPlayersPerShard, "Shard is full");
 
-        // Initialize player with default ship (ID 1) and calculate initial weight
-        IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(1);
+        // Initialize inventory grid based on default ship
+        _initializeInventory(msg.sender, 1);
+
+        // Place default equipment (Engine ID 1 and Fishing Rod ID 1)
+        _assignDefaultEquipment(msg.sender);
 
         // Calculate initial player weight (ship base weight + engine weight)
         uint256 totalWeight = _calculatePlayerWeight(msg.sender, 1);
+
+        // Calculate initial engine power from equipped engines
+        uint256 enginePower = _calculateTotalEnginePower(msg.sender, 1);
 
         playerStates[msg.sender] = IGameState.PlayerState({
             position: IGameState.Position(0, 0),
@@ -30,13 +36,10 @@ abstract contract PlayerManager is GameStateBase {
             currentFuel: 100, // Starting fuel
             lastMoveTimestamp: block.timestamp,
             nextMoveTime: block.timestamp,
-            movementSpeed: _calculateMovementSpeed(shipStats.enginePower, totalWeight),
+            movementSpeed: _calculateMovementSpeed(enginePower, totalWeight),
             totalWeight: totalWeight,
             isActive: true
         });
-
-        // Initialize inventory grid based on default ship
-        _initializeInventory(msg.sender, 1);
 
         registeredPlayers[msg.sender] = true;
         playersPerShard[shard]++;
@@ -71,7 +74,7 @@ abstract contract PlayerManager is GameStateBase {
         // Update shard counts
         playersPerShard[oldShard]--;
         playersPerShard[newShard]++;
-        
+
         player.shard = newShard;
 
         emit IGameState.ShardChanged(msg.sender, oldShard, newShard);
@@ -88,7 +91,7 @@ abstract contract PlayerManager is GameStateBase {
         playerState.totalWeight = newWeight;
 
         // Recalculate movement speed with new weight and engine power
-        uint256 enginePower = _calculateTotalEnginePower(player);
+        uint256 enginePower = _calculateTotalEnginePower(player, playerState.shipId);
         playerState.movementSpeed = _calculateMovementSpeed(enginePower, newWeight);
     }
 
@@ -123,15 +126,17 @@ abstract contract PlayerManager is GameStateBase {
     /**
      * @dev Calculate total engine power from equipped engines
      */
-    function _calculateTotalEnginePower(address player) internal view returns (uint256 totalPower) {
+    function _calculateTotalEnginePower(address player, uint256 shipId) internal view returns (uint256 totalPower) {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
-        
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(shipId);
+
         // Iterate through inventory slots looking for engines in engine slots
         for (uint256 i = 0; i < ship.slotTypes.length; i++) {
-            if (ship.slotTypes[i] == 1) { // Engine slot
+            if (ship.slotTypes[i] == 1) {
+                // Engine slot
                 InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == 2) { // Engine item type
+                if (item.isOccupied && item.itemType == 2) {
+                    // Engine item type
                     if (engineRegistry.isValidEngine(item.itemId)) {
                         IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(item.itemId);
                         totalPower += stats.enginePower;
@@ -139,13 +144,12 @@ abstract contract PlayerManager is GameStateBase {
                 }
             }
         }
-        
-        // Fallback to ship's base engine power if no engines equipped
+
+        // Fallback to default engine power if no engines equipped (should not happen with default equipment)
         if (totalPower == 0) {
-            IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(playerStates[player].shipId);
-            return shipStats.enginePower;
+            return 30; // Default engine power for basic gameplay
         }
-        
+
         return totalPower;
     }
 
@@ -159,6 +163,41 @@ abstract contract PlayerManager is GameStateBase {
         inventory.width = ship.cargoWidth;
         inventory.height = ship.cargoHeight;
         inventory.slotTypes = ship.slotTypes;
+    }
+
+    /**
+     * @dev Assign default equipment (Engine ID 1 and Fishing Rod ID 1) to new player
+     */
+    function _assignDefaultEquipment(address player) internal {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+
+        // Find first engine slot and place default engine (ID 1)
+        bool enginePlaced = false;
+        for (uint256 i = 0; i < inventory.slotTypes.length && !enginePlaced; i++) {
+            if (inventory.slotTypes[i] == 1) {
+                // Engine slot
+                inventory.grid[i] = InventoryLib.GridItem({
+                    itemType: 2, // Engine item type
+                    itemId: 1, // Default engine ID
+                    isOccupied: true
+                });
+                enginePlaced = true;
+            }
+        }
+
+        // Find first equipment slot and place default fishing rod (ID 1)
+        bool fishingRodPlaced = false;
+        for (uint256 i = 0; i < inventory.slotTypes.length && !fishingRodPlaced; i++) {
+            if (inventory.slotTypes[i] == 2) {
+                // Equipment slot
+                inventory.grid[i] = InventoryLib.GridItem({
+                    itemType: 3, // Equipment item type
+                    itemId: 1, // Default fishing rod ID
+                    isOccupied: true
+                });
+                fishingRodPlaced = true;
+            }
+        }
     }
 
     /**
@@ -200,11 +239,15 @@ abstract contract PlayerManager is GameStateBase {
     /**
      * @dev Get all shard occupancy data
      */
-    function getAllShardOccupancy() external view returns (uint8[] memory shardIds, uint256[] memory playerCounts, bool[] memory available) {
+    function getAllShardOccupancy()
+        external
+        view
+        returns (uint8[] memory shardIds, uint256[] memory playerCounts, bool[] memory available)
+    {
         shardIds = new uint8[](MAX_SHARDS);
         playerCounts = new uint256[](MAX_SHARDS);
         available = new bool[](MAX_SHARDS);
-        
+
         for (uint8 i = 0; i < MAX_SHARDS; i++) {
             shardIds[i] = i;
             playerCounts[i] = playersPerShard[i];
@@ -218,19 +261,19 @@ abstract contract PlayerManager is GameStateBase {
      * @param newShard The target shard
      * @param bypassLimit Whether to bypass the shard player limit (for emergency rebalancing)
      */
-    function adminChangePlayerShard(address player, uint8 newShard, bool bypassLimit) 
-        external 
-        onlyRole(ADMIN_ROLE) 
-        validShard(newShard) 
-        whenNotPaused 
+    function adminChangePlayerShard(address player, uint8 newShard, bool bypassLimit)
+        external
+        onlyRole(ADMIN_ROLE)
+        validShard(newShard)
+        whenNotPaused
     {
         require(registeredPlayers[player], "Player not registered");
-        
+
         IGameState.PlayerState storage playerState = playerStates[player];
         uint8 oldShard = playerState.shard;
 
         require(newShard != oldShard, "Player already in target shard");
-        
+
         // Check shard capacity unless bypassing limit
         if (!bypassLimit) {
             require(playersPerShard[newShard] < maxPlayersPerShard, "Target shard is full");
@@ -239,7 +282,7 @@ abstract contract PlayerManager is GameStateBase {
         // Update shard counts
         playersPerShard[oldShard]--;
         playersPerShard[newShard]++;
-        
+
         // Update player's shard
         playerState.shard = newShard;
 
@@ -251,10 +294,6 @@ abstract contract PlayerManager is GameStateBase {
      * @dev Event emitted when admin changes a player's shard
      */
     event AdminShardChangeExecuted(
-        address indexed admin, 
-        address indexed player, 
-        uint8 oldShard, 
-        uint8 newShard, 
-        bool bypassedLimit
+        address indexed admin, address indexed player, uint8 oldShard, uint8 newShard, bool bypassedLimit
     );
 }

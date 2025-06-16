@@ -5,13 +5,13 @@ interface IEngineRegistry {
     struct Engine {
         uint256 id;
         string name;
-        uint256 enginePower;        // Power rating for movement calculations
-        uint256 fuelEfficiency;     // Fuel consumption modifier (100 = baseline)
-        uint8 shapeWidth;           // Physical inventory size
+        uint256 enginePower; // Power rating for movement calculations
+        uint256 fuelEfficiency; // Fuel consumption modifier (100 = baseline)
+        uint8 shapeWidth; // Physical inventory size
         uint8 shapeHeight;
-        bytes shapeData;            // Tetris-like shape bitmap
+        bytes shapeData; // Tetris-like shape bitmap
         uint256 purchasePrice;
-        uint256 weight;             // Affects ship weight calculations
+        uint256 weight; // Affects ship weight calculations
         bool isActive;
     }
 

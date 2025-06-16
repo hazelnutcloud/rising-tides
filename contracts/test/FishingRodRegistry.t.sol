@@ -7,13 +7,13 @@ import "../src/interfaces/IFishingRodRegistry.sol";
 
 contract FishingRodRegistryTest is Test {
     FishingRodRegistry public fishingRodRegistry;
-    
+
     address public admin = address(this);
     address public user = address(0x1);
 
     function setUp() public {
         fishingRodRegistry = new FishingRodRegistry();
-        
+
         // Add test fishing rods
         _addTestFishingRods();
     }
@@ -34,7 +34,7 @@ contract FishingRodRegistryTest is Test {
 
         assertTrue(fishingRodRegistry.isValidFishingRod(10));
         assertEq(fishingRodRegistry.getFishingRodCount(), 5); // 4 from setup + 1 new
-        
+
         IFishingRodRegistry.FishingRod memory rod = fishingRodRegistry.getFishingRod(10);
         assertEq(rod.id, 10);
         assertEq(rod.name, "Test Rod");
@@ -47,7 +47,7 @@ contract FishingRodRegistryTest is Test {
 
     function testUpdateFishingRod() public {
         fishingRodRegistry.updateFishingRod(1, 60 * 10 ** 18, 12);
-        
+
         IFishingRodRegistry.FishingRod memory rod = fishingRodRegistry.getFishingRod(1);
         assertEq(rod.purchasePrice, 60 * 10 ** 18);
         assertEq(rod.weight, 12);
@@ -55,9 +55,9 @@ contract FishingRodRegistryTest is Test {
 
     function testFishingRodStatusUpdate() public {
         assertTrue(fishingRodRegistry.isValidFishingRod(1));
-        
+
         fishingRodRegistry.setFishingRodStatus(1, false);
-        
+
         IFishingRodRegistry.FishingRod memory rod = fishingRodRegistry.getFishingRod(1);
         assertFalse(rod.isActive);
         assertFalse(fishingRodRegistry.isValidFishingRod(1));
@@ -68,7 +68,7 @@ contract FishingRodRegistryTest is Test {
         rodIds[0] = 1; // 10 weight
         rodIds[1] = 2; // 15 weight
         rodIds[2] = 3; // 20 weight
-        
+
         uint256 totalWeight = fishingRodRegistry.calculateCombinedWeight(rodIds);
         assertEq(totalWeight, 45);
     }
@@ -76,12 +76,12 @@ contract FishingRodRegistryTest is Test {
     function testCombinedWeightWithInactive() public {
         // Deactivate rod 2
         fishingRodRegistry.setFishingRodStatus(2, false);
-        
+
         uint256[] memory rodIds = new uint256[](3);
         rodIds[0] = 1; // 10 weight
         rodIds[1] = 2; // 0 weight (inactive)
         rodIds[2] = 3; // 20 weight
-        
+
         uint256 totalWeight = fishingRodRegistry.calculateCombinedWeight(rodIds);
         assertEq(totalWeight, 30);
     }
@@ -89,7 +89,7 @@ contract FishingRodRegistryTest is Test {
     function testGetAllFishingRods() public {
         IFishingRodRegistry.FishingRod[] memory allRods = fishingRodRegistry.getAllFishingRods();
         assertEq(allRods.length, 4);
-        
+
         assertEq(allRods[0].name, "Basic Fishing Rod");
         assertEq(allRods[1].name, "Advanced Fishing Rod");
         assertEq(allRods[2].name, "Professional Fishing Rod");
@@ -100,7 +100,7 @@ contract FishingRodRegistryTest is Test {
         // Test invalid fishing rod ID
         vm.expectRevert("Invalid fishing rod ID");
         fishingRodRegistry.getFishingRod(999);
-        
+
         // Test updating invalid fishing rod
         vm.expectRevert("Invalid fishing rod ID");
         fishingRodRegistry.updateFishingRod(999, 100, 10);
@@ -110,11 +110,11 @@ contract FishingRodRegistryTest is Test {
         vm.prank(user);
         vm.expectRevert();
         fishingRodRegistry.registerFishingRod(100, "Unauthorized", 1, 1, new bytes(1), 0, 1);
-        
+
         vm.prank(user);
         vm.expectRevert();
         fishingRodRegistry.updateFishingRod(1, 100, 10);
-        
+
         vm.prank(user);
         vm.expectRevert();
         fishingRodRegistry.setFishingRodStatus(1, false);
@@ -123,7 +123,7 @@ contract FishingRodRegistryTest is Test {
     function testDuplicateRegistration() public {
         bytes memory shape = new bytes(1);
         shape[0] = 0x01;
-        
+
         vm.expectRevert("Fishing rod already exists");
         fishingRodRegistry.registerFishingRod(1, "Duplicate", 1, 1, shape, 100, 10);
     }
@@ -131,19 +131,19 @@ contract FishingRodRegistryTest is Test {
     function testInvalidRegistrationParameters() public {
         bytes memory shape = new bytes(1);
         shape[0] = 0x01;
-        
+
         // Test invalid ID
         vm.expectRevert("Invalid ID");
         fishingRodRegistry.registerFishingRod(0, "Invalid", 1, 1, shape, 100, 10);
-        
+
         // Test empty name
         vm.expectRevert("Name cannot be empty");
         fishingRodRegistry.registerFishingRod(10, "", 1, 1, shape, 100, 10);
-        
+
         // Test invalid dimensions
         vm.expectRevert("Invalid dimensions");
         fishingRodRegistry.registerFishingRod(10, "Invalid", 0, 1, shape, 100, 10);
-        
+
         // Test empty shape data
         vm.expectRevert("Shape data cannot be empty");
         fishingRodRegistry.registerFishingRod(10, "Invalid", 1, 1, new bytes(0), 100, 10);
