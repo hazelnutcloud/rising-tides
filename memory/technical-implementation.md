@@ -1,17 +1,40 @@
 # Technical Implementation
 
-## Smart Contract Architecture
+## Smart Contract Architecture (Modular Design)
 
-### Core Contracts
-- **GameState**: Main contract managing player positions, inventories, and game state
+### Core Contract Hierarchy
+- **GameStateCore**: Main deployed contract inheriting all manager functionality
+- **GameStateBase**: Shared state, dependencies, modifiers, and constants
+- **PlayerManager**: Player registration, shard management, default equipment
+- **MovementManager**: Hex-grid movement, fuel consumption, engine power calculation
+- **FishingManager**: Server-driven fishing with EIP712 signature verification
+- **InventoryManager**: 2D Tetris-like inventory with equipment validation
+- **ResourceManager**: Ship changing, bait purchasing, map travel
+
+### Economic & Registry Contracts
 - **FishMarket**: Implements bonding curves and trading mechanics
 - **SeasonPass**: NFT-based season pass and rewards distribution
 - **Currency**: ERC20 token for in-game economy
 
-### Supporting Contracts
-- **ShipRegistry**: Manages ship types and configurations
-- **FishRegistry**: Defines fish species and their properties
-- **MapRegistry**: Handles map configurations and travel costs
+### Registry System
+- **ShipRegistry**: Ship templates with cargo shapes and slot types
+- **FishRegistry**: Fish species and bait types with pricing
+- **EngineRegistry**: Engine stats (power, efficiency, weight)
+- **FishingRodRegistry**: Simplified fishing rod equipment
+- **MapRegistry**: Game worlds with travel costs and bait shops
+
+### Modular Architecture Benefits
+- **Maintainability**: Each manager focuses on specific functionality (100-250 lines)
+- **Testing**: Individual manager contracts can be tested in isolation
+- **Gas Optimization**: Smaller contract sizes improve deployment efficiency
+- **Development**: Multiple developers can work on different managers simultaneously
+- **Upgradeability**: Individual managers can be optimized without affecting others
+
+### Equipment System Design
+- **Computed Stats**: Engine power/efficiency calculated from equipped items, not stored in ship templates
+- **Default Assignment**: New players start with Engine ID 1 and Fishing Rod ID 1
+- **Slot-Based Placement**: Ships define engine slots (type 1) and equipment slots (type 2)
+- **Real-Time Calculation**: Movement speed updated dynamically based on equipment changes
 
 ## Frontend Architecture
 
@@ -42,20 +65,29 @@ interface Player {
 }
 ```
 
-### Ship Configuration
+### Ship Configuration (Updated)
 ```typescript
 interface Ship {
   id: number
   cargoShape: boolean[][] // 2D grid defining cargo space shape
-  engineSlots: Position[]  // Designated engine positions
-  equipmentSlots: Position[] // Designated equipment positions
+  slotTypes: number[] // Flat array: 0=normal, 1=engine, 2=equipment
+  cargoWidth: number
+  cargoHeight: number
   durability: number
   fuelCapacity: number
   currentFuel: number
+  // Note: enginePower and fuelEfficiency removed - now computed from equipment
+}
+
+interface ShipStats {
+  cargoCapacity: number // Computed from cargo dimensions
+  durability: number
+  // enginePower: REMOVED - computed from equipped engines
+  // fuelEfficiency: REMOVED - computed from equipped engines
 }
 ```
 
-### Fish & Items
+### Fish & Equipment (Simplified)
 ```typescript
 interface Fish {
   species: number
@@ -65,12 +97,25 @@ interface Fish {
   caughtAt: number // timestamp
 }
 
-interface Equipment {
-  type: 'engine' | 'rod' | 'net'
+interface Engine {
   id: number
+  name: string
+  enginePower: number
+  fuelEfficiency: number
+  weight: number
   shape: boolean[][]
-  durability: number
-  stats: EquipmentStats
+  isActive: boolean
+}
+
+interface FishingRod {
+  id: number
+  name: string
+  shapeWidth: number
+  shapeHeight: number
+  weight: number
+  shape: boolean[][]
+  isActive: boolean
+  // Note: No stats stored - effects computed off-chain
 }
 ```
 

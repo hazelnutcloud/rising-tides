@@ -2,7 +2,148 @@
 
 *Document key decisions made during development for future reference*
 
-## Server-Driven Game Mechanics (2025-06-16)
+## Modular Contract Architecture (2025-06-16 - Latest)
+
+### Decision: Break Down Monolithic GameState Contract
+**Context**: GameState.sol grew to 1024 lines, becoming difficult to maintain and understand
+
+**Options Considered**:
+1. Keep monolithic approach with better organization
+2. Split into libraries while keeping single contract
+3. Create modular inheritance hierarchy with manager contracts
+4. Separate into completely independent contracts
+
+**Decision**: Modular inheritance hierarchy with manager contracts
+
+**Rationale**:
+- **Maintainability**: Each manager contract focuses on specific functionality (~100-250 lines each)
+- **Testing**: Easier to test individual manager functionality
+- **Code Organization**: Clear separation of concerns
+- **Gas Optimization**: Better control over contract size and deployment costs
+- **Development**: Multiple developers can work on different managers simultaneously
+
+**Implementation Architecture**:
+```
+GameStateBase (shared state and dependencies)
+  ↑
+PlayerManager (registration, shard management)
+  ↑
+MovementManager (hex-grid movement, fuel)
+  ↑
+FishingManager (server-driven fishing)
+  ↑
+InventoryManager (2D Tetris-like inventory)
+  ↑
+ResourceManager (ship changing, bait, travel)
+  ↑
+GameStateCore (final contract with all functionality)
+```
+
+**Key Benefits**:
+- Single contract interface maintained (GameStateCore)
+- Each manager is focused and testable
+- Deployment flexibility (can optimize individual managers)
+- Clear inheritance hierarchy
+
+### Decision: Simplify Equipment Registry System
+**Context**: EquipmentRegistry was complex with multiple equipment types and stats storage
+
+**Decision**: Replace EquipmentRegistry with focused FishingRodRegistry
+
+**Rationale**:
+- **Simplicity**: Remove equipment type complexity, focus on fishing rods only
+- **Computed Stats**: Engine power/efficiency calculated from equipped items, not stored
+- **Gas Efficiency**: Eliminate equipment stats storage, compute on-demand
+- **Flexibility**: Effects computed off-chain allow more complex mechanics
+
+**Implementation Changes**:
+```solidity
+// Before: Complex equipment system
+struct Equipment {
+    uint256 id;
+    uint8 equipmentType;  // ❌ Removed
+    string name;
+    EquipmentStats stats; // ❌ Removed
+    // ... other fields
+}
+
+// After: Simple fishing rod registry
+struct FishingRod {
+    uint256 id;
+    string name;
+    uint8 shapeWidth;
+    uint8 shapeHeight;
+    bytes shapeData;
+    uint256 purchasePrice;
+    uint256 weight;
+    bool isActive;
+}
+```
+
+### Decision: Implement Default Equipment Assignment
+**Context**: New players needed immediate gameplay functionality
+
+**Decision**: Automatically assign Engine ID 1 and Fishing Rod ID 1 to new players
+
+**Rationale**:
+- **Immediate Functionality**: Players can move and fish immediately after registration
+- **User Experience**: No complex setup required for new players
+- **Game Balance**: Ensures consistent starting conditions
+- **Tutorial Support**: Provides foundation for teaching game mechanics
+
+**Implementation**:
+- Engine ID 1 placed in first available engine slot
+- Fishing Rod ID 1 placed in first available equipment slot
+- Default stats computed from equipped items
+
+### Decision: Remove Deprecated ShipStats Fields
+**Context**: ShipStats contained enginePower and fuelEfficiency fields that were redundant
+
+**Decision**: Remove enginePower and fuelEfficiency from ShipStats struct
+
+**Rationale**:
+- **Single Source of Truth**: Engine power comes from equipped engines, not ship templates
+- **Flexibility**: Ships can have different performance based on equipment loadout
+- **Simplified Data Model**: Ship templates focus on cargo space and durability
+- **Equipment-Driven Gameplay**: Emphasizes importance of equipment choices
+
+**Impact**:
+```solidity
+// Before: 4-field ShipStats
+struct ShipStats {
+    uint256 cargoCapacity;
+    uint256 durability;
+    uint256 enginePower;     // ❌ Removed
+    uint256 fuelEfficiency;  // ❌ Removed
+}
+
+// After: 2-field ShipStats
+struct ShipStats {
+    uint256 cargoCapacity;
+    uint256 durability;
+}
+```
+
+### Decision: Implement Comprehensive Shard Management
+**Context**: Need scalable player distribution across game shards
+
+**Decision**: Add configurable player limits with admin management tools
+
+**Features Implemented**:
+- Configurable max players per shard (default: 1000)
+- Real-time shard occupancy tracking
+- Admin controls for emergency player movement
+- Bypass mechanisms for shard rebalancing
+
+**Rationale**:
+- **Scalability**: Prevents any single shard from becoming overloaded
+- **Load Balancing**: Helps distribute players evenly
+- **Emergency Response**: Admin can manually rebalance if needed
+- **Performance**: Maintains game performance by controlling shard populations
+
+## Previous Major Decisions
+
+## Server-Driven Game Mechanics (2025-06-16 - Previous)
 
 ### Decision: Replace VRF with Server-Based Fishing System
 **Context**: Need to reduce gas costs and increase flexibility in fishing mechanics
