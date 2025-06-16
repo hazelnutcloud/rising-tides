@@ -9,7 +9,7 @@ import "../src/registries/EngineRegistry.sol";
 import "../src/registries/FishingRodRegistry.sol";
 import "../src/interfaces/IFishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
-import "../src/core/GameState.sol";
+import "../src/core/GameStateCore.sol";
 import "../src/core/FishMarket.sol";
 import "../src/core/SeasonPass.sol";
 
@@ -58,9 +58,9 @@ contract Deploy is Script {
         console.log("MapRegistry deployed to:", address(mapRegistry));
 
         // 7. Deploy Game State
-        console.log("\n=== Deploying GameState ===");
+        console.log("\n=== Deploying GameStateCore ===");
         // Note: Using deployer address as initial server signer (should be changed after deployment)
-        GameState gameState = new GameState(
+        GameStateCore gameState = new GameStateCore(
             address(currency), 
             address(shipRegistry), 
             address(fishRegistry), 
@@ -69,7 +69,7 @@ contract Deploy is Script {
             address(mapRegistry), 
             deployerAddress
         );
-        console.log("GameState deployed to:", address(gameState));
+        console.log("GameStateCore deployed to:", address(gameState));
 
         // 8. Deploy Fish Market
         console.log("\n=== Deploying FishMarket ===");
@@ -94,11 +94,11 @@ contract Deploy is Script {
 
         // Grant BURNER_ROLE to GameState for fuel/bait purchases
         currency.grantRole(currency.BURNER_ROLE(), address(gameState));
-        console.log("Granted BURNER_ROLE to GameState");
+        console.log("Granted BURNER_ROLE to GameStateCore");
 
         // Grant ADMIN_ROLE to SeasonPass for updating player stats
         seasonPass.grantRole(seasonPass.ADMIN_ROLE(), address(gameState));
-        console.log("Granted ADMIN_ROLE to SeasonPass for GameState");
+        console.log("Granted ADMIN_ROLE to SeasonPass for GameStateCore");
 
         // 11. Initialize with sample data
         console.log("\n=== Initializing sample data ===");
@@ -131,7 +131,7 @@ contract Deploy is Script {
         console.log("EngineRegistry:", address(engineRegistry));
         console.log("FishingRodRegistry:", address(fishingRodRegistry));
         console.log("MapRegistry:", address(mapRegistry));
-        console.log("GameState:", address(gameState));
+        console.log("GameStateCore:", address(gameState));
         console.log("FishMarket:", address(fishMarket));
         console.log("SeasonPass:", address(seasonPass));
         console.log("\n=== NEXT STEPS ===");

@@ -8,7 +8,7 @@ import "../src/registries/FishRegistry.sol";
 import "../src/registries/EngineRegistry.sol";
 import "../src/registries/FishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
-import "../src/core/GameState.sol";
+import "../src/core/GameStateCore.sol";
 import "../src/interfaces/IGameState.sol";
 
 contract GameStateTest is Test {
@@ -18,7 +18,7 @@ contract GameStateTest is Test {
     EngineRegistry public engineRegistry;
     FishingRodRegistry public fishingRodRegistry;
     MapRegistry public mapRegistry;
-    GameState public gameState;
+    GameStateCore public gameState;
 
     address public player1 = address(0x1);
     address public player2 = address(0x2);
@@ -40,7 +40,7 @@ contract GameStateTest is Test {
         // Set up test server signer
         testServerSigner = vm.addr(TEST_SERVER_PRIVATE_KEY);
 
-        gameState = new GameState(
+        gameState = new GameStateCore(
             address(currency), 
             address(shipRegistry), 
             address(fishRegistry), 
@@ -71,7 +71,7 @@ contract GameStateTest is Test {
 
         assertTrue(gameState.isPlayerRegistered(player1));
 
-        GameState.PlayerState memory state = gameState.getPlayerState(player1);
+        IGameState.PlayerState memory state = gameState.getPlayerState(player1);
         assertEq(state.position.x, 0);
         assertEq(state.position.y, 0);
         assertEq(state.shard, 0);
@@ -93,7 +93,7 @@ contract GameStateTest is Test {
         vm.prank(player1);
         gameState.move(directions);
 
-        GameState.PlayerState memory state = gameState.getPlayerState(player1);
+        IGameState.PlayerState memory state = gameState.getPlayerState(player1);
         // After E then SE: (0,0) -> (1,-1) -> (1,-2)
         assertEq(state.position.x, 1);
         assertEq(state.position.y, -2);
@@ -269,7 +269,7 @@ contract GameStateTest is Test {
         vm.prank(player1);
         gameState.changeShard(5);
 
-        GameState.PlayerState memory state = gameState.getPlayerState(player1);
+        IGameState.PlayerState memory state = gameState.getPlayerState(player1);
         assertEq(state.shard, 5);
     }
 
