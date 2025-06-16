@@ -83,12 +83,12 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     /**
      * @dev Update an existing map
      */
-    function updateMap(
-        uint256 mapId,
-        string calldata name,
-        uint8 tier,
-        uint256 travelCost
-    ) external onlyRole(ADMIN_ROLE) validMap(mapId) whenNotPaused {
+    function updateMap(uint256 mapId, string calldata name, uint8 tier, uint256 travelCost)
+        external
+        onlyRole(ADMIN_ROLE)
+        validMap(mapId)
+        whenNotPaused
+    {
         require(bytes(name).length > 0, "Name cannot be empty");
 
         Map storage map = maps[mapId];
@@ -102,12 +102,12 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     /**
      * @dev Update fish distribution at specific coordinates on a map
      */
-    function updateFishDistribution(
-        uint256 mapId,
-        int32 x,
-        int32 y,
-        uint256[] calldata species
-    ) external onlyRole(SERVER_ROLE) validMap(mapId) whenNotPaused {
+    function updateFishDistribution(uint256 mapId, int32 x, int32 y, uint256[] calldata species)
+        external
+        onlyRole(SERVER_ROLE)
+        validMap(mapId)
+        whenNotPaused
+    {
         require(species.length > 0, "Empty distribution");
         require(isValidPosition(mapId, x, y), "Position out of map bounds");
 
@@ -121,11 +121,11 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     /**
      * @dev Get fish distribution at coordinates on a map
      */
-    function getFishDistribution(uint256 mapId, int32 x, int32 y) 
-        external 
-        view 
-        validMap(mapId) 
-        returns (FishDistribution memory) 
+    function getFishDistribution(uint256 mapId, int32 x, int32 y)
+        external
+        view
+        validMap(mapId)
+        returns (FishDistribution memory)
     {
         return fishDistributions[mapId][x][y];
     }
@@ -133,22 +133,19 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     /**
      * @dev Add a new bait shop to a map
      */
-    function addBaitShop(
-        uint256 mapId,
-        int32 x,
-        int32 y,
-        uint256[] calldata availableBait
-    ) external onlyRole(ADMIN_ROLE) validMap(mapId) whenNotPaused returns (uint256 shopId) {
+    function addBaitShop(uint256 mapId, int32 x, int32 y, uint256[] calldata availableBait)
+        external
+        onlyRole(ADMIN_ROLE)
+        validMap(mapId)
+        whenNotPaused
+        returns (uint256 shopId)
+    {
         require(availableBait.length > 0, "No bait types specified");
         require(isValidPosition(mapId, x, y), "Position out of map bounds");
         require(isPassable(mapId, x, y), "Position is not passable");
 
         shopId = baitShops[mapId].length;
-        baitShops[mapId].push(BaitShop({
-            position: Position(x, y),
-            availableBait: availableBait,
-            isActive: true
-        }));
+        baitShops[mapId].push(BaitShop({position: Position(x, y), availableBait: availableBait, isActive: true}));
 
         emit BaitShopAdded(mapId, shopId, x, y);
         return shopId;
@@ -157,11 +154,12 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     /**
      * @dev Update bait shop inventory
      */
-    function updateBaitShop(
-        uint256 mapId,
-        uint256 shopId,
-        uint256[] calldata availableBait
-    ) external onlyRole(ADMIN_ROLE) validMap(mapId) whenNotPaused {
+    function updateBaitShop(uint256 mapId, uint256 shopId, uint256[] calldata availableBait)
+        external
+        onlyRole(ADMIN_ROLE)
+        validMap(mapId)
+        whenNotPaused
+    {
         require(shopId < baitShops[mapId].length, "Invalid shop ID");
         require(availableBait.length > 0, "No bait types specified");
 
@@ -173,12 +171,7 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     /**
      * @dev Get bait shop information
      */
-    function getBaitShop(uint256 mapId, uint256 shopId) 
-        external 
-        view 
-        validMap(mapId) 
-        returns (BaitShop memory) 
-    {
+    function getBaitShop(uint256 mapId, uint256 shopId) external view validMap(mapId) returns (BaitShop memory) {
         require(shopId < baitShops[mapId].length, "Invalid shop ID");
         return baitShops[mapId][shopId];
     }
@@ -193,11 +186,11 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     /**
      * @dev Set terrain passability for a single tile
      */
-    function setTerrain(uint256 mapId, int32 x, int32 y, bool passable) 
-        external 
-        onlyRole(ADMIN_ROLE) 
-        validMap(mapId) 
-        whenNotPaused 
+    function setTerrain(uint256 mapId, int32 x, int32 y, bool passable)
+        external
+        onlyRole(ADMIN_ROLE)
+        validMap(mapId)
+        whenNotPaused
     {
         require(isValidPosition(mapId, x, y), "Position out of map bounds");
         terrain[mapId][x][y] = passable;
@@ -207,14 +200,14 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     /**
      * @dev Set terrain passability for multiple tiles
      */
-    function setTerrainBatch(
-        uint256 mapId,
-        int32[] calldata x,
-        int32[] calldata y,
-        bool[] calldata passable
-    ) external onlyRole(ADMIN_ROLE) validMap(mapId) whenNotPaused {
+    function setTerrainBatch(uint256 mapId, int32[] calldata x, int32[] calldata y, bool[] calldata passable)
+        external
+        onlyRole(ADMIN_ROLE)
+        validMap(mapId)
+        whenNotPaused
+    {
         require(x.length == y.length && y.length == passable.length, "Array length mismatch");
-        
+
         for (uint256 i = 0; i < x.length; i++) {
             require(isValidPosition(mapId, x[i], y[i]), "Position out of map bounds");
             terrain[mapId][x[i]][y[i]] = passable[i];
@@ -225,12 +218,7 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     /**
      * @dev Check if a position is passable (not blocked by terrain)
      */
-    function isPassable(uint256 mapId, int32 x, int32 y) 
-        public 
-        view 
-        validMap(mapId) 
-        returns (bool) 
-    {
+    function isPassable(uint256 mapId, int32 x, int32 y) public view validMap(mapId) returns (bool) {
         if (!isValidPosition(mapId, x, y)) {
             return false;
         }
@@ -264,7 +252,7 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     function getAllMaps() external view returns (Map[] memory) {
         Map[] memory allMaps = new Map[](mapCount);
         uint256 index = 0;
-        
+
         // This is inefficient but works for small numbers of maps
         // In production, you'd want to keep an array of map IDs
         for (uint256 i = 0; i < 1000 && index < mapCount; i++) {
@@ -273,19 +261,14 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
                 index++;
             }
         }
-        
+
         return allMaps;
     }
 
     /**
      * @dev Check if position is within map boundaries
      */
-    function isValidPosition(uint256 mapId, int32 x, int32 y) 
-        public 
-        view 
-        validMap(mapId) 
-        returns (bool) 
-    {
+    function isValidPosition(uint256 mapId, int32 x, int32 y) public view validMap(mapId) returns (bool) {
         Map memory map = maps[mapId];
         return x >= map.minX && x <= map.maxX && y >= map.minY && y <= map.maxY;
     }

@@ -26,11 +26,12 @@ interface IGameState {
         uint256 caughtAt;
     }
 
-
     // Events
     event PlayerRegistered(address indexed player, uint8 shard);
     event PlayerMoved(address indexed player, uint8 shard, uint256 mapId, int32 x, int32 y, uint256 fuelConsumed);
-    event FishingInitiated(address indexed player, uint8 shard, uint256 mapId, int32 x, int32 y, uint256 baitType, uint256 nonce);
+    event FishingInitiated(
+        address indexed player, uint8 shard, uint256 mapId, int32 x, int32 y, uint256 baitType, uint256 nonce
+    );
     event FishCaught(address indexed player, uint256 species, uint16 weight, uint256 inventorySlot);
     event FuelPurchased(address indexed player, uint256 amount, uint256 cost);
     event ShipChanged(address indexed player, uint256 newShipId);
@@ -54,13 +55,19 @@ interface IGameState {
     // Fishing
     function initiateFishing(uint256 baitType) external returns (uint256 fishingNonce);
     function completeServerFishing(address player, uint256 nonce, uint256 species, uint16 weight) external;
-    
+
     // Bait Management
     function purchaseBait(uint256 baitType, uint256 amount) external;
     function getPlayerBait(address player, uint256 baitType) external view returns (uint256);
-    function getPlayerAvailableBait(address player) external view returns (uint256[] memory baitTypes, uint256[] memory amounts);
-    function getPlayerFishingStatus(address player) external view returns (uint256 pendingNonce, uint256 baitTypeUsed, uint256 currentNonce);
-    
+    function getPlayerAvailableBait(address player)
+        external
+        view
+        returns (uint256[] memory baitTypes, uint256[] memory amounts);
+    function getPlayerFishingStatus(address player)
+        external
+        view
+        returns (uint256 pendingNonce, uint256 baitTypeUsed, uint256 currentNonce);
+
     // Map Travel
     function travelToMap(uint256 newMapId) external;
 
@@ -69,7 +76,7 @@ interface IGameState {
 
     // Shard Management
     function changeShard(uint8 newShard) external;
-    
+
     // Weight Management
     function updatePlayerWeight(address player) external;
 }

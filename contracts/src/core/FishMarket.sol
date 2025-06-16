@@ -50,11 +50,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
         _;
     }
 
-    constructor(
-        address _currency,
-        address _fishRegistry,
-        address _feeCollector
-    ) {
+    constructor(address _currency, address _fishRegistry, address _feeCollector) {
         require(_currency != address(0), "Currency address cannot be zero");
         require(_fishRegistry != address(0), "Fish registry address cannot be zero");
         require(_feeCollector != address(0), "Fee collector address cannot be zero");
@@ -71,11 +67,13 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Sell a single fish
      */
-    function sellFish(
-        uint256 species,
-        uint16 weight,
-        uint256 caughtAt
-    ) external validSpecies(species) whenNotPaused nonReentrant returns (uint256 earnings) {
+    function sellFish(uint256 species, uint16 weight, uint256 caughtAt)
+        external
+        validSpecies(species)
+        whenNotPaused
+        nonReentrant
+        returns (uint256 earnings)
+    {
         require(weight > 0, "Weight must be greater than zero");
         require(caughtAt <= block.timestamp, "Invalid caught timestamp");
 
@@ -125,7 +123,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
 
             // Calculate fish value including freshness
             (uint256 fishValue, uint8 freshness) = calculateFishValue(species[i], weights[i], caughtTimestamps[i]);
-            
+
             if (freshness > 0) {
                 // Apply market fee
                 uint256 fee = (fishValue * marketFee) / PRICE_PRECISION;
@@ -157,7 +155,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
      */
     function getCurrentPrice(uint256 species) public view validSpecies(species) returns (uint256) {
         MarketData memory data = marketData[species];
-        
+
         if (data.currentPrice == 0) {
             // Initialize with base price if no trades yet
             FishRegistry.FishSpecies memory fishSpec = fishRegistry.getFishSpecies(species);
@@ -167,15 +165,15 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
         // Apply price recovery based on time elapsed
         uint256 timeElapsed = block.timestamp - data.lastSaleTime;
         uint256 hoursElapsed = timeElapsed / 1 hours;
-        
+
         if (hoursElapsed > 0) {
             uint256 recoveryAmount = (data.currentPrice * PRICE_RECOVERY_RATE * hoursElapsed) / PRICE_PRECISION;
             uint256 recoveredPrice = data.currentPrice + recoveryAmount;
-            
+
             // Cap at maximum price
             FishRegistry.FishSpecies memory fishSpec = fishRegistry.getFishSpecies(species);
             uint256 maxPrice = (fishSpec.basePrice * MAX_PRICE_MULTIPLIER) / PRICE_PRECISION;
-            
+
             return recoveredPrice > maxPrice ? maxPrice : recoveredPrice;
         }
 
@@ -185,19 +183,20 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Calculate fish value including weight and freshness
      */
-    function calculateFishValue(
-        uint256 species,
-        uint16 weight,
-        uint256 caughtAt
-    ) public view validSpecies(species) returns (uint256 value, uint8 freshness) {
+    function calculateFishValue(uint256 species, uint16 weight, uint256 caughtAt)
+        public
+        view
+        validSpecies(species)
+        returns (uint256 value, uint8 freshness)
+    {
         freshness = calculateFreshness(caughtAt);
-        
+
         if (freshness == 0) {
             return (0, 0);
         }
 
         uint256 currentPrice = getCurrentPrice(species);
-        
+
         // Value = currentPrice * weight * freshness
         // Weight is treated as a multiplier (in grams, so divide by 1000 for kg)
         value = (currentPrice * uint256(weight) * uint256(freshness)) / (1000 * MAX_FRESHNESS);
@@ -215,14 +214,14 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
 
         uint256 timeElapsed = block.timestamp - caughtAt;
         uint256 hoursElapsed = timeElapsed / FRESHNESS_DECAY_PERIOD;
-        
+
         // Freshness decays at 5% per hour (completely spoiled after 20 hours)
         uint256 freshnessLoss = hoursElapsed * 5;
-        
+
         if (freshnessLoss >= MAX_FRESHNESS) {
             return 0;
         }
-        
+
         return uint8(MAX_FRESHNESS - freshnessLoss);
     }
 
@@ -231,13 +230,13 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
      */
     function getMarketData(uint256 species) external view validSpecies(species) returns (MarketData memory) {
         MarketData memory data = marketData[species];
-        
+
         // Update current price with recovery if needed
         data.currentPrice = getCurrentPrice(species);
-        
+
         // Calculate 24h volume
         data.volume24h = _calculate24hVolume(species);
-        
+
         return data;
     }
 
@@ -246,7 +245,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
      */
     function _updateMarketData(uint256 species, uint256 saleValue) private {
         MarketData storage data = marketData[species];
-        
+
         // Initialize if first sale
         if (data.currentPrice == 0) {
             FishRegistry.FishSpecies memory fishSpec = fishRegistry.getFishSpecies(species);
@@ -256,7 +255,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
 
         // Apply bonding curve (price decreases with each sale)
         uint256 newPrice = (data.currentPrice * PRICE_DECAY_FACTOR) / PRICE_PRECISION;
-        
+
         // Ensure minimum price
         uint256 minPrice = (data.basePrice * MIN_PRICE_MULTIPLIER) / PRICE_PRECISION;
         if (newPrice < minPrice) {
@@ -289,14 +288,14 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     function _calculate24hVolume(uint256 species) private view returns (uint256) {
         uint256 currentHour = block.timestamp / 1 hours;
         uint256 totalVolume = 0;
-        
+
         for (uint256 i = 0; i < 24; i++) {
             if (currentHour >= i) {
                 uint256 hour = currentHour - i;
                 totalVolume += hourlyVolume[species][hour];
             }
         }
-        
+
         return totalVolume;
     }
 
@@ -341,10 +340,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Update contract dependencies (admin only)
      */
-    function updateDependencies(
-        address _currency,
-        address _fishRegistry
-    ) external onlyRole(ADMIN_ROLE) {
+    function updateDependencies(address _currency, address _fishRegistry) external onlyRole(ADMIN_ROLE) {
         if (_currency != address(0)) {
             currency = RisingTidesCurrency(_currency);
         }

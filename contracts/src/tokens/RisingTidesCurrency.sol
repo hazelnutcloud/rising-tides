@@ -15,12 +15,12 @@ contract RisingTidesCurrency is ERC20, AccessControl, Pausable {
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
-    uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**18; // 1 billion tokens max supply
-    
+    uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10 ** 18; // 1 billion tokens max supply
+
     // Tracking stats for tokenomics
     uint256 public totalMinted;
     uint256 public totalBurned;
-    
+
     mapping(address => uint256) public minted; // Track minted per address
     mapping(address => uint256) public burned; // Track burned per address
 
@@ -45,7 +45,7 @@ contract RisingTidesCurrency is ERC20, AccessControl, Pausable {
 
         totalMinted += amount;
         minted[to] += amount;
-        
+
         _mint(to, amount);
         emit TokensMinted(to, amount, reason);
     }
@@ -63,7 +63,7 @@ contract RisingTidesCurrency is ERC20, AccessControl, Pausable {
 
         totalBurned += amount;
         burned[from] += amount;
-        
+
         _burn(from, amount);
         emit TokensBurned(from, amount, reason);
     }
@@ -79,7 +79,7 @@ contract RisingTidesCurrency is ERC20, AccessControl, Pausable {
 
         totalBurned += amount;
         burned[msg.sender] += amount;
-        
+
         _burn(msg.sender, amount);
         emit TokensBurned(msg.sender, amount, reason);
     }

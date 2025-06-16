@@ -104,22 +104,17 @@ contract FishRegistry is AccessControl, Pausable {
     /**
      * @dev Register a new bait type
      */
-    function registerBaitType(
-        uint256 id,
-        string calldata name,
-        uint256 price
-    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
+    function registerBaitType(uint256 id, string calldata name, uint256 price)
+        external
+        onlyRole(ADMIN_ROLE)
+        whenNotPaused
+    {
         require(id > 0, "Bait ID must be greater than 0");
         require(!isValidBait(id), "Bait ID already exists");
         require(bytes(name).length > 0, "Bait name cannot be empty");
         require(price > 0, "Bait price must be greater than 0");
 
-        baitTypes[id] = BaitType({
-            id: id,
-            name: name,
-            price: price,
-            isActive: true
-        });
+        baitTypes[id] = BaitType({id: id, name: name, price: price, isActive: true});
 
         baitIds.push(id);
         baitTypeCount++;
@@ -160,11 +155,11 @@ contract FishRegistry is AccessControl, Pausable {
      */
     function getAllSpecies() external view returns (FishSpecies[] memory) {
         FishSpecies[] memory allSpecies = new FishSpecies[](speciesCount);
-        
+
         for (uint256 i = 0; i < speciesIds.length; i++) {
             allSpecies[i] = fishSpecies[speciesIds[i]];
         }
-        
+
         return allSpecies;
     }
 
@@ -173,24 +168,22 @@ contract FishRegistry is AccessControl, Pausable {
      */
     function getAllBaitTypes() external view returns (BaitType[] memory) {
         BaitType[] memory allBaits = new BaitType[](baitTypeCount);
-        
+
         for (uint256 i = 0; i < baitIds.length; i++) {
             allBaits[i] = baitTypes[baitIds[i]];
         }
-        
+
         return allBaits;
     }
-
-
 
     /**
      * @dev Calculate freshness based on time elapsed
      */
-    function calculateFreshness(uint256 speciesId, uint256 caughtAt) 
-        external 
-        view 
-        validSpeciesId(speciesId) 
-        returns (uint8) 
+    function calculateFreshness(uint256 speciesId, uint256 caughtAt)
+        external
+        view
+        validSpeciesId(speciesId)
+        returns (uint8)
     {
         if (caughtAt > block.timestamp) {
             return uint8(MAX_FRESHNESS);
@@ -199,27 +192,27 @@ contract FishRegistry is AccessControl, Pausable {
         FishSpecies memory species = fishSpecies[speciesId];
         uint256 timeElapsed = block.timestamp - caughtAt;
         uint256 hoursElapsed = timeElapsed / FRESHNESS_DECAY_PERIOD;
-        
+
         uint256 freshnessLoss = hoursElapsed * species.freshnessDecayRate;
-        
+
         if (freshnessLoss >= MAX_FRESHNESS) {
             return 0;
         }
-        
+
         return uint8(MAX_FRESHNESS - freshnessLoss);
     }
 
     /**
      * @dev Update fish species base price
      */
-    function updateFishPrice(uint256 speciesId, uint256 newBasePrice) 
-        external 
-        onlyRole(ADMIN_ROLE) 
-        validSpeciesId(speciesId) 
-        whenNotPaused 
+    function updateFishPrice(uint256 speciesId, uint256 newBasePrice)
+        external
+        onlyRole(ADMIN_ROLE)
+        validSpeciesId(speciesId)
+        whenNotPaused
     {
         require(newBasePrice > 0, "Base price must be greater than 0");
-        
+
         fishSpecies[speciesId].basePrice = newBasePrice;
         emit FishSpeciesUpdated(speciesId, newBasePrice);
     }
@@ -227,17 +220,17 @@ contract FishRegistry is AccessControl, Pausable {
     /**
      * @dev Update bait type price and status
      */
-    function updateBaitType(uint256 baitId, uint256 newPrice, bool isActive) 
-        external 
-        onlyRole(ADMIN_ROLE) 
-        validBaitId(baitId) 
-        whenNotPaused 
+    function updateBaitType(uint256 baitId, uint256 newPrice, bool isActive)
+        external
+        onlyRole(ADMIN_ROLE)
+        validBaitId(baitId)
+        whenNotPaused
     {
         require(newPrice > 0, "Bait price must be greater than 0");
-        
+
         baitTypes[baitId].price = newPrice;
         baitTypes[baitId].isActive = isActive;
-        
+
         emit BaitTypeUpdated(baitId, newPrice, isActive);
     }
 

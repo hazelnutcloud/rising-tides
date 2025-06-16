@@ -39,18 +39,18 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
     // Current season
     uint256 public currentSeasonId;
     mapping(uint256 => Season) public seasons;
-    
+
     // Player stats per season
     mapping(uint256 => mapping(address => PlayerStats)) public seasonStats;
-    
+
     // Season pass ownership
     mapping(uint256 => mapping(address => bool)) public hasSeasonPass;
     mapping(uint256 => mapping(address => uint256)) public passTokenIds;
-    
+
     // Leaderboard tracking
     mapping(uint256 => address[]) public leaderboards;
     mapping(uint256 => mapping(address => uint256)) public leaderboardPositions;
-    
+
     // Token ID tracking
     uint256 private nextTokenId = 1;
     mapping(uint256 => uint256) private tokenToSeason; // tokenId => seasonId
@@ -91,12 +91,10 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Create a new season
      */
-    function createSeason(
-        string calldata name,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 passPrice
-    ) external onlyRole(ADMIN_ROLE) {
+    function createSeason(string calldata name, uint256 startTime, uint256 endTime, uint256 passPrice)
+        external
+        onlyRole(ADMIN_ROLE)
+    {
         require(startTime > block.timestamp, "Start time must be in the future");
         require(endTime > startTime, "End time must be after start time");
         require(bytes(name).length > 0, "Season name cannot be empty");
@@ -134,23 +132,18 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
         // Mint season pass NFT
         uint256 tokenId = nextTokenId++;
         _mint(msg.sender, tokenId);
-        
+
         // Track ownership
         hasSeasonPass[currentSeasonId][msg.sender] = true;
         passTokenIds[currentSeasonId][msg.sender] = tokenId;
         tokenToSeason[tokenId] = currentSeasonId;
         tokenToPlayer[tokenId] = msg.sender;
-        
+
         season.totalPasses++;
 
         // Initialize player stats
-        seasonStats[currentSeasonId][msg.sender] = PlayerStats({
-            totalEarnings: 0,
-            totalSpent: 0,
-            netValue: 0,
-            lastUpdateTime: block.timestamp,
-            hasPass: true
-        });
+        seasonStats[currentSeasonId][msg.sender] =
+            PlayerStats({totalEarnings: 0, totalSpent: 0, netValue: 0, lastUpdateTime: block.timestamp, hasPass: true});
 
         // Refund excess payment
         if (msg.value > season.passPrice) {
@@ -163,11 +156,11 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Update player statistics (called by game contracts)
      */
-    function updatePlayerStats(
-        address player,
-        uint256 earnings,
-        uint256 spent
-    ) external onlyRole(ADMIN_ROLE) activeSeason {
+    function updatePlayerStats(address player, uint256 earnings, uint256 spent)
+        external
+        onlyRole(ADMIN_ROLE)
+        activeSeason
+    {
         require(hasSeasonPass[currentSeasonId][player], "Player does not have season pass");
 
         PlayerStats storage stats = seasonStats[currentSeasonId][player];
@@ -185,34 +178,34 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Get leaderboard for a season
      */
-    function getLeaderboard(uint256 seasonId, uint256 limit) 
-        external 
-        view 
-        validSeason(seasonId) 
-        returns (address[] memory players, int256[] memory scores) 
+    function getLeaderboard(uint256 seasonId, uint256 limit)
+        external
+        view
+        validSeason(seasonId)
+        returns (address[] memory players, int256[] memory scores)
     {
         address[] memory seasonLeaderboard = leaderboards[seasonId];
         uint256 length = seasonLeaderboard.length > limit ? limit : seasonLeaderboard.length;
-        
+
         players = new address[](length);
         scores = new int256[](length);
-        
+
         for (uint256 i = 0; i < length; i++) {
             players[i] = seasonLeaderboard[i];
             scores[i] = seasonStats[seasonId][seasonLeaderboard[i]].netValue;
         }
-        
+
         return (players, scores);
     }
 
     /**
      * @dev Get player's season statistics
      */
-    function getPlayerStats(address player, uint256 seasonId) 
-        external 
-        view 
-        validSeason(seasonId) 
-        returns (PlayerStats memory) 
+    function getPlayerStats(address player, uint256 seasonId)
+        external
+        view
+        validSeason(seasonId)
+        returns (PlayerStats memory)
     {
         return seasonStats[seasonId][player];
     }
@@ -220,11 +213,11 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Get player's leaderboard position
      */
-    function getPlayerPosition(address player, uint256 seasonId) 
-        external 
-        view 
-        validSeason(seasonId) 
-        returns (uint256) 
+    function getPlayerPosition(address player, uint256 seasonId)
+        external
+        view
+        validSeason(seasonId)
+        returns (uint256)
     {
         return leaderboardPositions[seasonId][player];
     }
@@ -248,8 +241,9 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
         require(!seasonRewardsDistributed[seasonId], "Rewards already distributed");
 
         address[] memory seasonLeaderboard = leaderboards[seasonId];
-        uint256 rewardCount = seasonLeaderboard.length > TOP_REWARDS_COUNT ? TOP_REWARDS_COUNT : seasonLeaderboard.length;
-        
+        uint256 rewardCount =
+            seasonLeaderboard.length > TOP_REWARDS_COUNT ? TOP_REWARDS_COUNT : seasonLeaderboard.length;
+
         // Calculate reward distribution (example: linear decay)
         uint256 totalPool = address(this).balance;
         uint256 distributedAmount = 0;
@@ -258,7 +252,7 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
             address player = seasonLeaderboard[i];
             // Higher rank gets higher reward (position 1 gets most)
             uint256 reward = (totalPool * (rewardCount - i)) / (rewardCount * (rewardCount + 1) / 2);
-            
+
             if (reward > 0 && distributedAmount + reward <= totalPool) {
                 payable(player).transfer(reward);
                 distributedAmount += reward;
@@ -293,25 +287,27 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
             address temp = leaderboard[position - 1];
             leaderboard[position - 1] = leaderboard[position];
             leaderboard[position] = temp;
-            
+
             // Update position mappings
             leaderboardPositions[seasonId][temp] = position + 1;
             leaderboardPositions[seasonId][player] = position;
-            
+
             position--;
         }
 
         // Move down in rankings
-        while (position < leaderboard.length - 1 && seasonStats[seasonId][leaderboard[position + 1]].netValue > playerScore) {
+        while (
+            position < leaderboard.length - 1 && seasonStats[seasonId][leaderboard[position + 1]].netValue > playerScore
+        ) {
             // Swap positions
             address temp = leaderboard[position + 1];
             leaderboard[position + 1] = leaderboard[position];
             leaderboard[position] = temp;
-            
+
             // Update position mappings
             leaderboardPositions[seasonId][temp] = position + 1;
             leaderboardPositions[seasonId][player] = position + 2;
-            
+
             position++;
         }
 
@@ -339,7 +335,7 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
         require(to != address(0), "Cannot withdraw to zero address");
         uint256 balance = address(this).balance;
         require(balance > 0, "No balance to withdraw");
-        
+
         payable(to).transfer(balance);
     }
 
@@ -348,16 +344,18 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
      */
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(_ownerOf(tokenId) != address(0), "Token does not exist");
-        
+
         uint256 seasonId = tokenToSeason[tokenId];
-        
+
         // Return metadata URL (implement according to your metadata service)
-        return string(abi.encodePacked(
-            "https://risingtides.game/api/metadata/pass/",
-            Strings.toString(seasonId),
-            "/",
-            Strings.toString(tokenId)
-        ));
+        return string(
+            abi.encodePacked(
+                "https://risingtides.game/api/metadata/pass/",
+                Strings.toString(seasonId),
+                "/",
+                Strings.toString(tokenId)
+            )
+        );
     }
 
     /**

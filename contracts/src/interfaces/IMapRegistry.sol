@@ -49,49 +49,28 @@ interface IMapRegistry {
         int32 minY,
         int32 maxY
     ) external;
-    
-    function updateMap(
-        uint256 mapId,
-        string calldata name,
-        uint8 tier,
-        uint256 travelCost
-    ) external;
+
+    function updateMap(uint256 mapId, string calldata name, uint8 tier, uint256 travelCost) external;
 
     // Fish Distribution Management
-    function updateFishDistribution(
-        uint256 mapId,
-        int32 x,
-        int32 y,
-        uint256[] calldata species
-    ) external;
+    function updateFishDistribution(uint256 mapId, int32 x, int32 y, uint256[] calldata species) external;
 
     function getFishDistribution(uint256 mapId, int32 x, int32 y) external view returns (FishDistribution memory);
 
     // Bait Shop Management
-    function addBaitShop(
-        uint256 mapId,
-        int32 x,
-        int32 y,
-        uint256[] calldata availableBait
-    ) external returns (uint256 shopId);
+    function addBaitShop(uint256 mapId, int32 x, int32 y, uint256[] calldata availableBait)
+        external
+        returns (uint256 shopId);
 
-    function updateBaitShop(
-        uint256 mapId,
-        uint256 shopId,
-        uint256[] calldata availableBait
-    ) external;
+    function updateBaitShop(uint256 mapId, uint256 shopId, uint256[] calldata availableBait) external;
 
     function getBaitShop(uint256 mapId, uint256 shopId) external view returns (BaitShop memory);
     function getBaitShopsCount(uint256 mapId) external view returns (uint256);
 
     // Terrain Management
     function setTerrain(uint256 mapId, int32 x, int32 y, bool isPassable) external;
-    function setTerrainBatch(
-        uint256 mapId,
-        int32[] calldata x,
-        int32[] calldata y,
-        bool[] calldata isPassable
-    ) external;
+    function setTerrainBatch(uint256 mapId, int32[] calldata x, int32[] calldata y, bool[] calldata isPassable)
+        external;
     function isPassable(uint256 mapId, int32 x, int32 y) external view returns (bool);
 
     // Map Queries

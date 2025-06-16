@@ -37,11 +37,10 @@ interface IFishMarket {
 
     // Price Queries
     function getCurrentPrice(uint256 species) external view returns (uint256);
-    function calculateFishValue(
-        uint256 species,
-        uint16 weight,
-        uint256 caughtAt
-    ) external view returns (uint256 value, uint8 freshness);
+    function calculateFishValue(uint256 species, uint16 weight, uint256 caughtAt)
+        external
+        view
+        returns (uint256 value, uint8 freshness);
     function getMarketData(uint256 species) external view returns (MarketData memory);
 
     // Freshness Calculation
