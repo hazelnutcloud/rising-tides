@@ -28,7 +28,7 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
     IShipRegistry public shipRegistry;
     FishRegistry public fishRegistry;
     IMapRegistry public mapRegistry;
-    
+
     // Fishing system
     mapping(address => uint256) private playerFishingNonce;
 
@@ -38,20 +38,20 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
     mapping(address => bool) private registeredPlayers;
     mapping(address => mapping(uint256 => FishCatch)) private playerFish;
     mapping(address => uint256) private playerFishCount;
-    
+
     // Player bait inventory
     mapping(address => mapping(uint256 => uint256)) private playerBait;
-    
+
     // Fishing request tracking
     mapping(address => uint256) private pendingFishingRequest;
     mapping(address => uint256) private pendingBaitType;
 
     // Game configuration
-    uint256 public constant FUEL_PRICE_PER_UNIT = 10 * 10**18; // 10 RTC per fuel unit
+    uint256 public constant FUEL_PRICE_PER_UNIT = 10 * 10 ** 18; // 10 RTC per fuel unit
     uint256 public constant MAX_SHARDS = 100;
     uint256 public constant HEX_MOVE_COST = 1; // Base fuel cost per hex
     uint256 public constant BASE_MOVEMENT_SPEED = 1000; // Base movement speed (lower = faster)
-    
+
     // Movement constraints
     int32 public constant MAX_COORDINATE = 1000;
     int32 public constant MIN_COORDINATE = -1000;
@@ -76,12 +76,7 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
         _;
     }
 
-    constructor(
-        address _currency,
-        address _shipRegistry,
-        address _fishRegistry,
-        address _mapRegistry
-    ) {
+    constructor(address _currency, address _shipRegistry, address _fishRegistry, address _mapRegistry) {
         require(_currency != address(0), "Currency address cannot be zero");
         require(_shipRegistry != address(0), "Ship registry address cannot be zero");
         require(_fishRegistry != address(0), "Fish registry address cannot be zero");
@@ -101,20 +96,16 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Register a new player
      */
-    function registerPlayer(uint8 shard, uint256 mapId) 
-        external 
-        validShard(shard) 
-        whenNotPaused 
-    {
+    function registerPlayer(uint8 shard, uint256 mapId) external validShard(shard) whenNotPaused {
         require(!registeredPlayers[msg.sender], "Player already registered");
         require(mapRegistry.isValidMap(mapId), "Invalid map ID");
 
         // Initialize player with default ship (ID 1) and calculate initial weight
         IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(1);
-        
+
         // Calculate initial player weight (ship base weight + engine weight)
         uint256 totalWeight = _calculatePlayerWeight(msg.sender, 1);
-        
+
         playerStates[msg.sender] = PlayerState({
             position: Position(0, 0),
             shard: shard,
@@ -153,28 +144,24 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Move player using array of directions (0=NE, 1=E, 2=SE, 3=SW, 4=W, 5=NW)
      */
-    function move(uint8[] calldata directions) 
-        external 
-        onlyRegisteredPlayer 
-        whenNotPaused 
-    {
+    function move(uint8[] calldata directions) external onlyRegisteredPlayer whenNotPaused {
         PlayerState storage player = playerStates[msg.sender];
         require(block.timestamp >= player.nextMoveTime, "Movement still on cooldown");
         require(directions.length > 0, "No directions provided");
         require(directions.length <= 10, "Too many moves at once"); // Limit batch size
-        
+
         // Validate movement path and terrain collision
         (int32 finalX, int32 finalY) = _validateMovementPath(player.mapId, player.position, directions);
-        
+
         // Calculate fuel cost for the entire movement
         uint256 fuelCost = calculateFuelCost(msg.sender, directions);
         require(player.currentFuel >= fuelCost, "Insufficient fuel");
-        
+
         // Update position and fuel
         player.position = Position(finalX, finalY);
         player.currentFuel -= fuelCost;
         player.lastMoveTimestamp = block.timestamp;
-        
+
         // Set next move time based on movement speed
         player.nextMoveTime = block.timestamp + (player.movementSpeed * directions.length);
 
@@ -184,19 +171,15 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Calculate fuel cost for movement directions
      */
-    function calculateFuelCost(address player, uint8[] calldata directions) 
-        public 
-        view 
-        returns (uint256) 
-    {
+    function calculateFuelCost(address player, uint8[] calldata directions) public view returns (uint256) {
         PlayerState memory playerState = playerStates[player];
-        
+
         // Each direction costs base amount
         uint256 distance = directions.length;
 
         // Get ship stats to calculate fuel efficiency
         IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(playerState.shipId);
-        
+
         // Fuel cost = distance * base_cost * fuel_efficiency_modifier
         return distance * HEX_MOVE_COST * shipStats.fuelEfficiency / 100;
     }
@@ -206,7 +189,7 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
      */
     function purchaseFuel(uint256 amount) external onlyRegisteredPlayer whenNotPaused nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
-        
+
         uint256 totalCost = amount * FUEL_PRICE_PER_UNIT;
         require(currency.balanceOf(msg.sender) >= totalCost, "Insufficient currency");
 
@@ -227,36 +210,42 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Initiate fishing at current position with chosen bait (server will complete the action)
      */
-    function initiateFishing(uint256 baitType) 
-        external 
-        onlyRegisteredPlayer 
-        whenNotPaused 
-        nonReentrant 
-        returns (uint256 fishingNonce) 
+    function initiateFishing(uint256 baitType)
+        external
+        onlyRegisteredPlayer
+        whenNotPaused
+        nonReentrant
+        returns (uint256 fishingNonce)
     {
         // Validate bait type and check if player has it
         require(fishRegistry.isValidBait(baitType), "Invalid bait type");
         require(playerBait[msg.sender][baitType] > 0, "Insufficient bait");
-        
+
         // Check if player already has a pending fishing request
         require(pendingFishingRequest[msg.sender] == 0, "Already have pending fishing request");
-        
+
         // Consume one bait
         playerBait[msg.sender][baitType]--;
-        
+
         // Increment player's fishing nonce
         playerFishingNonce[msg.sender]++;
         fishingNonce = playerFishingNonce[msg.sender];
-        
+
         // Store pending request info
         pendingFishingRequest[msg.sender] = fishingNonce;
         pendingBaitType[msg.sender] = baitType;
-        
+
         // Emit event for server to process
-        emit FishingInitiated(msg.sender, playerStates[msg.sender].shard, playerStates[msg.sender].mapId, 
-                             playerStates[msg.sender].position.x, playerStates[msg.sender].position.y, 
-                             baitType, fishingNonce);
-        
+        emit FishingInitiated(
+            msg.sender,
+            playerStates[msg.sender].shard,
+            playerStates[msg.sender].mapId,
+            playerStates[msg.sender].position.x,
+            playerStates[msg.sender].position.y,
+            baitType,
+            fishingNonce
+        );
+
         return fishingNonce;
     }
 
@@ -265,20 +254,20 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
      */
     function changeShip(uint256 newShipId) external onlyRegisteredPlayer whenNotPaused {
         require(shipRegistry.isValidShip(newShipId), "Invalid ship ID");
-        
+
         PlayerState storage player = playerStates[msg.sender];
 
         // TODO: Add ship ownership/purchase logic
         // For now, allow free ship changes
 
         player.shipId = newShipId;
-        
+
         // Recalculate weight and movement speed based on new ship
         IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(newShipId);
         uint256 newWeight = _calculatePlayerWeight(msg.sender, newShipId);
         player.totalWeight = newWeight;
         player.movementSpeed = _calculateMovementSpeed(shipStats.enginePower, newWeight);
-        
+
         // Reinitialize inventory for new ship
         _initializeInventory(msg.sender, newShipId);
 
@@ -291,11 +280,11 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
     function changeShard(uint8 newShard) external onlyRegisteredPlayer validShard(newShard) whenNotPaused {
         PlayerState storage player = playerStates[msg.sender];
         uint8 oldShard = player.shard;
-        
+
         require(newShard != oldShard, "Already in this shard");
-        
+
         // TODO: Add shard change cost logic
-        
+
         player.shard = newShard;
 
         emit ShardChanged(msg.sender, oldShard, newShard);
@@ -319,117 +308,101 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Server callback to complete fishing (called by authorized server)
      */
-    function completeServerFishing(address player, uint256 nonce, uint256 species, uint16 weight) 
-        external 
-        onlyRole(SERVER_ROLE) 
-        whenNotPaused 
-        nonReentrant 
+    function completeServerFishing(address player, uint256 nonce, uint256 species, uint16 weight)
+        external
+        onlyRole(SERVER_ROLE)
+        whenNotPaused
+        nonReentrant
     {
         require(registeredPlayers[player], "Player not registered");
         require(pendingFishingRequest[player] == nonce, "Invalid or expired fishing request");
         require(nonce > 0, "Invalid nonce");
-        
+
         // Clear pending request
         delete pendingFishingRequest[player];
         delete pendingBaitType[player];
-        
+
         // If server determined a catch occurred
         if (species > 0) {
             require(fishRegistry.isValidSpecies(species), "Invalid species");
-            
+
             // Store caught fish
             uint256 fishId = playerFishCount[player];
-            playerFish[player][fishId] = FishCatch({
-                species: species,
-                weight: weight,
-                caughtAt: block.timestamp
-            });
+            playerFish[player][fishId] = FishCatch({species: species, weight: weight, caughtAt: block.timestamp});
             playerFishCount[player]++;
 
             emit FishCaught(player, species, weight, fishId);
         }
     }
-    
 
     /**
      * @dev Initialize player inventory based on ship
      */
     function _initializeInventory(address player, uint256 shipId) private {
         IShipRegistry.Ship memory ship = shipRegistry.getShip(shipId);
-        
+
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
         inventory.width = ship.cargoWidth;
         inventory.height = ship.cargoHeight;
-        inventory.engineSlots = ship.engineSlots;
-        inventory.equipmentSlots = ship.equipmentSlots;
+        inventory.slotTypes = ship.slotTypes;
     }
 
     /**
      * @dev Travel to a different map
      */
-    function travelToMap(uint256 newMapId) 
-        external 
-        onlyRegisteredPlayer 
-        whenNotPaused 
-        nonReentrant 
-    {
+    function travelToMap(uint256 newMapId) external onlyRegisteredPlayer whenNotPaused nonReentrant {
         PlayerState storage player = playerStates[msg.sender];
         require(newMapId != player.mapId, "Already on this map");
         require(mapRegistry.isValidMap(newMapId), "Invalid map ID");
-        
+
         IMapRegistry.Map memory newMap = mapRegistry.getMap(newMapId);
         uint256 travelCost = newMap.travelCost;
-        
+
         require(currency.balanceOf(msg.sender) >= travelCost, "Insufficient currency for travel");
-        
+
         // Burn currency for travel cost
         if (travelCost > 0) {
             currency.burn(msg.sender, travelCost, "Map travel");
         }
-        
+
         uint256 oldMapId = player.mapId;
         player.mapId = newMapId;
-        
+
         // Reset position to map origin (0, 0) - could be customized per map
         player.position = Position(0, 0);
-        
+
         emit MapChanged(msg.sender, oldMapId, newMapId, travelCost);
     }
-    
+
     /**
      * @dev Update player's total weight (used when inventory changes)
      */
     function updatePlayerWeight(address player) external onlyRegisteredPlayer {
         require(player == msg.sender, "Can only update own weight");
         PlayerState storage playerState = playerStates[player];
-        
+
         uint256 newWeight = _calculatePlayerWeight(player, playerState.shipId);
         playerState.totalWeight = newWeight;
-        
+
         // Recalculate movement speed with new weight
         IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(playerState.shipId);
         playerState.movementSpeed = _calculateMovementSpeed(shipStats.enginePower, newWeight);
     }
-    
+
     /**
      * @dev Purchase bait at a bait shop
      */
-    function purchaseBait(uint256 baitType, uint256 amount) 
-        external 
-        onlyRegisteredPlayer 
-        whenNotPaused 
-        nonReentrant 
-    {
+    function purchaseBait(uint256 baitType, uint256 amount) external onlyRegisteredPlayer whenNotPaused nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
         PlayerState memory player = playerStates[msg.sender];
-        
+
         // Check if player is at a bait shop on current map
         uint256 shopId = _findBaitShopAtPosition(player.mapId, player.position);
         require(shopId < mapRegistry.getBaitShopsCount(player.mapId), "No bait shop at current position");
-        
+
         IMapRegistry.BaitShop memory shop = mapRegistry.getBaitShop(player.mapId, shopId);
         require(shop.isActive, "Bait shop is inactive");
-        
+
         // Check if bait type is available at this shop
         bool baitAvailable = false;
         for (uint256 i = 0; i < shop.availableBait.length; i++) {
@@ -439,38 +412,38 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
             }
         }
         require(baitAvailable, "Bait type not available at this shop");
-        
+
         // Calculate cost
         FishRegistry.BaitType memory bait = fishRegistry.getBaitType(baitType);
         uint256 totalCost = bait.price * amount;
         require(currency.balanceOf(msg.sender) >= totalCost, "Insufficient currency");
-        
+
         // Burn currency and add bait to inventory
         currency.burn(msg.sender, totalCost, "Bait purchase");
         playerBait[msg.sender][baitType] += amount;
-        
+
         emit BaitPurchased(msg.sender, baitType, amount, totalCost);
     }
-    
-    
+
     /**
      * @dev Get player's bait inventory
      */
     function getPlayerBait(address player, uint256 baitType) external view returns (uint256) {
         return playerBait[player][baitType];
     }
-    
+
     /**
      * @dev Get all available bait types and amounts for a player
      */
-    function getPlayerAvailableBait(address player) 
-        external 
-        view 
-        returns (uint256[] memory baitTypes, uint256[] memory amounts) 
+    function getPlayerAvailableBait(address player)
+        external
+        view
+        returns (uint256[] memory baitTypes, uint256[] memory amounts)
     {
         // Count available bait types first
         uint256 availableCount = 0;
-        for (uint256 i = 1; i <= 1000; i++) { // Increased from 255 to 1000 for more species
+        for (uint256 i = 1; i <= 1000; i++) {
+            // Increased from 255 to 1000 for more species
             if (playerBait[player][i] > 0) {
                 availableCount++;
             }
@@ -478,11 +451,11 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
                 break; // Stop checking after a reasonable range
             }
         }
-        
+
         // Populate arrays
         baitTypes = new uint256[](availableCount);
         amounts = new uint256[](availableCount);
-        
+
         uint256 index = 0;
         for (uint256 i = 1; i <= 1000 && index < availableCount; i++) {
             if (playerBait[player][i] > 0) {
@@ -494,42 +467,38 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
                 break;
             }
         }
-        
+
         return (baitTypes, amounts);
     }
-    
+
     /**
      * @dev Get player's fishing status
      */
-    function getPlayerFishingStatus(address player) 
-        external 
-        view 
-        returns (
-            uint256 pendingNonce, 
-            uint256 baitTypeUsed, 
-            uint256 currentNonce
-        ) 
+    function getPlayerFishingStatus(address player)
+        external
+        view
+        returns (uint256 pendingNonce, uint256 baitTypeUsed, uint256 currentNonce)
     {
         pendingNonce = pendingFishingRequest[player];
         baitTypeUsed = pendingBaitType[player];
         currentNonce = playerFishingNonce[player];
     }
-    
+
     /**
      * @dev Calculate player's total weight based on ship and inventory
      */
-    function _calculatePlayerWeight(address /* player */, uint256 shipId) private view returns (uint256) {
+    function _calculatePlayerWeight(address, /* player */ uint256 shipId) private view returns (uint256) {
         // Get base ship weight
         IShipRegistry.Ship memory ship = shipRegistry.getShip(shipId);
         uint256 baseWeight = ship.durability; // Using durability as proxy for ship weight
-        
+
         // TODO: Add inventory weight calculation
         // This would iterate through player's inventory and sum up item weights
         // For now, return base weight
-        
+
         return baseWeight;
     }
-    
+
     /**
      * @dev Calculate movement speed based on engine power and total weight
      */
@@ -537,41 +506,41 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
         if (enginePower == 0 || totalWeight == 0) {
             return BASE_MOVEMENT_SPEED;
         }
-        
+
         // Speed inversely proportional to weight, proportional to engine power
         // Formula: speed = (enginePower * BASE_MOVEMENT_SPEED) / totalWeight
         return (enginePower * BASE_MOVEMENT_SPEED) / totalWeight;
     }
-    
+
     /**
      * @dev Validate movement path and check terrain collisions
      */
-    function _validateMovementPath(uint256 mapId, Position memory startPos, uint8[] calldata directions) 
-        private 
-        view 
-        returns (int32 finalX, int32 finalY) 
+    function _validateMovementPath(uint256 mapId, Position memory startPos, uint8[] calldata directions)
+        private
+        view
+        returns (int32 finalX, int32 finalY)
     {
         finalX = startPos.x;
         finalY = startPos.y;
-        
+
         for (uint256 i = 0; i < directions.length; i++) {
             require(directions[i] < 6, "Invalid direction");
-            
+
             // Calculate next position
             int32 nextX = finalX + hexDirectionsX[directions[i]];
             int32 nextY = finalY + hexDirectionsY[directions[i]];
-            
+
             // Check if position is valid and passable
             require(mapRegistry.isValidPosition(mapId, nextX, nextY), "Position out of map bounds");
             require(mapRegistry.isPassable(mapId, nextX, nextY), "Terrain is not passable");
-            
+
             finalX = nextX;
             finalY = nextY;
         }
-        
+
         return (finalX, finalY);
     }
-    
+
     /**
      * @dev Find bait shop at specific position on a map
      */
@@ -579,25 +548,20 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
         uint256 shopCount = mapRegistry.getBaitShopsCount(mapId);
         for (uint256 i = 0; i < shopCount; i++) {
             IMapRegistry.BaitShop memory shop = mapRegistry.getBaitShop(mapId, i);
-            if (shop.position.x == position.x && 
-                shop.position.y == position.y && 
-                shop.isActive) {
+            if (shop.position.x == position.x && shop.position.y == position.y && shop.isActive) {
                 return i;
             }
         }
         return type(uint256).max; // Not found
     }
-    
 
     /**
      * @dev Update contract dependencies (admin only)
      */
-    function updateDependencies(
-        address _currency,
-        address _shipRegistry,
-        address _fishRegistry,
-        address _mapRegistry
-    ) external onlyRole(ADMIN_ROLE) {
+    function updateDependencies(address _currency, address _shipRegistry, address _fishRegistry, address _mapRegistry)
+        external
+        onlyRole(ADMIN_ROLE)
+    {
         if (_currency != address(0)) {
             currency = RisingTidesCurrency(_currency);
         }
@@ -611,7 +575,6 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
             mapRegistry = IMapRegistry(_mapRegistry);
         }
     }
-    
 
     /**
      * @dev Pause the contract

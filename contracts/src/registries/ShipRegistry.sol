@@ -41,13 +41,12 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         uint8 cargoWidth,
         uint8 cargoHeight,
         bytes calldata cargoShape,
-        uint8[] calldata engineSlots,
-        uint8[] calldata equipmentSlots,
+        uint8[] calldata slotTypes,
         uint256 purchasePrice,
         uint256 repairCostPerPoint
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         _validateShipParams(id, name, fuelCapacity, maxDurability, cargoWidth, cargoHeight, cargoShape);
-        _validateSlotPositions(engineSlots, equipmentSlots, cargoWidth, cargoHeight);
+        _validateSlotTypes(slotTypes, cargoWidth, cargoHeight);
 
         ships[id] = Ship({
             id: id,
@@ -59,8 +58,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
             cargoWidth: cargoWidth,
             cargoHeight: cargoHeight,
             cargoShape: cargoShape,
-            engineSlots: engineSlots,
-            equipmentSlots: equipmentSlots,
+            slotTypes: slotTypes,
             purchasePrice: purchasePrice,
             repairCostPerPoint: repairCostPerPoint
         });
@@ -83,7 +81,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
      */
     function getShipStats(uint256 shipId) external view validShipId(shipId) returns (ShipStats memory) {
         Ship memory ship = ships[shipId];
-        
+
         return ShipStats({
             enginePower: ship.enginePower,
             fuelEfficiency: calculateFuelEfficiency(ship.enginePower),
@@ -111,11 +109,11 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
      */
     function getAllShips() external view returns (Ship[] memory) {
         Ship[] memory allShips = new Ship[](shipCount);
-        
+
         for (uint256 i = 0; i < shipIds.length; i++) {
             allShips[i] = ships[shipIds[i]];
         }
-        
+
         return allShips;
     }
 
@@ -124,7 +122,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
      */
     function isValidCargoPosition(uint256 shipId, uint8 x, uint8 y) external view validShipId(shipId) returns (bool) {
         Ship memory ship = ships[shipId];
-        
+
         if (x >= ship.cargoWidth || y >= ship.cargoHeight) {
             return false;
         }
@@ -147,13 +145,12 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
      */
     function isEngineSlot(uint256 shipId, uint8 position) external view validShipId(shipId) returns (bool) {
         Ship memory ship = ships[shipId];
-        
-        for (uint256 i = 0; i < ship.engineSlots.length; i++) {
-            if (ship.engineSlots[i] == position) {
-                return true;
-            }
+
+        if (position >= ship.slotTypes.length) {
+            return false;
         }
-        return false;
+
+        return ship.slotTypes[position] == 1; // 1 = engine slot
     }
 
     /**
@@ -161,13 +158,12 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
      */
     function isEquipmentSlot(uint256 shipId, uint8 position) external view validShipId(shipId) returns (bool) {
         Ship memory ship = ships[shipId];
-        
-        for (uint256 i = 0; i < ship.equipmentSlots.length; i++) {
-            if (ship.equipmentSlots[i] == position) {
-                return true;
-            }
+
+        if (position >= ship.slotTypes.length) {
+            return false;
         }
-        return false;
+
+        return ship.slotTypes[position] == 2; // 2 = equipment slot
     }
 
     /**
@@ -182,7 +178,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         uint256 repairCostPerPoint
     ) external onlyRole(ADMIN_ROLE) validShipId(shipId) whenNotPaused {
         Ship storage ship = ships[shipId];
-        
+
         ship.fuelCapacity = fuelCapacity;
         ship.enginePower = enginePower;
         ship.maxDurability = maxDurability;
@@ -194,12 +190,15 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
             ship.durability = maxDurability;
         }
 
-        emit ShipStatsUpdated(shipId, ShipStats({
-            enginePower: enginePower,
-            fuelEfficiency: calculateFuelEfficiency(enginePower),
-            cargoCapacity: uint256(ship.cargoWidth) * uint256(ship.cargoHeight),
-            durability: ship.durability
-        }));
+        emit ShipStatsUpdated(
+            shipId,
+            ShipStats({
+                enginePower: enginePower,
+                fuelEfficiency: calculateFuelEfficiency(enginePower),
+                cargoCapacity: uint256(ship.cargoWidth) * uint256(ship.cargoHeight),
+                durability: ship.durability
+            })
+        );
     }
 
     /**
@@ -218,7 +217,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
      */
     function removeShip(uint256 shipId) external onlyRole(ADMIN_ROLE) validShipId(shipId) whenNotPaused {
         delete ships[shipId];
-        
+
         // Remove from shipIds array
         for (uint256 i = 0; i < shipIds.length; i++) {
             if (shipIds[i] == shipId) {
@@ -227,7 +226,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
                 break;
             }
         }
-        
+
         shipCount--;
     }
 
@@ -250,28 +249,22 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         require(maxDurability > 0, "Max durability must be greater than 0");
         require(cargoWidth > 0 && cargoHeight > 0, "Cargo dimensions must be greater than 0");
         require(cargoShape.length > 0, "Cargo shape cannot be empty");
-        
+
         // Validate cargo shape size matches dimensions
         uint256 expectedShapeSize = (uint256(cargoWidth) * uint256(cargoHeight) + 7) / 8;
         require(cargoShape.length >= expectedShapeSize, "Cargo shape data too small");
     }
 
     /**
-     * @dev Validate slot positions (internal helper to reduce stack depth)
+     * @dev Validate slot types array (internal helper to reduce stack depth)
      */
-    function _validateSlotPositions(
-        uint8[] calldata engineSlots,
-        uint8[] calldata equipmentSlots,
-        uint8 cargoWidth,
-        uint8 cargoHeight
-    ) private pure {
+    function _validateSlotTypes(uint8[] calldata slotTypes, uint8 cargoWidth, uint8 cargoHeight) private pure {
         uint256 totalSlots = uint256(cargoWidth) * uint256(cargoHeight);
-        
-        for (uint256 i = 0; i < engineSlots.length; i++) {
-            require(engineSlots[i] < totalSlots, "Invalid engine slot position");
-        }
-        for (uint256 i = 0; i < equipmentSlots.length; i++) {
-            require(equipmentSlots[i] < totalSlots, "Invalid equipment slot position");
+
+        require(slotTypes.length == totalSlots, "Slot types array length must match cargo dimensions");
+
+        for (uint256 i = 0; i < slotTypes.length; i++) {
+            require(slotTypes[i] <= 2, "Invalid slot type (must be 0=normal, 1=engine, 2=equipment)");
         }
     }
 

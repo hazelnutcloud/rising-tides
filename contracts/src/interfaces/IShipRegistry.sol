@@ -12,8 +12,7 @@ interface IShipRegistry {
         uint8 cargoWidth;
         uint8 cargoHeight;
         bytes cargoShape; // Packed bitmap of cargo grid
-        uint8[] engineSlots; // Positions where engines can be placed
-        uint8[] equipmentSlots; // Positions where equipment can be placed
+        uint8[] slotTypes; // Slot type for each position: 0=normal, 1=engine, 2=equipment
         uint256 purchasePrice;
         uint256 repairCostPerPoint;
     }
@@ -39,8 +38,7 @@ interface IShipRegistry {
         uint8 cargoWidth,
         uint8 cargoHeight,
         bytes calldata cargoShape,
-        uint8[] calldata engineSlots,
-        uint8[] calldata equipmentSlots,
+        uint8[] calldata slotTypes,
         uint256 purchasePrice,
         uint256 repairCostPerPoint
     ) external;

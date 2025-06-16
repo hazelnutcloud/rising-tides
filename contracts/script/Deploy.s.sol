@@ -18,7 +18,7 @@ contract Deploy is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployerAddress = vm.addr(deployerPrivateKey);
-        
+
         console.log("Deploying contracts with address:", deployerAddress);
         console.log("Deployer balance:", deployerAddress.balance);
 
@@ -47,12 +47,8 @@ contract Deploy is Script {
         // 5. Deploy Game State
         console.log("\n=== Deploying GameState ===");
         // Note: Using placeholder VRF coordinator address for deployment
-        GameState gameState = new GameState(
-            address(currency),
-            address(shipRegistry),
-            address(fishRegistry),
-            address(mapRegistry)
-        );
+        GameState gameState =
+            new GameState(address(currency), address(shipRegistry), address(fishRegistry), address(mapRegistry));
         console.log("GameState deployed to:", address(gameState));
 
         // 6. Deploy Fish Market
@@ -71,7 +67,7 @@ contract Deploy is Script {
 
         // 8. Setup Roles and Permissions
         console.log("\n=== Setting up roles and permissions ===");
-        
+
         // Grant MINTER_ROLE to FishMarket for currency rewards
         currency.grantRole(currency.MINTER_ROLE(), address(fishMarket));
         console.log("Granted MINTER_ROLE to FishMarket");
@@ -86,16 +82,16 @@ contract Deploy is Script {
 
         // 9. Initialize with sample data
         console.log("\n=== Initializing sample data ===");
-        
+
         // Add a basic starter ship
         _addStarterShip(shipRegistry);
-        
+
         // Add some basic fish species
         _addBasicFish(fishRegistry);
-        
+
         // Add basic bait types
         _addBasicBait(fishRegistry);
-        
+
         // Add starter map
         _addStarterMap(mapRegistry);
 
@@ -122,16 +118,22 @@ contract Deploy is Script {
         bytes memory cargoShape = new bytes(2); // 16 bits for 4x4 grid
         cargoShape[0] = 0xFF; // First 8 bits
         cargoShape[1] = 0xFF; // Last 8 bits
-        
-        uint8[] memory engineSlots = new uint8[](2);
-        engineSlots[0] = 0; // Top-left corner
-        engineSlots[1] = 3; // Top-right corner
-        
-        uint8[] memory equipmentSlots = new uint8[](4);
-        equipmentSlots[0] = 12; // Bottom-left
-        equipmentSlots[1] = 13; // Bottom-middle-left
-        equipmentSlots[2] = 14; // Bottom-middle-right
-        equipmentSlots[3] = 15; // Bottom-right
+
+        // Create slot types array (16 slots for 4x4 grid)
+        // 0=normal, 1=engine, 2=equipment
+        uint8[] memory slotTypes = new uint8[](16);
+        // Initialize all as normal cargo slots
+        for (uint256 i = 0; i < 16; i++) {
+            slotTypes[i] = 0; // normal slot
+        }
+        // Set engine slots
+        slotTypes[0] = 1; // Top-left corner
+        slotTypes[3] = 1; // Top-right corner
+        // Set equipment slots
+        slotTypes[12] = 2; // Bottom-left
+        slotTypes[13] = 2; // Bottom-middle-left
+        slotTypes[14] = 2; // Bottom-middle-right
+        slotTypes[15] = 2; // Bottom-right
 
         shipRegistry.registerShip(
             1, // id
@@ -142,25 +144,24 @@ contract Deploy is Script {
             4, // cargoWidth
             4, // cargoHeight
             cargoShape,
-            engineSlots,
-            equipmentSlots,
+            slotTypes,
             0, // purchasePrice (free starter ship)
-            10 * 10**18 // repairCostPerPoint (10 RTC per durability point)
+            10 * 10 ** 18 // repairCostPerPoint (10 RTC per durability point)
         );
-        
+
         console.log("Added starter ship");
     }
 
     function _addBasicFish(FishRegistry fishRegistry) private {
         // Add common fish species
-        
+
         // 1. Sardine (common, small)
         bytes memory sardineShape = new bytes(1);
         sardineShape[0] = 0x01; // 1x1 shape
-        
+
         fishRegistry.registerFishSpecies(
             1, // id
-            100 * 10**18, // basePrice (100 RTC)
+            100 * 10 ** 18, // basePrice (100 RTC)
             1, // rarity (common)
             1, // shapeWidth
             1, // shapeHeight
@@ -171,10 +172,10 @@ contract Deploy is Script {
         // 2. Cod (uncommon, medium)
         bytes memory codShape = new bytes(1);
         codShape[0] = 0x03; // 2x1 shape (bits: 11)
-        
+
         fishRegistry.registerFishSpecies(
             2, // id
-            250 * 10**18, // basePrice (250 RTC)
+            250 * 10 ** 18, // basePrice (250 RTC)
             3, // rarity (uncommon)
             2, // shapeWidth
             1, // shapeHeight
@@ -185,17 +186,17 @@ contract Deploy is Script {
         // 3. Tuna (rare, large)
         bytes memory tunaShape = new bytes(1);
         tunaShape[0] = 0x0F; // 2x2 shape (bits: 1111)
-        
+
         fishRegistry.registerFishSpecies(
             3, // id
-            500 * 10**18, // basePrice (500 RTC)
+            500 * 10 ** 18, // basePrice (500 RTC)
             6, // rarity (rare)
             2, // shapeWidth
             2, // shapeHeight
             tunaShape,
             2 // freshnessDecayRate (2% per hour)
         );
-        
+
         console.log("Added basic fish species");
     }
 
@@ -204,57 +205,57 @@ contract Deploy is Script {
         fishRegistry.registerBaitType(
             1, // id
             "Basic Bait", // name
-            5 * 10**18 // price (5 RTC)
+            5 * 10 ** 18 // price (5 RTC)
         );
 
         // 2. Premium Bait
         fishRegistry.registerBaitType(
             2, // id
             "Premium Bait", // name
-            15 * 10**18 // price (15 RTC)
+            15 * 10 ** 18 // price (15 RTC)
         );
 
         // 3. Specialized Bait
         fishRegistry.registerBaitType(
             3, // id
             "Specialized Bait", // name
-            30 * 10**18 // price (30 RTC)
+            30 * 10 ** 18 // price (30 RTC)
         );
-        
+
         console.log("Added basic bait types");
     }
-    
+
     function _addStarterMap(MapRegistry mapRegistry) private {
         // Register the starting ocean map
         mapRegistry.registerMap(
-            1,                    // id
-            "Starting Waters",    // name
-            1,                    // tier
-            0,                    // travel cost (free starting map)
-            -100,                 // minX
-            100,                  // maxX
-            -100,                 // minY
-            100                   // maxY
+            1, // id
+            "Starting Waters", // name
+            1, // tier
+            0, // travel cost (free starting map)
+            -100, // minX
+            100, // maxX
+            -100, // minY
+            100 // maxY
         );
-        
+
         // Add a bait shop at the origin (0,0)
         uint256[] memory availableBait = new uint256[](3);
         availableBait[0] = 1; // Basic bait
         availableBait[1] = 2; // Premium bait
         availableBait[2] = 3; // Specialized bait
-        
+
         mapRegistry.addBaitShop(1, 0, 0, availableBait);
-        
+
         // Add some fish distributions for testing
         uint256[] memory fishSpecies = new uint256[](2);
         fishSpecies[0] = 1; // Sardine
         fishSpecies[1] = 2; // Cod
-        
+
         // Add fish distribution at a few locations
         mapRegistry.updateFishDistribution(1, 5, 5, fishSpecies);
         mapRegistry.updateFishDistribution(1, -10, 10, fishSpecies);
         mapRegistry.updateFishDistribution(1, 15, -5, fishSpecies);
-        
+
         console.log("Added starter map with bait shop and fish distributions");
     }
 }

@@ -23,8 +23,7 @@ library InventoryLib {
         uint8 width;
         uint8 height;
         mapping(uint256 => GridItem) grid; // position => GridItem
-        uint8[] engineSlots;
-        uint8[] equipmentSlots;
+        uint8[] slotTypes; // Slot type for each position: 0=normal, 1=engine, 2=equipment
     }
 
     /**
@@ -70,12 +69,11 @@ library InventoryLib {
      * @param startY Starting Y position
      * @return True if the item can fit
      */
-    function canPlaceItem(
-        InventoryGrid storage grid,
-        ItemShape memory shape,
-        uint8 startX,
-        uint8 startY
-    ) internal view returns (bool) {
+    function canPlaceItem(InventoryGrid storage grid, ItemShape memory shape, uint8 startX, uint8 startY)
+        internal
+        view
+        returns (bool)
+    {
         // Check if shape extends beyond grid boundaries
         if (startX + shape.width > grid.width || startY + shape.height > grid.height) {
             return false;
@@ -87,7 +85,7 @@ library InventoryLib {
                 // Check if this part of the shape is occupied
                 if (isShapeOccupied(shape, x, y)) {
                     uint256 gridIndex = coordsToIndex(startX + x, startY + y, grid.width);
-                    
+
                     // Check if grid cell is already occupied
                     if (grid.grid[gridIndex].isOccupied) {
                         return false;
@@ -126,12 +124,8 @@ library InventoryLib {
             for (uint8 x = 0; x < shape.width; x++) {
                 if (isShapeOccupied(shape, x, y)) {
                     uint256 gridIndex = coordsToIndex(startX + x, startY + y, grid.width);
-                    
-                    grid.grid[gridIndex] = GridItem({
-                        itemType: itemType,
-                        itemId: itemId,
-                        isOccupied: true
-                    });
+
+                    grid.grid[gridIndex] = GridItem({itemType: itemType, itemId: itemId, isOccupied: true});
                 }
             }
         }
@@ -147,25 +141,23 @@ library InventoryLib {
      * @param startY Starting Y position
      * @return True if removal was successful
      */
-    function removeItem(
-        InventoryGrid storage grid,
-        ItemShape memory shape,
-        uint8 startX,
-        uint8 startY
-    ) internal returns (bool) {
+    function removeItem(InventoryGrid storage grid, ItemShape memory shape, uint8 startX, uint8 startY)
+        internal
+        returns (bool)
+    {
         // Verify the item exists at this position
         for (uint8 y = 0; y < shape.height; y++) {
             for (uint8 x = 0; x < shape.width; x++) {
                 if (isShapeOccupied(shape, x, y)) {
                     uint8 gridX = startX + x;
                     uint8 gridY = startY + y;
-                    
+
                     if (!isValidPosition(gridX, gridY, grid.width, grid.height)) {
                         return false;
                     }
-                    
+
                     uint256 gridIndex = coordsToIndex(gridX, gridY, grid.width);
-                    
+
                     if (!grid.grid[gridIndex].isOccupied) {
                         return false;
                     }
@@ -178,7 +170,7 @@ library InventoryLib {
             for (uint8 x = 0; x < shape.width; x++) {
                 if (isShapeOccupied(shape, x, y)) {
                     uint256 gridIndex = coordsToIndex(startX + x, startY + y, grid.width);
-                    
+
                     delete grid.grid[gridIndex];
                 }
             }
@@ -218,12 +210,10 @@ library InventoryLib {
      * @return True if position is an engine slot
      */
     function isEngineSlot(InventoryGrid storage grid, uint8 position) internal view returns (bool) {
-        for (uint256 i = 0; i < grid.engineSlots.length; i++) {
-            if (grid.engineSlots[i] == position) {
-                return true;
-            }
+        if (position >= grid.slotTypes.length) {
+            return false;
         }
-        return false;
+        return grid.slotTypes[position] == 1; // 1 = engine slot
     }
 
     /**
@@ -233,12 +223,10 @@ library InventoryLib {
      * @return True if position is an equipment slot
      */
     function isEquipmentSlot(InventoryGrid storage grid, uint8 position) internal view returns (bool) {
-        for (uint256 i = 0; i < grid.equipmentSlots.length; i++) {
-            if (grid.equipmentSlots[i] == position) {
-                return true;
-            }
+        if (position >= grid.slotTypes.length) {
+            return false;
         }
-        return false;
+        return grid.slotTypes[position] == 2; // 2 = equipment slot
     }
 
     /**
@@ -252,7 +240,7 @@ library InventoryLib {
         if (!isValidPosition(x, y, grid.width, grid.height)) {
             return GridItem(0, 0, false);
         }
-        
+
         uint256 index = coordsToIndex(x, y, grid.width);
         return grid.grid[index];
     }
@@ -265,13 +253,13 @@ library InventoryLib {
     function getOccupiedSlots(InventoryGrid storage grid) internal view returns (uint256) {
         uint256 occupied = 0;
         uint256 totalSlots = uint256(grid.width) * uint256(grid.height);
-        
+
         for (uint256 i = 0; i < totalSlots; i++) {
             if (grid.grid[i].isOccupied) {
                 occupied++;
             }
         }
-        
+
         return occupied;
     }
 }
