@@ -36,7 +36,7 @@ interface IShipRegistry {
         uint8 cargoWidth,
         uint8 cargoHeight,
         bytes calldata cargoShape,
-        uint8[] calldata slotTypes,
+        uint8[] calldata slotTypes, // TODO: add types for non-quippable slot
         uint256 purchasePrice,
         uint256 repairCostPerPoint
     ) external;

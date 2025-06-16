@@ -6,8 +6,8 @@ import "../src/tokens/RisingTidesCurrency.sol";
 import "../src/registries/ShipRegistry.sol";
 import "../src/registries/FishRegistry.sol";
 import "../src/registries/EngineRegistry.sol";
-import "../src/registries/EquipmentRegistry.sol";
-import "../src/interfaces/IEquipmentRegistry.sol";
+import "../src/registries/FishingRodRegistry.sol";
+import "../src/interfaces/IFishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
 import "../src/core/GameState.sol";
 import "../src/core/FishMarket.sol";
@@ -47,10 +47,10 @@ contract Deploy is Script {
         EngineRegistry engineRegistry = new EngineRegistry();
         console.log("EngineRegistry deployed to:", address(engineRegistry));
 
-        // 5. Deploy Equipment Registry
-        console.log("\n=== Deploying EquipmentRegistry ===");
-        EquipmentRegistry equipmentRegistry = new EquipmentRegistry();
-        console.log("EquipmentRegistry deployed to:", address(equipmentRegistry));
+        // 5. Deploy Fishing Rod Registry
+        console.log("\n=== Deploying FishingRodRegistry ===");
+        FishingRodRegistry fishingRodRegistry = new FishingRodRegistry();
+        console.log("FishingRodRegistry deployed to:", address(fishingRodRegistry));
 
         // 6. Deploy Map Registry
         console.log("\n=== Deploying MapRegistry ===");
@@ -65,7 +65,7 @@ contract Deploy is Script {
             address(shipRegistry), 
             address(fishRegistry), 
             address(engineRegistry),
-            address(equipmentRegistry),
+            address(fishingRodRegistry),
             address(mapRegistry), 
             deployerAddress
         );
@@ -110,7 +110,7 @@ contract Deploy is Script {
         _addBasicEngines(engineRegistry);
 
         // Add basic equipment
-        _addBasicEquipment(equipmentRegistry);
+        _addBasicFishingRods(fishingRodRegistry);
 
         // Add some basic fish species
         _addBasicFish(fishRegistry);
@@ -129,7 +129,7 @@ contract Deploy is Script {
         console.log("ShipRegistry:", address(shipRegistry));
         console.log("FishRegistry:", address(fishRegistry));
         console.log("EngineRegistry:", address(engineRegistry));
-        console.log("EquipmentRegistry:", address(equipmentRegistry));
+        console.log("FishingRodRegistry:", address(fishingRodRegistry));
         console.log("MapRegistry:", address(mapRegistry));
         console.log("GameState:", address(gameState));
         console.log("FishMarket:", address(fishMarket));
@@ -338,79 +338,63 @@ contract Deploy is Script {
         console.log("Added basic engines");
     }
 
-    function _addBasicEquipment(EquipmentRegistry equipmentRegistry) private {
+    function _addBasicFishingRods(FishingRodRegistry fishingRodRegistry) private {
         // 1. Basic Fishing Rod (1x1)
-        bytes memory rodShape = new bytes(1);
-        rodShape[0] = 0x01; // 1x1 shape
+        bytes memory basicRodShape = new bytes(1);
+        basicRodShape[0] = 0x01; // 1x1 shape
 
-        equipmentRegistry.registerEquipment(
+        fishingRodRegistry.registerFishingRod(
             1, // id
             "Basic Fishing Rod", // name
-            IEquipmentRegistry.EquipmentType.FISHING_ROD, // type
             1, // shapeWidth
             1, // shapeHeight
-            rodShape,
+            basicRodShape,
             50 * 10 ** 18, // purchasePrice (50 RTC)
             10 // weight
         );
 
-        // Set fishing success rate bonus
-        equipmentRegistry.setEquipmentStat(1, "fishingSuccessRate", 10); // +10% success rate
+        // 2. Advanced Fishing Rod (1x2)
+        bytes memory advancedRodShape = new bytes(1);
+        advancedRodShape[0] = 0x03; // 1x2 shape
 
-        // 2. Fishing Net (1x2)
-        bytes memory netShape = new bytes(1);
-        netShape[0] = 0x03; // 1x2 shape
-
-        equipmentRegistry.registerEquipment(
+        fishingRodRegistry.registerFishingRod(
             2, // id
-            "Fishing Net", // name
-            IEquipmentRegistry.EquipmentType.FISHING_NET, // type
+            "Advanced Fishing Rod", // name
             1, // shapeWidth
             2, // shapeHeight
-            netShape,
+            advancedRodShape,
             150 * 10 ** 18, // purchasePrice (150 RTC)
-            20 // weight
-        );
-
-        // Set batch fishing capability
-        equipmentRegistry.setEquipmentStat(2, "batchFishingCount", 3); // Can catch 3 fish at once
-
-        // 3. Sonar (1x1)
-        bytes memory sonarShape = new bytes(1);
-        sonarShape[0] = 0x01; // 1x1 shape
-
-        equipmentRegistry.registerEquipment(
-            3, // id
-            "Sonar", // name
-            IEquipmentRegistry.EquipmentType.SONAR, // type
-            1, // shapeWidth
-            1, // shapeHeight
-            sonarShape,
-            200 * 10 ** 18, // purchasePrice (200 RTC)
             15 // weight
         );
 
-        // Set fish detection range
-        equipmentRegistry.setEquipmentStat(3, "detectionRange", 5); // Can detect fish within 5 hexes
+        // 3. Professional Fishing Rod (2x1)
+        bytes memory proRodShape = new bytes(1);
+        proRodShape[0] = 0x03; // 2x1 shape
 
-        // 4. Fuel Tank (2x1)
-        bytes memory tankShape = new bytes(1);
-        tankShape[0] = 0x03; // 2x1 shape
-
-        equipmentRegistry.registerEquipment(
-            4, // id
-            "Extra Fuel Tank", // name
-            IEquipmentRegistry.EquipmentType.FUEL_TANK, // type
+        fishingRodRegistry.registerFishingRod(
+            3, // id
+            "Professional Fishing Rod", // name
             2, // shapeWidth
             1, // shapeHeight
-            tankShape,
-            100 * 10 ** 18, // purchasePrice (100 RTC)
-            30 // weight
+            proRodShape,
+            300 * 10 ** 18, // purchasePrice (300 RTC)
+            20 // weight
         );
 
-        // Set fuel capacity bonus
-        equipmentRegistry.setEquipmentStat(4, "fuelCapacityBonus", 50); // +50 fuel capacity
+        // 4. Master Fishing Rod (2x2)
+        bytes memory masterRodShape = new bytes(1);
+        masterRodShape[0] = 0x0F; // 2x2 shape
 
-        console.log("Added basic equipment");
+        fishingRodRegistry.registerFishingRod(
+            4, // id
+            "Master Fishing Rod", // name
+            2, // shapeWidth
+            2, // shapeHeight
+            masterRodShape,
+            500 * 10 ** 18, // purchasePrice (500 RTC)
+            25 // weight
+        );
+
+        console.log("Added basic fishing rods");
     }
 }

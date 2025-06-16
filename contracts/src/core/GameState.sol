@@ -12,7 +12,7 @@ import "../interfaces/IMapRegistry.sol";
 import "../tokens/RisingTidesCurrency.sol";
 import "../registries/FishRegistry.sol";
 import "../registries/EngineRegistry.sol";
-import "../registries/EquipmentRegistry.sol";
+import "../registries/FishingRodRegistry.sol";
 import "../libraries/InventoryLib.sol";
 
 /**
@@ -33,7 +33,7 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
     IShipRegistry public shipRegistry;
     FishRegistry public fishRegistry;
     EngineRegistry public engineRegistry;
-    EquipmentRegistry public equipmentRegistry;
+    FishingRodRegistry public fishingRodRegistry;
     IMapRegistry public mapRegistry;
 
     // Fishing system
@@ -103,7 +103,7 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         address _shipRegistry, 
         address _fishRegistry, 
         address _engineRegistry,
-        address _equipmentRegistry,
+        address _fishingRodRegistry,
         address _mapRegistry, 
         address _serverSigner
     ) EIP712("RisingTides", "1") {
@@ -111,7 +111,7 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         require(_shipRegistry != address(0), "Ship registry address cannot be zero");
         require(_fishRegistry != address(0), "Fish registry address cannot be zero");
         require(_engineRegistry != address(0), "Engine registry address cannot be zero");
-        require(_equipmentRegistry != address(0), "Equipment registry address cannot be zero");
+        require(_fishingRodRegistry != address(0), "Fishing rod registry address cannot be zero");
         require(_mapRegistry != address(0), "Map registry address cannot be zero");
         require(_serverSigner != address(0), "Server signer address cannot be zero");
 
@@ -119,7 +119,7 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         shipRegistry = IShipRegistry(_shipRegistry);
         fishRegistry = FishRegistry(_fishRegistry);
         engineRegistry = EngineRegistry(_engineRegistry);
-        equipmentRegistry = EquipmentRegistry(_equipmentRegistry);
+        fishingRodRegistry = FishingRodRegistry(_fishingRodRegistry);
         mapRegistry = IMapRegistry(_mapRegistry);
         serverSigner = _serverSigner;
 
@@ -252,6 +252,8 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         nonReentrant
         returns (uint256 fishingNonce)
     {
+        // TODO: validate if a fishing rod is currently equipped
+
         // Validate bait type and check if player has it
         require(fishRegistry.isValidBait(baitType), "Invalid bait type");
         require(playerBait[msg.sender][baitType] > 0, "Insufficient bait");
@@ -647,10 +649,10 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
     }
 
     /**
-     * @dev Validate equipment placement in equipment slots
+     * @dev Validate fishing rod placement in equipment slots
      */
-    function validateEquipmentPlacement(address player, uint256 equipmentId, uint8 x, uint8 y) external view returns (bool) {
-        require(equipmentRegistry.isValidEquipment(equipmentId), "Invalid equipment ID");
+    function validateFishingRodPlacement(address player, uint256 fishingRodId, uint8 x, uint8 y) external view returns (bool) {
+        require(fishingRodRegistry.isValidFishingRod(fishingRodId), "Invalid fishing rod ID");
         
         IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
         
@@ -677,8 +679,8 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         return address(engineRegistry);
     }
 
-    function getEquipmentRegistry() external view returns (address) {
-        return address(equipmentRegistry);
+    function getFishingRodRegistry() external view returns (address) {
+        return address(fishingRodRegistry);
     }
 
     /**
@@ -793,25 +795,6 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         return weightedEfficiency / totalPower;
     }
 
-    /**
-     * @dev Calculate equipment effect for a specific stat
-     */
-    function calculateEquipmentEffect(address player, string memory statName) public view returns (uint256 totalEffect) {
-        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
-        
-        // Iterate through inventory slots looking for equipment in equipment slots
-        for (uint256 i = 0; i < ship.slotTypes.length; i++) {
-            if (ship.slotTypes[i] == 2) { // Equipment slot
-                InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == 3) { // Equipment item type
-                    if (equipmentRegistry.isValidEquipment(item.itemId)) {
-                        totalEffect += equipmentRegistry.getEquipmentStat(item.itemId, statName);
-                    }
-                }
-            }
-        }
-    }
 
     /**
      * @dev Update player's total weight (used when inventory changes)
@@ -1002,7 +985,7 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         address _shipRegistry, 
         address _fishRegistry, 
         address _engineRegistry,
-        address _equipmentRegistry,
+        address _fishingRodRegistry,
         address _mapRegistry
     ) external onlyRole(ADMIN_ROLE) {
         if (_currency != address(0)) {
@@ -1017,8 +1000,8 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         if (_engineRegistry != address(0)) {
             engineRegistry = EngineRegistry(_engineRegistry);
         }
-        if (_equipmentRegistry != address(0)) {
-            equipmentRegistry = EquipmentRegistry(_equipmentRegistry);
+        if (_fishingRodRegistry != address(0)) {
+            fishingRodRegistry = FishingRodRegistry(_fishingRodRegistry);
         }
         if (_mapRegistry != address(0)) {
             mapRegistry = IMapRegistry(_mapRegistry);

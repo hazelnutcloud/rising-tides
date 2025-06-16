@@ -6,7 +6,7 @@ import "../src/tokens/RisingTidesCurrency.sol";
 import "../src/registries/ShipRegistry.sol";
 import "../src/registries/FishRegistry.sol";
 import "../src/registries/EngineRegistry.sol";
-import "../src/registries/EquipmentRegistry.sol";
+import "../src/registries/FishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
 import "../src/core/GameState.sol";
 import "../src/interfaces/IGameState.sol";
@@ -16,7 +16,7 @@ contract GameStateTest is Test {
     ShipRegistry public shipRegistry;
     FishRegistry public fishRegistry;
     EngineRegistry public engineRegistry;
-    EquipmentRegistry public equipmentRegistry;
+    FishingRodRegistry public fishingRodRegistry;
     MapRegistry public mapRegistry;
     GameState public gameState;
 
@@ -34,7 +34,7 @@ contract GameStateTest is Test {
         shipRegistry = new ShipRegistry();
         fishRegistry = new FishRegistry();
         engineRegistry = new EngineRegistry();
-        equipmentRegistry = new EquipmentRegistry();
+        fishingRodRegistry = new FishingRodRegistry();
         mapRegistry = new MapRegistry();
         
         // Set up test server signer
@@ -45,7 +45,7 @@ contract GameStateTest is Test {
             address(shipRegistry), 
             address(fishRegistry), 
             address(engineRegistry),
-            address(equipmentRegistry),
+            address(fishingRodRegistry),
             address(mapRegistry), 
             testServerSigner
         );
