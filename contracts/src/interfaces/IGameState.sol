@@ -124,6 +124,14 @@ interface IGameState {
     function getAvailableInventorySpace(address player, uint8 itemWidth, uint8 itemHeight) 
         external view returns (uint8[] memory validX, uint8[] memory validY);
 
+    // Shard Management
+    function getShardPlayerCount(uint8 shard) external view returns (uint256);
+    function getMaxPlayersPerShard() external view returns (uint256);
+    function isShardAvailable(uint8 shard) external view returns (bool);
+    function getAllShardOccupancy() external view returns (uint8[] memory shardIds, uint256[] memory playerCounts, bool[] memory available);
+    function setMaxPlayersPerShard(uint256 newLimit) external;
+
     // Admin Functions
     function updateServerSigner(address newSigner) external;
+    function adminChangePlayerShard(address player, uint8 newShard, bool bypassLimit) external;
 }

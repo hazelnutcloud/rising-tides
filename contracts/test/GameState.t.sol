@@ -510,4 +510,258 @@ contract GameStateTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(TEST_SERVER_PRIVATE_KEY, digest);
         return abi.encodePacked(r, s, v);
     }
+
+    function testShardLimits() public {
+        // Test default limit is set
+        assertEq(gameState.getMaxPlayersPerShard(), 1000);
+        
+        // Test shard 0 starts empty
+        assertEq(gameState.getShardPlayerCount(0), 0);
+        assertTrue(gameState.isShardAvailable(0));
+        
+        // Register player1 to shard 0
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        // Check shard count updated
+        assertEq(gameState.getShardPlayerCount(0), 1);
+        assertTrue(gameState.isShardAvailable(0));
+    }
+
+    function testShardChangeWithLimits() public {
+        // Register player1 to shard 0
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        // Register player2 to shard 1
+        vm.prank(player2);
+        gameState.registerPlayer(1, 1);
+        
+        // Verify counts
+        assertEq(gameState.getShardPlayerCount(0), 1);
+        assertEq(gameState.getShardPlayerCount(1), 1);
+        
+        // Move player1 from shard 0 to shard 1
+        vm.prank(player1);
+        gameState.changeShard(1);
+        
+        // Verify counts updated
+        assertEq(gameState.getShardPlayerCount(0), 0);
+        assertEq(gameState.getShardPlayerCount(1), 2);
+    }
+
+    function testShardFullRegistration() public {
+        // Set a very low limit for testing
+        gameState.setMaxPlayersPerShard(1);
+        
+        // Register player1 to shard 0 (should succeed)
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        // Try to register player2 to shard 0 (should fail)
+        vm.prank(player2);
+        vm.expectRevert("Shard is full");
+        gameState.registerPlayer(0, 1);
+        
+        // But player2 can register to shard 1
+        vm.prank(player2);
+        gameState.registerPlayer(1, 1);
+        
+        assertEq(gameState.getShardPlayerCount(0), 1);
+        assertEq(gameState.getShardPlayerCount(1), 1);
+    }
+
+    function testShardFullChangeAttempt() public {
+        // Set limit to 1
+        gameState.setMaxPlayersPerShard(1);
+        
+        // Register players to different shards
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        vm.prank(player2);
+        gameState.registerPlayer(1, 1);
+        
+        // Try to move player2 to shard 0 (should fail)
+        vm.prank(player2);
+        vm.expectRevert("Target shard is full");
+        gameState.changeShard(0);
+        
+        // Verify no changes
+        assertEq(gameState.getShardPlayerCount(0), 1);
+        assertEq(gameState.getShardPlayerCount(1), 1);
+    }
+
+    function testSetMaxPlayersPerShard() public {
+        // Test updating the limit
+        gameState.setMaxPlayersPerShard(500);
+        assertEq(gameState.getMaxPlayersPerShard(), 500);
+        
+        // Test zero limit should fail
+        vm.expectRevert("Limit must be greater than zero");
+        gameState.setMaxPlayersPerShard(0);
+        
+        // Test very high limit should fail
+        vm.expectRevert("Limit too high");
+        gameState.setMaxPlayersPerShard(20000);
+    }
+
+    function testGetAllShardOccupancy() public {
+        // Register some players to different shards
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        vm.prank(player2);
+        gameState.registerPlayer(2, 1);
+        
+        // Get all shard data
+        (uint8[] memory shardIds, uint256[] memory playerCounts, bool[] memory available) = 
+            gameState.getAllShardOccupancy();
+        
+        // Verify data structure
+        assertEq(shardIds.length, 100); // MAX_SHARDS
+        assertEq(playerCounts.length, 100);
+        assertEq(available.length, 100);
+        
+        // Check specific shard data
+        assertEq(shardIds[0], 0);
+        assertEq(playerCounts[0], 1);
+        assertTrue(available[0]);
+        
+        assertEq(shardIds[2], 2);
+        assertEq(playerCounts[2], 1);
+        assertTrue(available[2]);
+        
+        assertEq(playerCounts[1], 0); // Empty shard
+        assertTrue(available[1]);
+    }
+
+    function testShardLimitAccessControl() public {
+        // Non-admin cannot set limit
+        vm.prank(player1);
+        vm.expectRevert();
+        gameState.setMaxPlayersPerShard(100);
+    }
+
+    function testAdminChangePlayerShard() public {
+        // Register player1 to shard 0
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        // Verify initial state
+        assertEq(gameState.getShardPlayerCount(0), 1);
+        assertEq(gameState.getShardPlayerCount(1), 0);
+        
+        IGameState.PlayerState memory state = gameState.getPlayerState(player1);
+        assertEq(state.shard, 0);
+        
+        // Admin moves player1 from shard 0 to shard 1
+        gameState.adminChangePlayerShard(player1, 1, false);
+        
+        // Verify shard counts updated
+        assertEq(gameState.getShardPlayerCount(0), 0);
+        assertEq(gameState.getShardPlayerCount(1), 1);
+        
+        // Verify player's shard updated
+        state = gameState.getPlayerState(player1);
+        assertEq(state.shard, 1);
+    }
+
+    function testAdminChangePlayerShardWithBypass() public {
+        // Set very low limit
+        gameState.setMaxPlayersPerShard(1);
+        
+        // Register player1 to shard 0, player2 to shard 1
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        vm.prank(player2);
+        gameState.registerPlayer(1, 1);
+        
+        // Both shards are now full
+        assertFalse(gameState.isShardAvailable(0));
+        assertFalse(gameState.isShardAvailable(1));
+        
+        // Admin can still move player2 to shard 0 by bypassing the limit
+        gameState.adminChangePlayerShard(player2, 0, true);
+        
+        // Verify the move worked despite the limit
+        assertEq(gameState.getShardPlayerCount(0), 2); // Over the limit!
+        assertEq(gameState.getShardPlayerCount(1), 0);
+        
+        IGameState.PlayerState memory state = gameState.getPlayerState(player2);
+        assertEq(state.shard, 0);
+    }
+
+    function testAdminChangePlayerShardRespectLimit() public {
+        // Set low limit
+        gameState.setMaxPlayersPerShard(1);
+        
+        // Register players to different shards
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        vm.prank(player2);
+        gameState.registerPlayer(1, 1);
+        
+        // Admin tries to move player2 to full shard 0 without bypass (should fail)
+        vm.expectRevert("Target shard is full");
+        gameState.adminChangePlayerShard(player2, 0, false);
+        
+        // Verify no changes
+        assertEq(gameState.getShardPlayerCount(0), 1);
+        assertEq(gameState.getShardPlayerCount(1), 1);
+    }
+
+    function testAdminChangePlayerShardValidation() public {
+        // Register player1
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        // Test moving to same shard fails
+        vm.expectRevert("Player already in target shard");
+        gameState.adminChangePlayerShard(player1, 0, false);
+        
+        // Test moving unregistered player fails
+        vm.expectRevert("Player not registered");
+        gameState.adminChangePlayerShard(player2, 1, false);
+        
+        // Test invalid shard fails
+        vm.expectRevert("Invalid shard ID");
+        gameState.adminChangePlayerShard(player1, 200, false);
+    }
+
+    function testAdminChangePlayerShardAccessControl() public {
+        // Register player1
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        // Non-admin cannot change player's shard
+        vm.prank(player2);
+        vm.expectRevert();
+        gameState.adminChangePlayerShard(player1, 1, false);
+        
+        // Player cannot use admin function on themselves
+        vm.prank(player1);
+        vm.expectRevert();
+        gameState.adminChangePlayerShard(player1, 1, false);
+    }
+
+    function testAdminChangePlayerShardEvents() public {
+        // Register player1
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        // Expect both events to be emitted
+        vm.expectEmit(true, true, true, true);
+        emit IGameState.ShardChanged(player1, 0, 1);
+        
+        // The admin event is internal to PlayerManager, so we can't test it directly
+        // but we can verify the functionality works
+        gameState.adminChangePlayerShard(player1, 1, false);
+        
+        // Verify the change took effect
+        IGameState.PlayerState memory state = gameState.getPlayerState(player1);
+        assertEq(state.shard, 1);
+    }
 }

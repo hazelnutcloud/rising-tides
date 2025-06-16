@@ -14,6 +14,7 @@ abstract contract PlayerManager is GameStateBase {
     function registerPlayer(uint8 shard, uint256 mapId) external validShard(shard) whenNotPaused {
         require(!registeredPlayers[msg.sender], "Player already registered");
         require(mapRegistry.isValidMap(mapId), "Invalid map ID");
+        require(playersPerShard[shard] < maxPlayersPerShard, "Shard is full");
 
         // Initialize player with default ship (ID 1) and calculate initial weight
         IShipRegistry.ShipStats memory shipStats = shipRegistry.getShipStats(1);
@@ -38,6 +39,7 @@ abstract contract PlayerManager is GameStateBase {
         _initializeInventory(msg.sender, 1);
 
         registeredPlayers[msg.sender] = true;
+        playersPerShard[shard]++;
 
         emit IGameState.PlayerRegistered(msg.sender, shard);
     }
@@ -64,7 +66,12 @@ abstract contract PlayerManager is GameStateBase {
         uint8 oldShard = player.shard;
 
         require(newShard != oldShard, "Already in this shard");
+        require(playersPerShard[newShard] < maxPlayersPerShard, "Target shard is full");
 
+        // Update shard counts
+        playersPerShard[oldShard]--;
+        playersPerShard[newShard]++;
+        
         player.shard = newShard;
 
         emit IGameState.ShardChanged(msg.sender, oldShard, newShard);
@@ -168,4 +175,86 @@ abstract contract PlayerManager is GameStateBase {
     function getPlayerFishCount(address player) external view returns (uint256) {
         return playerFishCount[player];
     }
+
+    /**
+     * @dev Get current player count for a shard
+     */
+    function getShardPlayerCount(uint8 shard) external view validShard(shard) returns (uint256) {
+        return playersPerShard[shard];
+    }
+
+    /**
+     * @dev Get maximum players allowed per shard
+     */
+    function getMaxPlayersPerShard() external view returns (uint256) {
+        return maxPlayersPerShard;
+    }
+
+    /**
+     * @dev Check if a shard has available slots
+     */
+    function isShardAvailable(uint8 shard) external view validShard(shard) returns (bool) {
+        return playersPerShard[shard] < maxPlayersPerShard;
+    }
+
+    /**
+     * @dev Get all shard occupancy data
+     */
+    function getAllShardOccupancy() external view returns (uint8[] memory shardIds, uint256[] memory playerCounts, bool[] memory available) {
+        shardIds = new uint8[](MAX_SHARDS);
+        playerCounts = new uint256[](MAX_SHARDS);
+        available = new bool[](MAX_SHARDS);
+        
+        for (uint8 i = 0; i < MAX_SHARDS; i++) {
+            shardIds[i] = i;
+            playerCounts[i] = playersPerShard[i];
+            available[i] = playersPerShard[i] < maxPlayersPerShard;
+        }
+    }
+
+    /**
+     * @dev Admin function to forcefully change a player's shard
+     * @param player The player's address to move
+     * @param newShard The target shard
+     * @param bypassLimit Whether to bypass the shard player limit (for emergency rebalancing)
+     */
+    function adminChangePlayerShard(address player, uint8 newShard, bool bypassLimit) 
+        external 
+        onlyRole(ADMIN_ROLE) 
+        validShard(newShard) 
+        whenNotPaused 
+    {
+        require(registeredPlayers[player], "Player not registered");
+        
+        IGameState.PlayerState storage playerState = playerStates[player];
+        uint8 oldShard = playerState.shard;
+
+        require(newShard != oldShard, "Player already in target shard");
+        
+        // Check shard capacity unless bypassing limit
+        if (!bypassLimit) {
+            require(playersPerShard[newShard] < maxPlayersPerShard, "Target shard is full");
+        }
+
+        // Update shard counts
+        playersPerShard[oldShard]--;
+        playersPerShard[newShard]++;
+        
+        // Update player's shard
+        playerState.shard = newShard;
+
+        emit IGameState.ShardChanged(player, oldShard, newShard);
+        emit AdminShardChangeExecuted(msg.sender, player, oldShard, newShard, bypassLimit);
+    }
+
+    /**
+     * @dev Event emitted when admin changes a player's shard
+     */
+    event AdminShardChangeExecuted(
+        address indexed admin, 
+        address indexed player, 
+        uint8 oldShard, 
+        uint8 newShard, 
+        bool bypassedLimit
+    );
 }

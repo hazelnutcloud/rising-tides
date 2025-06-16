@@ -85,4 +85,22 @@ contract GameStateCore is ResourceManager {
     function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
+
+    /**
+     * @dev Update maximum players per shard (admin only)
+     */
+    function setMaxPlayersPerShard(uint256 newLimit) external onlyRole(ADMIN_ROLE) {
+        require(newLimit > 0, "Limit must be greater than zero");
+        require(newLimit <= 10000, "Limit too high"); // Reasonable upper bound
+        
+        uint256 oldLimit = maxPlayersPerShard;
+        maxPlayersPerShard = newLimit;
+        
+        emit MaxPlayersPerShardUpdated(oldLimit, newLimit);
+    }
+
+    /**
+     * @dev Event emitted when max players per shard is updated
+     */
+    event MaxPlayersPerShardUpdated(uint256 oldLimit, uint256 newLimit);
 }

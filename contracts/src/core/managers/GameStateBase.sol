@@ -53,6 +53,10 @@ abstract contract GameStateBase is AccessControl, Pausable, ReentrancyGuard, EIP
     mapping(address => uint256) internal pendingFishingRequest;
     mapping(address => uint256) internal pendingBaitType;
 
+    // Shard management
+    mapping(uint8 => uint256) internal playersPerShard;
+    uint256 public maxPlayersPerShard = 1000; // Default limit, can be updated by admin
+
     // Game configuration constants
     uint256 public constant FUEL_PRICE_PER_UNIT = 10 * 10 ** 18; // 10 RTC per fuel unit
     uint256 public constant MAX_SHARDS = 100;
