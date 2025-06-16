@@ -1,6 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "../libraries/InventoryLib.sol";
+
+/**
+ * @dev Fishing result data structure for server signatures
+ */
+struct FishingResult {
+    address player;
+    uint256 nonce;
+    uint256 species;    // 0 = no catch
+    uint16 weight;
+    uint256 timestamp;  // Server-side timestamp for validation
+}
+
+/**
+ * @dev Inventory action for player inventory management
+ */
+struct InventoryAction {
+    uint8 actionType;   // 0=place, 1=move, 2=discard, 3=rotate
+    uint8 fromX;        // Source position
+    uint8 fromY;
+    uint8 toX;          // Target position  
+    uint8 toY;
+    uint8 rotation;     // 0=up, 1=right, 2=down, 3=left
+    uint16 itemId;      // Item being manipulated
+}
+
 interface IGameState {
     struct Position {
         int32 x;
@@ -54,7 +80,11 @@ interface IGameState {
 
     // Fishing
     function initiateFishing(uint256 baitType) external returns (uint256 fishingNonce);
-    function completeServerFishing(address player, uint256 nonce, uint256 species, uint16 weight) external;
+    function fulfillFishing(
+        FishingResult memory result,
+        bytes memory signature,
+        InventoryAction[] memory inventoryActions
+    ) external;
 
     // Bait Management
     function purchaseBait(uint256 baitType, uint256 amount) external;
@@ -79,4 +109,21 @@ interface IGameState {
 
     // Weight Management
     function updatePlayerWeight(address player) external;
+
+    // Inventory Management
+    function getPlayerInventory(address player) external view returns (
+        uint8 width,
+        uint8 height,
+        uint8[] memory slotTypes,
+        InventoryLib.GridItem[] memory items
+    );
+    function getInventoryItem(address player, uint8 x, uint8 y) external view returns (InventoryLib.GridItem memory);
+    function moveInventoryItem(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint8 rotation) external;
+    function rotateInventoryItem(uint8 x, uint8 y, uint8 newRotation) external;
+    function discardInventoryItem(uint8 x, uint8 y) external;
+    function getAvailableInventorySpace(address player, uint8 itemWidth, uint8 itemHeight) 
+        external view returns (uint8[] memory validX, uint8[] memory validY);
+
+    // Admin Functions
+    function updateServerSigner(address newSigner) external;
 }

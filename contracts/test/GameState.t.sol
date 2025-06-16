@@ -19,6 +19,10 @@ contract GameStateTest is Test {
     address public player1 = address(0x1);
     address public player2 = address(0x2);
     address public admin = address(this);
+    
+    // Test server signer address and private key for testing
+    uint256 public constant TEST_SERVER_PRIVATE_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+    address public testServerSigner;
 
     function setUp() public {
         // Deploy contracts
@@ -26,8 +30,11 @@ contract GameStateTest is Test {
         shipRegistry = new ShipRegistry();
         fishRegistry = new FishRegistry();
         mapRegistry = new MapRegistry();
+        
+        // Set up test server signer
+        testServerSigner = vm.addr(TEST_SERVER_PRIVATE_KEY);
 
-        gameState = new GameState(address(currency), address(shipRegistry), address(fishRegistry), address(mapRegistry));
+        gameState = new GameState(address(currency), address(shipRegistry), address(fishRegistry), address(mapRegistry), testServerSigner);
 
         // Setup roles
         currency.grantRole(currency.MINTER_ROLE(), address(this));
@@ -116,10 +123,29 @@ contract GameStateTest is Test {
         uint256 afterBaitCount = gameState.getPlayerBait(player1, baitType);
         assertEq(afterBaitCount, baitAmount - 1);
 
-        // Test server completing the fishing with a catch
+        // Test fulfilling the fishing with a signed result and inventory management
         uint256 species = 1;
         uint16 weight = 500;
-        gameState.completeServerFishing(player1, fishingNonce, species, weight);
+        uint256 timestamp = block.timestamp;
+        
+        // Create fishing result
+        FishingResult memory result = FishingResult({
+            player: player1,
+            nonce: fishingNonce,
+            species: species,
+            weight: weight,
+            timestamp: timestamp
+        });
+        
+        // Create signature (simplified for testing - in production would be created server-side)
+        bytes memory signature = _createTestSignature(result);
+        
+        // Create inventory actions (empty for this basic test)
+        InventoryAction[] memory actions = new InventoryAction[](0);
+        
+        // Fulfill fishing
+        vm.prank(player1);
+        gameState.fulfillFishing(result, signature, actions);
 
         // Check fish was added to player inventory
         assertEq(gameState.getPlayerFishCount(player1), 1);
@@ -151,8 +177,20 @@ contract GameStateTest is Test {
         vm.expectRevert("Already have pending fishing request");
         gameState.initiateFishing(baitType);
 
-        // Complete the first fishing request
-        gameState.completeServerFishing(player1, fishingNonce, 0, 0); // No catch
+        // Complete the first fishing request with no catch
+        FishingResult memory noCatchResult = FishingResult({
+            player: player1,
+            nonce: fishingNonce,
+            species: 0, // No catch
+            weight: 0,
+            timestamp: block.timestamp
+        });
+        
+        bytes memory noCatchSignature = _createTestSignature(noCatchResult);
+        InventoryAction[] memory emptyActions = new InventoryAction[](0);
+        
+        vm.prank(player1);
+        gameState.fulfillFishing(noCatchResult, noCatchSignature, emptyActions);
 
         // Now a new fishing attempt should work
         vm.prank(player1);
@@ -331,5 +369,131 @@ contract GameStateTest is Test {
         assertEq(amounts.length, 1);
         assertEq(baitTypes[0], 1);
         assertEq(amounts[0], 5);
+    }
+
+    function testInventoryManagement() public {
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1); // shard 0, map 1
+
+        // Test getting initial empty inventory
+        (uint8 width, uint8 height, uint8[] memory slotTypes, InventoryLib.GridItem[] memory items) = 
+            gameState.getPlayerInventory(player1);
+        
+        assertEq(width, 4);
+        assertEq(height, 4);
+        assertEq(slotTypes.length, 16);
+        assertEq(items.length, 16);
+        
+        // Check that initial inventory is empty
+        for (uint256 i = 0; i < items.length; i++) {
+            assertFalse(items[i].isOccupied);
+        }
+    }
+
+    function testInventoryRotation() public {
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1); // shard 0, map 1
+
+        // Test getting available space for different item sizes
+        (uint8[] memory validX, uint8[] memory validY) = 
+            gameState.getAvailableInventorySpace(player1, 1, 1);
+        
+        // Should have many valid positions for 1x1 items in empty 4x4 grid
+        assertEq(validX.length, 16);
+        assertEq(validY.length, 16);
+        
+        // Test with 2x2 item
+        (validX, validY) = gameState.getAvailableInventorySpace(player1, 2, 2);
+        // Should have 9 valid positions for 2x2 items (3x3 possible placements)
+        assertEq(validX.length, 9);
+        assertEq(validY.length, 9);
+    }
+
+    function testFulfillFishingWithInventoryActions() public {
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1); // shard 0, map 1
+
+        // Purchase bait
+        vm.prank(player1);
+        gameState.purchaseBait(1, 5);
+
+        // Initiate fishing
+        vm.prank(player1);
+        uint256 fishingNonce = gameState.initiateFishing(1);
+
+        // Create fishing result with rotation
+        uint256 species = 1;
+        uint16 weight = 500;
+        uint256 timestamp = block.timestamp;
+        
+        FishingResult memory result = FishingResult({
+            player: player1,
+            nonce: fishingNonce,
+            species: species,
+            weight: weight,
+            timestamp: timestamp
+        });
+        
+        bytes memory signature = _createTestSignature(result);
+        
+        // Create inventory actions to place the fish with rotation
+        InventoryAction[] memory actions = new InventoryAction[](1);
+        actions[0] = InventoryAction({
+            actionType: 0, // place
+            fromX: 0,
+            fromY: 0,
+            toX: 1,
+            toY: 1,
+            rotation: 2, // 180 degree rotation
+            itemId: 1
+        });
+        
+        // Fulfill fishing with inventory management
+        vm.prank(player1);
+        gameState.fulfillFishing(result, signature, actions);
+
+        // Check fish was added
+        assertEq(gameState.getPlayerFishCount(player1), 1);
+        
+        // Check inventory item was placed
+        InventoryLib.GridItem memory item = gameState.getInventoryItem(player1, 1, 1);
+        assertTrue(item.isOccupied);
+        assertEq(item.itemType, 1);
+        assertEq(item.itemId, 1);
+    }
+
+    /**
+     * @dev Helper function to create test signatures for fishing results
+     * Note: This creates a simplified signature for testing. In production,
+     * signatures would be created server-side with proper private key management.
+     */
+    function _createTestSignature(FishingResult memory result) private view returns (bytes memory) {
+        // Create EIP712 domain separator
+        bytes32 domainSeparator = keccak256(abi.encode(
+            keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+            keccak256("RisingTides"),
+            keccak256("1"),
+            block.chainid,
+            address(gameState)
+        ));
+        
+        // Create struct hash
+        bytes32 structHash = keccak256(abi.encode(
+            keccak256("FishingResult(address player,uint256 nonce,uint256 species,uint16 weight,uint256 timestamp)"),
+            result.player,
+            result.nonce,
+            result.species,
+            result.weight,
+            result.timestamp
+        ));
+        
+        // Create digest
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+        
+        // Create a test signature by simulating server signing
+        // In production, this would be done by the server with its private key
+        // For testing, we'll create a mock signature that matches the test server signer
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(TEST_SERVER_PRIVATE_KEY, digest);
+        return abi.encodePacked(r, s, v);
     }
 }

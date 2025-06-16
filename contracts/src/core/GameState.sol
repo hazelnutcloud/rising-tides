@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "../interfaces/IGameState.sol";
 import "../interfaces/IShipRegistry.sol";
 import "../interfaces/IMapRegistry.sol";
@@ -16,8 +18,9 @@ import "../libraries/InventoryLib.sol";
  * @dev Main contract managing core game mechanics
  * Handles player registration, movement, fishing, and inventory management
  */
-contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
+contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP712 {
     using InventoryLib for InventoryLib.InventoryGrid;
+    using ECDSA for bytes32;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -45,6 +48,20 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
     // Fishing request tracking
     mapping(address => uint256) private pendingFishingRequest;
     mapping(address => uint256) private pendingBaitType;
+
+    // Signature verification
+    address public serverSigner;
+    
+    // Signature replay protection
+    mapping(bytes32 => bool) private usedSignatures;
+
+    // EIP712 type hashes
+    bytes32 private constant FISHING_RESULT_TYPEHASH = keccak256(
+        "FishingResult(address player,uint256 nonce,uint256 species,uint16 weight,uint256 timestamp)"
+    );
+
+    // Signature timestamp tolerance (5 minutes)
+    uint256 public constant SIGNATURE_TIMEOUT = 300;
 
     // Game configuration
     uint256 public constant FUEL_PRICE_PER_UNIT = 10 * 10 ** 18; // 10 RTC per fuel unit
@@ -76,16 +93,19 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
         _;
     }
 
-    constructor(address _currency, address _shipRegistry, address _fishRegistry, address _mapRegistry) {
+    constructor(address _currency, address _shipRegistry, address _fishRegistry, address _mapRegistry, address _serverSigner) 
+        EIP712("RisingTides", "1") {
         require(_currency != address(0), "Currency address cannot be zero");
         require(_shipRegistry != address(0), "Ship registry address cannot be zero");
         require(_fishRegistry != address(0), "Fish registry address cannot be zero");
         require(_mapRegistry != address(0), "Map registry address cannot be zero");
+        require(_serverSigner != address(0), "Server signer address cannot be zero");
 
         currency = RisingTidesCurrency(_currency);
         shipRegistry = IShipRegistry(_shipRegistry);
         fishRegistry = FishRegistry(_fishRegistry);
         mapRegistry = IMapRegistry(_mapRegistry);
+        serverSigner = _serverSigner;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
@@ -306,33 +326,293 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @dev Server callback to complete fishing (called by authorized server)
+     * @dev Fulfill fishing with server-signed result and optional inventory management
      */
-    function completeServerFishing(address player, uint256 nonce, uint256 species, uint16 weight)
-        external
-        onlyRole(SERVER_ROLE)
-        whenNotPaused
-        nonReentrant
-    {
-        require(registeredPlayers[player], "Player not registered");
-        require(pendingFishingRequest[player] == nonce, "Invalid or expired fishing request");
-        require(nonce > 0, "Invalid nonce");
-
+    function fulfillFishing(
+        FishingResult memory result,
+        bytes memory signature,
+        InventoryAction[] memory inventoryActions
+    ) external onlyRegisteredPlayer whenNotPaused nonReentrant {
+        require(result.player == msg.sender, "Result not for caller");
+        require(pendingFishingRequest[msg.sender] == result.nonce, "Invalid or expired fishing request");
+        require(result.nonce > 0, "Invalid nonce");
+        
+        // Verify signature timestamp is recent
+        require(block.timestamp <= result.timestamp + SIGNATURE_TIMEOUT, "Signature expired");
+        require(result.timestamp <= block.timestamp, "Future timestamp not allowed");
+        
+        // Verify signature hasn't been used before
+        bytes32 signatureHash = keccak256(signature);
+        require(!usedSignatures[signatureHash], "Signature already used");
+        
+        // Verify server signature
+        bytes32 structHash = keccak256(abi.encode(
+            FISHING_RESULT_TYPEHASH,
+            result.player,
+            result.nonce,
+            result.species,
+            result.weight,
+            result.timestamp
+        ));
+        bytes32 hash = _hashTypedDataV4(structHash);
+        address recoveredSigner = hash.recover(signature);
+        require(recoveredSigner == serverSigner, "Invalid signature");
+        
+        // Mark signature as used
+        usedSignatures[signatureHash] = true;
+        
         // Clear pending request
-        delete pendingFishingRequest[player];
-        delete pendingBaitType[player];
+        delete pendingFishingRequest[msg.sender];
+        delete pendingBaitType[msg.sender];
 
-        // If server determined a catch occurred
-        if (species > 0) {
-            require(fishRegistry.isValidSpecies(species), "Invalid species");
+        // If server determined a catch occurred, process inventory actions
+        if (result.species > 0) {
+            require(fishRegistry.isValidSpecies(result.species), "Invalid species");
+            
+            // Process inventory management actions
+            _processInventoryActions(msg.sender, inventoryActions);
+            
+            // Store caught fish if it was successfully placed in inventory
+            uint256 fishId = playerFishCount[msg.sender];
+            playerFish[msg.sender][fishId] = FishCatch({
+                species: result.species, 
+                weight: result.weight, 
+                caughtAt: block.timestamp
+            });
+            playerFishCount[msg.sender]++;
 
-            // Store caught fish
-            uint256 fishId = playerFishCount[player];
-            playerFish[player][fishId] = FishCatch({species: species, weight: weight, caughtAt: block.timestamp});
-            playerFishCount[player]++;
-
-            emit FishCaught(player, species, weight, fishId);
+            emit FishCaught(msg.sender, result.species, result.weight, fishId);
+        } else {
+            // Even if no fish caught, player can still manage inventory
+            _processInventoryActions(msg.sender, inventoryActions);
         }
+    }
+
+    /**
+     * @dev Get player's full inventory grid
+     */
+    function getPlayerInventory(address player) external view returns (
+        uint8 width,
+        uint8 height,
+        uint8[] memory slotTypes,
+        InventoryLib.GridItem[] memory items
+    ) {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+        width = inventory.width;
+        height = inventory.height;
+        slotTypes = inventory.slotTypes;
+        
+        uint256 totalSlots = uint256(width) * uint256(height);
+        items = new InventoryLib.GridItem[](totalSlots);
+        
+        for (uint256 i = 0; i < totalSlots; i++) {
+            items[i] = inventory.grid[i];
+        }
+    }
+
+    /**
+     * @dev Get inventory item at specific coordinates
+     */
+    function getInventoryItem(address player, uint8 x, uint8 y) external view returns (InventoryLib.GridItem memory) {
+        return playerInventories[player].getItemAt(x, y);
+    }
+
+    /**
+     * @dev Move inventory item to new position
+     */
+    function moveInventoryItem(
+        uint8 fromX,
+        uint8 fromY,
+        uint8 toX,
+        uint8 toY,
+        uint8 rotation
+    ) external onlyRegisteredPlayer whenNotPaused {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[msg.sender];
+        
+        // Get item at source position
+        InventoryLib.GridItem memory item = inventory.getItemAt(fromX, fromY);
+        require(item.isOccupied, "No item at source position");
+        
+        // Get item shape from registry (this would need to be implemented)
+        // For now, assume 1x1 items - this would need integration with item registry
+        InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({
+            width: 1,
+            height: 1,
+            data: hex"01"
+        });
+        
+        // Remove from old position
+        require(inventory.removeItemWithRotation(shape, fromX, fromY, 0), "Failed to remove item");
+        
+        // Place at new position with rotation
+        require(inventory.placeItemWithRotation(shape, toX, toY, rotation, item.itemType, item.itemId), 
+                "Failed to place item at new position");
+    }
+
+    /**
+     * @dev Rotate inventory item in place
+     */
+    function rotateInventoryItem(uint8 x, uint8 y, uint8 newRotation) external onlyRegisteredPlayer whenNotPaused {
+        require(newRotation < 4, "Invalid rotation value");
+        
+        InventoryLib.InventoryGrid storage inventory = playerInventories[msg.sender];
+        InventoryLib.GridItem memory item = inventory.getItemAt(x, y);
+        require(item.isOccupied, "No item at position");
+        
+        // Get item shape (simplified for now)
+        InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({
+            width: 1,
+            height: 1,
+            data: hex"01"
+        });
+        
+        // Remove and replace with new rotation
+        require(inventory.removeItem(shape, x, y), "Failed to remove item");
+        require(inventory.placeItemWithRotation(shape, x, y, newRotation, item.itemType, item.itemId), 
+                "Failed to place rotated item");
+    }
+
+    /**
+     * @dev Discard inventory item to free space
+     */
+    function discardInventoryItem(uint8 x, uint8 y) external onlyRegisteredPlayer whenNotPaused {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[msg.sender];
+        InventoryLib.GridItem memory item = inventory.getItemAt(x, y);
+        require(item.isOccupied, "No item at position");
+        
+        // Get item shape (simplified for now)
+        InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({
+            width: 1,
+            height: 1,
+            data: hex"01"
+        });
+        
+        require(inventory.removeItem(shape, x, y), "Failed to remove item");
+        
+        // Could emit event for discarded item
+        // emit ItemDiscarded(msg.sender, item.itemType, item.itemId);
+    }
+
+    /**
+     * @dev Get available inventory space for placement
+     */
+    function getAvailableInventorySpace(address player, uint8 itemWidth, uint8 itemHeight) 
+        external view returns (uint8[] memory validX, uint8[] memory validY) {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+        
+        // Simple shape for testing placement
+        InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({
+            width: itemWidth,
+            height: itemHeight,
+            data: new bytes((itemWidth * itemHeight + 7) / 8)
+        });
+        
+        // Fill shape data (all bits set)
+        for (uint256 i = 0; i < shape.data.length; i++) {
+            shape.data[i] = bytes1(uint8(255));
+        }
+        
+        // Count valid positions
+        uint256 validCount = 0;
+        for (uint8 y = 0; y <= inventory.height - itemHeight; y++) {
+            for (uint8 x = 0; x <= inventory.width - itemWidth; x++) {
+                if (inventory.canPlaceItem(shape, x, y)) {
+                    validCount++;
+                }
+            }
+        }
+        
+        // Populate arrays
+        validX = new uint8[](validCount);
+        validY = new uint8[](validCount);
+        uint256 index = 0;
+        
+        for (uint8 y = 0; y <= inventory.height - itemHeight; y++) {
+            for (uint8 x = 0; x <= inventory.width - itemWidth; x++) {
+                if (inventory.canPlaceItem(shape, x, y)) {
+                    validX[index] = x;
+                    validY[index] = y;
+                    index++;
+                }
+            }
+        }
+    }
+
+    /**
+     * @dev Process array of inventory actions
+     */
+    function _processInventoryActions(address player, InventoryAction[] memory actions) private {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+        
+        for (uint256 i = 0; i < actions.length; i++) {
+            InventoryAction memory action = actions[i];
+            
+            if (action.actionType == 0) {
+                // Place item - simplified implementation
+                InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({
+                    width: 1,
+                    height: 1,
+                    data: hex"01"
+                });
+                
+                require(inventory.placeItemWithRotation(
+                    shape, action.toX, action.toY, action.rotation, 1, action.itemId
+                ), "Failed to place item");
+                
+            } else if (action.actionType == 1) {
+                // Move item
+                InventoryLib.GridItem memory item = inventory.getItemAt(action.fromX, action.fromY);
+                require(item.isOccupied, "No item to move");
+                
+                InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({
+                    width: 1,
+                    height: 1,
+                    data: hex"01"
+                });
+                
+                require(inventory.removeItem(shape, action.fromX, action.fromY), "Failed to remove item");
+                require(inventory.placeItemWithRotation(
+                    shape, action.toX, action.toY, action.rotation, item.itemType, item.itemId
+                ), "Failed to place moved item");
+                
+            } else if (action.actionType == 2) {
+                // Discard item
+                InventoryLib.GridItem memory item = inventory.getItemAt(action.fromX, action.fromY);
+                require(item.isOccupied, "No item to discard");
+                
+                InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({
+                    width: 1,
+                    height: 1,
+                    data: hex"01"
+                });
+                
+                require(inventory.removeItem(shape, action.fromX, action.fromY), "Failed to discard item");
+                
+            } else if (action.actionType == 3) {
+                // Rotate item in place
+                InventoryLib.GridItem memory item = inventory.getItemAt(action.fromX, action.fromY);
+                require(item.isOccupied, "No item to rotate");
+                
+                InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({
+                    width: 1,
+                    height: 1,
+                    data: hex"01"
+                });
+                
+                require(inventory.removeItem(shape, action.fromX, action.fromY), "Failed to remove item");
+                require(inventory.placeItemWithRotation(
+                    shape, action.fromX, action.fromY, action.rotation, item.itemType, item.itemId
+                ), "Failed to place rotated item");
+            }
+        }
+    }
+
+    /**
+     * @dev Update server signer address (admin only)
+     */
+    function updateServerSigner(address newSigner) external onlyRole(ADMIN_ROLE) {
+        require(newSigner != address(0), "Invalid signer address");
+        serverSigner = newSigner;
     }
 
     /**

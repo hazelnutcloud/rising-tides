@@ -46,9 +46,9 @@ contract Deploy is Script {
 
         // 5. Deploy Game State
         console.log("\n=== Deploying GameState ===");
-        // Note: Using placeholder VRF coordinator address for deployment
+        // Note: Using deployer address as initial server signer (should be changed after deployment)
         GameState gameState =
-            new GameState(address(currency), address(shipRegistry), address(fishRegistry), address(mapRegistry));
+            new GameState(address(currency), address(shipRegistry), address(fishRegistry), address(mapRegistry), deployerAddress);
         console.log("GameState deployed to:", address(gameState));
 
         // 6. Deploy Fish Market
