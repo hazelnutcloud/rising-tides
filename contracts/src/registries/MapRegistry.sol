@@ -106,19 +106,16 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
         uint256 mapId,
         int32 x,
         int32 y,
-        uint8[] calldata species,
-        uint16[] calldata probabilities
+        uint256[] calldata species
     ) external onlyRole(SERVER_ROLE) validMap(mapId) whenNotPaused {
-        require(species.length == probabilities.length, "Array length mismatch");
         require(species.length > 0, "Empty distribution");
         require(isValidPosition(mapId, x, y), "Position out of map bounds");
 
         FishDistribution storage distribution = fishDistributions[mapId][x][y];
         distribution.species = species;
-        distribution.baseProbabilities = probabilities;
         distribution.lastUpdated = block.timestamp;
 
-        emit FishDistributionUpdated(mapId, x, y, species, probabilities);
+        emit FishDistributionUpdated(mapId, x, y, species);
     }
 
     /**
@@ -140,7 +137,7 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
         uint256 mapId,
         int32 x,
         int32 y,
-        uint8[] calldata availableBait
+        uint256[] calldata availableBait
     ) external onlyRole(ADMIN_ROLE) validMap(mapId) whenNotPaused returns (uint256 shopId) {
         require(availableBait.length > 0, "No bait types specified");
         require(isValidPosition(mapId, x, y), "Position out of map bounds");
@@ -163,7 +160,7 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     function updateBaitShop(
         uint256 mapId,
         uint256 shopId,
-        uint8[] calldata availableBait
+        uint256[] calldata availableBait
     ) external onlyRole(ADMIN_ROLE) validMap(mapId) whenNotPaused {
         require(shopId < baitShops[mapId].length, "Invalid shop ID");
         require(availableBait.length > 0, "No bait types specified");

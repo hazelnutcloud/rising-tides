@@ -4,8 +4,6 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
-import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
 import "../interfaces/IGameState.sol";
 import "../interfaces/IShipRegistry.sol";
 import "../interfaces/IMapRegistry.sol";
@@ -18,7 +16,7 @@ import "../libraries/InventoryLib.sol";
  * @dev Main contract managing core game mechanics
  * Handles player registration, movement, fishing, and inventory management
  */
-contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, VRFConsumerBaseV2 {
+contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard {
     using InventoryLib for InventoryLib.InventoryGrid;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
@@ -31,13 +29,8 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, VRFC
     FishRegistry public fishRegistry;
     IMapRegistry public mapRegistry;
     
-    // VRF dependencies
-    VRFCoordinatorV2Interface public vrfCoordinator;
-    uint64 public subscriptionId;
-    bytes32 public keyHash;
-    uint32 public callbackGasLimit = 100000;
-    uint16 public requestConfirmations = 3;
-    uint32 public numWords = 1;
+    // Fishing system
+    mapping(address => uint256) private playerFishingNonce;
 
     // Game state mappings
     mapping(address => PlayerState) private playerStates;
@@ -47,11 +40,11 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, VRFC
     mapping(address => uint256) private playerFishCount;
     
     // Player bait inventory
-    mapping(address => mapping(uint8 => uint256)) private playerBait;
+    mapping(address => mapping(uint256 => uint256)) private playerBait;
     
-    // VRF request tracking
-    mapping(uint256 => address) private vrfRequestToPlayer;
-    mapping(uint256 => uint8) private vrfRequestToBaitType;
+    // Fishing request tracking
+    mapping(address => uint256) private pendingFishingRequest;
+    mapping(address => uint256) private pendingBaitType;
 
     // Game configuration
     uint256 public constant FUEL_PRICE_PER_UNIT = 10 * 10**18; // 10 RTC per fuel unit
@@ -87,24 +80,17 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, VRFC
         address _currency,
         address _shipRegistry,
         address _fishRegistry,
-        address _mapRegistry,
-        address _vrfCoordinator,
-        uint64 _subscriptionId,
-        bytes32 _keyHash
-    ) VRFConsumerBaseV2(_vrfCoordinator) {
+        address _mapRegistry
+    ) {
         require(_currency != address(0), "Currency address cannot be zero");
         require(_shipRegistry != address(0), "Ship registry address cannot be zero");
         require(_fishRegistry != address(0), "Fish registry address cannot be zero");
         require(_mapRegistry != address(0), "Map registry address cannot be zero");
-        require(_vrfCoordinator != address(0), "VRF coordinator address cannot be zero");
 
         currency = RisingTidesCurrency(_currency);
         shipRegistry = IShipRegistry(_shipRegistry);
         fishRegistry = FishRegistry(_fishRegistry);
         mapRegistry = IMapRegistry(_mapRegistry);
-        vrfCoordinator = VRFCoordinatorV2Interface(_vrfCoordinator);
-        subscriptionId = _subscriptionId;
-        keyHash = _keyHash;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
@@ -239,36 +225,39 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, VRFC
     }
 
     /**
-     * @dev Fish at current position with chosen bait (free attempts, requires bait in inventory)
+     * @dev Initiate fishing at current position with chosen bait (server will complete the action)
      */
-    function fish(uint8 baitType) 
+    function initiateFishing(uint256 baitType) 
         external 
         onlyRegisteredPlayer 
         whenNotPaused 
         nonReentrant 
-        returns (uint8 species, uint16 weight) 
+        returns (uint256 fishingNonce) 
     {
         // Validate bait type and check if player has it
         require(fishRegistry.isValidBait(baitType), "Invalid bait type");
         require(playerBait[msg.sender][baitType] > 0, "Insufficient bait");
         
+        // Check if player already has a pending fishing request
+        require(pendingFishingRequest[msg.sender] == 0, "Already have pending fishing request");
+        
         // Consume one bait
         playerBait[msg.sender][baitType]--;
         
-        // Request random number from VRF
-        uint256 requestId = vrfCoordinator.requestRandomWords(
-            keyHash,
-            subscriptionId,
-            requestConfirmations,
-            callbackGasLimit,
-            numWords
-        );
+        // Increment player's fishing nonce
+        playerFishingNonce[msg.sender]++;
+        fishingNonce = playerFishingNonce[msg.sender];
         
-        // Store request info for callback
-        vrfRequestToPlayer[requestId] = msg.sender;
-        vrfRequestToBaitType[requestId] = baitType;
+        // Store pending request info
+        pendingFishingRequest[msg.sender] = fishingNonce;
+        pendingBaitType[msg.sender] = baitType;
         
-        return (0, 0); // Actual result will be emitted in VRF callback
+        // Emit event for server to process
+        emit FishingInitiated(msg.sender, playerStates[msg.sender].shard, playerStates[msg.sender].mapId, 
+                             playerStates[msg.sender].position.x, playerStates[msg.sender].position.y, 
+                             baitType, fishingNonce);
+        
+        return fishingNonce;
     }
 
     /**
@@ -328,23 +317,26 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, VRFC
     }
 
     /**
-     * @dev VRF callback to complete fishing
+     * @dev Server callback to complete fishing (called by authorized server)
      */
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
-        address player = vrfRequestToPlayer[requestId];
-        uint8 baitType = vrfRequestToBaitType[requestId];
+    function completeServerFishing(address player, uint256 nonce, uint256 species, uint16 weight) 
+        external 
+        onlyRole(SERVER_ROLE) 
+        whenNotPaused 
+        nonReentrant 
+    {
+        require(registeredPlayers[player], "Player not registered");
+        require(pendingFishingRequest[player] == nonce, "Invalid or expired fishing request");
+        require(nonce > 0, "Invalid nonce");
         
-        if (player == address(0)) {
-            return; // Invalid request
-        }
+        // Clear pending request
+        delete pendingFishingRequest[player];
+        delete pendingBaitType[player];
         
-        PlayerState memory playerState = playerStates[player];
-        uint256 randomValue = randomWords[0];
-        
-        // Determine catch result using map and position-based distribution
-        (uint8 species, uint16 weight) = _performFishing(playerState.mapId, playerState.position, baitType, randomValue);
-        
+        // If server determined a catch occurred
         if (species > 0) {
+            require(fishRegistry.isValidSpecies(species), "Invalid species");
+            
             // Store caught fish
             uint256 fishId = playerFishCount[player];
             playerFish[player][fishId] = FishCatch({
@@ -356,112 +348,8 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, VRFC
 
             emit FishCaught(player, species, weight, fishId);
         }
-        
-        // Clean up request tracking
-        delete vrfRequestToPlayer[requestId];
-        delete vrfRequestToBaitType[requestId];
     }
     
-    /**
-     * @dev Internal function to perform fishing logic with position and VRF
-     */
-    function _performFishing(uint256 mapId, Position memory position, uint8 baitType, uint256 randomValue) 
-        private 
-        view 
-        returns (uint8 species, uint16 weight) 
-    {
-        // Get fish distribution at current position on the map
-        IMapRegistry.FishDistribution memory distribution = mapRegistry.getFishDistribution(mapId, position.x, position.y);
-        
-        // If no distribution set, use default from registry
-        if (distribution.species.length == 0) {
-            return _performDefaultFishing(baitType, randomValue);
-        }
-        
-        // Calculate total probability with bait modifier
-        uint256 totalProbability = 0;
-        uint16[] memory adjustedProbabilities = new uint16[](distribution.species.length);
-        
-        for (uint256 i = 0; i < distribution.species.length; i++) {
-            uint8 speciesId = distribution.species[i];
-            uint16 baseProbability = distribution.baseProbabilities[i];
-            uint16 baitModifier = fishRegistry.getCatchProbability(speciesId, baitType);
-            
-            adjustedProbabilities[i] = (baseProbability * baitModifier) / 100;
-            totalProbability += adjustedProbabilities[i];
-        }
-        
-        if (totalProbability == 0) {
-            return (0, 0); // No catch
-        }
-        
-        // Select species based on adjusted probabilities
-        uint256 targetValue = randomValue % totalProbability;
-        uint256 currentProbability = 0;
-        
-        for (uint256 i = 0; i < distribution.species.length; i++) {
-            currentProbability += adjustedProbabilities[i];
-            if (targetValue < currentProbability) {
-                species = distribution.species[i];
-                break;
-            }
-        }
-        
-        if (species > 0) {
-            // Generate weight using additional randomness
-            weight = fishRegistry.getRandomWeight(species, randomValue >> 128);
-        }
-        
-        return (species, weight);
-    }
-    
-    /**
-     * @dev Fallback fishing logic when no position distribution is set
-     */
-    function _performDefaultFishing(uint8 baitType, uint256 randomValue) 
-        private 
-        view 
-        returns (uint8 species, uint16 weight) 
-    {
-        uint8 speciesCount = fishRegistry.getSpeciesCount();
-        uint256 totalProbability = 0;
-        uint8[] memory compatibleSpecies = new uint8[](speciesCount);
-        uint16[] memory probabilities = new uint16[](speciesCount);
-        uint256 compatibleCount = 0;
-
-        for (uint8 i = 1; i <= speciesCount; i++) {
-            if (fishRegistry.isValidSpecies(i)) {
-                uint16 probability = fishRegistry.getCatchProbability(i, baitType);
-                if (probability > 0) {
-                    compatibleSpecies[compatibleCount] = i;
-                    probabilities[compatibleCount] = probability;
-                    totalProbability += probability;
-                    compatibleCount++;
-                }
-            }
-        }
-
-        if (totalProbability == 0) {
-            return (0, 0);
-        }
-
-        uint256 targetValue = randomValue % totalProbability;
-        uint256 currentProbability = 0;
-
-        for (uint256 i = 0; i < compatibleCount; i++) {
-            currentProbability += probabilities[i];
-            if (targetValue < currentProbability) {
-                species = compatibleSpecies[i];
-                break;
-            }
-        }
-
-        if (species > 0) {
-            weight = fishRegistry.getRandomWeight(species, randomValue >> 128);
-        }
-
-        return (species, weight);
-    }
 
     /**
      * @dev Initialize player inventory based on ship
@@ -526,7 +414,7 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, VRFC
     /**
      * @dev Purchase bait at a bait shop
      */
-    function purchaseBait(uint8 baitType, uint256 amount) 
+    function purchaseBait(uint256 baitType, uint256 amount) 
         external 
         onlyRegisteredPlayer 
         whenNotPaused 
@@ -568,7 +456,7 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, VRFC
     /**
      * @dev Get player's bait inventory
      */
-    function getPlayerBait(address player, uint8 baitType) external view returns (uint256) {
+    function getPlayerBait(address player, uint256 baitType) external view returns (uint256) {
         return playerBait[player][baitType];
     }
     
@@ -578,36 +466,53 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, VRFC
     function getPlayerAvailableBait(address player) 
         external 
         view 
-        returns (uint8[] memory baitTypes, uint256[] memory amounts) 
+        returns (uint256[] memory baitTypes, uint256[] memory amounts) 
     {
         // Count available bait types first
         uint256 availableCount = 0;
-        for (uint8 i = 1; i <= 255; i++) {
+        for (uint256 i = 1; i <= 1000; i++) { // Increased from 255 to 1000 for more species
             if (playerBait[player][i] > 0) {
                 availableCount++;
             }
-            if (!fishRegistry.isValidBait(i) && i > 10) {
+            if (!fishRegistry.isValidBait(i) && i > 50) {
                 break; // Stop checking after a reasonable range
             }
         }
         
         // Populate arrays
-        baitTypes = new uint8[](availableCount);
+        baitTypes = new uint256[](availableCount);
         amounts = new uint256[](availableCount);
         
         uint256 index = 0;
-        for (uint8 i = 1; i <= 255 && index < availableCount; i++) {
+        for (uint256 i = 1; i <= 1000 && index < availableCount; i++) {
             if (playerBait[player][i] > 0) {
                 baitTypes[index] = i;
                 amounts[index] = playerBait[player][i];
                 index++;
             }
-            if (!fishRegistry.isValidBait(i) && i > 10) {
+            if (!fishRegistry.isValidBait(i) && i > 50) {
                 break;
             }
         }
         
         return (baitTypes, amounts);
+    }
+    
+    /**
+     * @dev Get player's fishing status
+     */
+    function getPlayerFishingStatus(address player) 
+        external 
+        view 
+        returns (
+            uint256 pendingNonce, 
+            uint256 baitTypeUsed, 
+            uint256 currentNonce
+        ) 
+    {
+        pendingNonce = pendingFishingRequest[player];
+        baitTypeUsed = pendingBaitType[player];
+        currentNonce = playerFishingNonce[player];
     }
     
     /**
@@ -707,32 +612,6 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, VRFC
         }
     }
     
-    /**
-     * @dev Update VRF configuration (admin only)
-     */
-    function updateVRFConfig(
-        address _vrfCoordinator,
-        uint64 _subscriptionId,
-        bytes32 _keyHash,
-        uint32 _callbackGasLimit,
-        uint16 _requestConfirmations
-    ) external onlyRole(ADMIN_ROLE) {
-        if (_vrfCoordinator != address(0)) {
-            vrfCoordinator = VRFCoordinatorV2Interface(_vrfCoordinator);
-        }
-        if (_subscriptionId != 0) {
-            subscriptionId = _subscriptionId;
-        }
-        if (_keyHash != bytes32(0)) {
-            keyHash = _keyHash;
-        }
-        if (_callbackGasLimit != 0) {
-            callbackGasLimit = _callbackGasLimit;
-        }
-        if (_requestConfirmations != 0) {
-            requestConfirmations = _requestConfirmations;
-        }
-    }
 
     /**
      * @dev Pause the contract

@@ -20,23 +20,22 @@ interface IMapRegistry {
     }
 
     struct FishDistribution {
-        uint8[] species;
-        uint16[] baseProbabilities;
+        uint256[] species;
         uint256 lastUpdated;
     }
 
     struct BaitShop {
         Position position;
-        uint8[] availableBait;
+        uint256[] availableBait;
         bool isActive;
     }
 
     // Events
     event MapRegistered(uint256 indexed mapId, string name, uint8 tier, uint256 travelCost);
     event MapUpdated(uint256 indexed mapId, string name, uint8 tier, uint256 travelCost);
-    event FishDistributionUpdated(uint256 indexed mapId, int32 x, int32 y, uint8[] species, uint16[] probabilities);
+    event FishDistributionUpdated(uint256 indexed mapId, int32 x, int32 y, uint256[] species);
     event BaitShopAdded(uint256 indexed mapId, uint256 indexed shopId, int32 x, int32 y);
-    event BaitShopUpdated(uint256 indexed mapId, uint256 indexed shopId, uint8[] availableBait);
+    event BaitShopUpdated(uint256 indexed mapId, uint256 indexed shopId, uint256[] availableBait);
     event TerrainUpdated(uint256 indexed mapId, int32 x, int32 y, bool isPassable);
 
     // Map Management
@@ -63,8 +62,7 @@ interface IMapRegistry {
         uint256 mapId,
         int32 x,
         int32 y,
-        uint8[] calldata species,
-        uint16[] calldata probabilities
+        uint256[] calldata species
     ) external;
 
     function getFishDistribution(uint256 mapId, int32 x, int32 y) external view returns (FishDistribution memory);
@@ -74,13 +72,13 @@ interface IMapRegistry {
         uint256 mapId,
         int32 x,
         int32 y,
-        uint8[] calldata availableBait
+        uint256[] calldata availableBait
     ) external returns (uint256 shopId);
 
     function updateBaitShop(
         uint256 mapId,
         uint256 shopId,
-        uint8[] calldata availableBait
+        uint256[] calldata availableBait
     ) external;
 
     function getBaitShop(uint256 mapId, uint256 shopId) external view returns (BaitShop memory);

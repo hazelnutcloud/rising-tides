@@ -47,19 +47,11 @@ contract Deploy is Script {
         // 5. Deploy Game State
         console.log("\n=== Deploying GameState ===");
         // Note: Using placeholder VRF coordinator address for deployment
-        // In production, replace with actual Chainlink VRF coordinator
-        address vrfCoordinator = address(0x1); // Placeholder
-        uint64 subscriptionId = 1;
-        bytes32 keyHash = 0x0;
-        
         GameState gameState = new GameState(
             address(currency),
             address(shipRegistry),
             address(fishRegistry),
-            address(mapRegistry),
-            vrfCoordinator,
-            subscriptionId,
-            keyHash
+            address(mapRegistry)
         );
         console.log("GameState deployed to:", address(gameState));
 
@@ -163,79 +155,45 @@ contract Deploy is Script {
         // Add common fish species
         
         // 1. Sardine (common, small)
-        uint8[] memory sardineBaits = new uint8[](1);
-        sardineBaits[0] = 1; // Basic bait
-        uint16[] memory sardineProbabilities = new uint16[](1);
-        sardineProbabilities[0] = 5000; // 50% chance with basic bait
-        
         bytes memory sardineShape = new bytes(1);
         sardineShape[0] = 0x01; // 1x1 shape
         
         fishRegistry.registerFishSpecies(
             1, // id
-            "Sardine", // name
             100 * 10**18, // basePrice (100 RTC)
             1, // rarity (common)
-            50, // minWeight (50g)
-            150, // maxWeight (150g)
             1, // shapeWidth
             1, // shapeHeight
             sardineShape,
-            5, // freshnessDecayRate (5% per hour)
-            sardineBaits,
-            sardineProbabilities
+            5 // freshnessDecayRate (5% per hour)
         );
 
         // 2. Cod (uncommon, medium)
-        uint8[] memory codBaits = new uint8[](2);
-        codBaits[0] = 1; // Basic bait
-        codBaits[1] = 2; // Premium bait
-        uint16[] memory codProbabilities = new uint16[](2);
-        codProbabilities[0] = 2000; // 20% chance with basic bait
-        codProbabilities[1] = 4000; // 40% chance with premium bait
-        
         bytes memory codShape = new bytes(1);
         codShape[0] = 0x03; // 2x1 shape (bits: 11)
         
         fishRegistry.registerFishSpecies(
             2, // id
-            "Cod", // name
             250 * 10**18, // basePrice (250 RTC)
             3, // rarity (uncommon)
-            200, // minWeight (200g)
-            800, // maxWeight (800g)
             2, // shapeWidth
             1, // shapeHeight
             codShape,
-            3, // freshnessDecayRate (3% per hour)
-            codBaits,
-            codProbabilities
+            3 // freshnessDecayRate (3% per hour)
         );
 
         // 3. Tuna (rare, large)
-        uint8[] memory tunaBaits = new uint8[](2);
-        tunaBaits[0] = 2; // Premium bait
-        tunaBaits[1] = 3; // Specialized bait
-        uint16[] memory tunaProbabilities = new uint16[](2);
-        tunaProbabilities[0] = 1000; // 10% chance with premium bait
-        tunaProbabilities[1] = 2500; // 25% chance with specialized bait
-        
         bytes memory tunaShape = new bytes(1);
         tunaShape[0] = 0x0F; // 2x2 shape (bits: 1111)
         
         fishRegistry.registerFishSpecies(
             3, // id
-            "Tuna", // name
             500 * 10**18, // basePrice (500 RTC)
             6, // rarity (rare)
-            1000, // minWeight (1kg)
-            5000, // maxWeight (5kg)
             2, // shapeWidth
             2, // shapeHeight
             tunaShape,
-            2, // freshnessDecayRate (2% per hour)
-            tunaBaits,
-            tunaProbabilities
+            2 // freshnessDecayRate (2% per hour)
         );
         
         console.log("Added basic fish species");
@@ -280,7 +238,7 @@ contract Deploy is Script {
         );
         
         // Add a bait shop at the origin (0,0)
-        uint8[] memory availableBait = new uint8[](3);
+        uint256[] memory availableBait = new uint256[](3);
         availableBait[0] = 1; // Basic bait
         availableBait[1] = 2; // Premium bait
         availableBait[2] = 3; // Specialized bait
@@ -288,18 +246,14 @@ contract Deploy is Script {
         mapRegistry.addBaitShop(1, 0, 0, availableBait);
         
         // Add some fish distributions for testing
-        uint8[] memory fishSpecies = new uint8[](2);
+        uint256[] memory fishSpecies = new uint256[](2);
         fishSpecies[0] = 1; // Sardine
         fishSpecies[1] = 2; // Cod
         
-        uint16[] memory probabilities = new uint16[](2);
-        probabilities[0] = 6000; // 60% sardine
-        probabilities[1] = 4000; // 40% cod
-        
         // Add fish distribution at a few locations
-        mapRegistry.updateFishDistribution(1, 5, 5, fishSpecies, probabilities);
-        mapRegistry.updateFishDistribution(1, -10, 10, fishSpecies, probabilities);
-        mapRegistry.updateFishDistribution(1, 15, -5, fishSpecies, probabilities);
+        mapRegistry.updateFishDistribution(1, 5, 5, fishSpecies);
+        mapRegistry.updateFishDistribution(1, -10, 10, fishSpecies);
+        mapRegistry.updateFishDistribution(1, 15, -5, fishSpecies);
         
         console.log("Added starter map with bait shop and fish distributions");
     }

@@ -21,7 +21,7 @@ interface IGameState {
     }
 
     struct FishCatch {
-        uint8 species;
+        uint256 species;
         uint16 weight;
         uint256 caughtAt;
     }
@@ -30,12 +30,13 @@ interface IGameState {
     // Events
     event PlayerRegistered(address indexed player, uint8 shard);
     event PlayerMoved(address indexed player, uint8 shard, uint256 mapId, int32 x, int32 y, uint256 fuelConsumed);
-    event FishCaught(address indexed player, uint8 species, uint16 weight, uint256 inventorySlot);
+    event FishingInitiated(address indexed player, uint8 shard, uint256 mapId, int32 x, int32 y, uint256 baitType, uint256 nonce);
+    event FishCaught(address indexed player, uint256 species, uint16 weight, uint256 inventorySlot);
     event FuelPurchased(address indexed player, uint256 amount, uint256 cost);
     event ShipChanged(address indexed player, uint256 newShipId);
     event ShardChanged(address indexed player, uint8 oldShard, uint8 newShard);
     event MapChanged(address indexed player, uint256 oldMapId, uint256 newMapId, uint256 cost);
-    event BaitPurchased(address indexed player, uint8 baitType, uint256 amount, uint256 cost);
+    event BaitPurchased(address indexed player, uint256 baitType, uint256 amount, uint256 cost);
 
     // Player Management
     function registerPlayer(uint8 shard, uint256 mapId) external;
@@ -51,12 +52,14 @@ interface IGameState {
     function getCurrentFuel(address player) external view returns (uint256);
 
     // Fishing
-    function fish(uint8 baitType) external returns (uint8 species, uint16 weight);
+    function initiateFishing(uint256 baitType) external returns (uint256 fishingNonce);
+    function completeServerFishing(address player, uint256 nonce, uint256 species, uint16 weight) external;
     
     // Bait Management
-    function purchaseBait(uint8 baitType, uint256 amount) external;
-    function getPlayerBait(address player, uint8 baitType) external view returns (uint256);
-    function getPlayerAvailableBait(address player) external view returns (uint8[] memory baitTypes, uint256[] memory amounts);
+    function purchaseBait(uint256 baitType, uint256 amount) external;
+    function getPlayerBait(address player, uint256 baitType) external view returns (uint256);
+    function getPlayerAvailableBait(address player) external view returns (uint256[] memory baitTypes, uint256[] memory amounts);
+    function getPlayerFishingStatus(address player) external view returns (uint256 pendingNonce, uint256 baitTypeUsed, uint256 currentNonce);
     
     // Map Travel
     function travelToMap(uint256 newMapId) external;

@@ -350,7 +350,6 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
         require(_ownerOf(tokenId) != address(0), "Token does not exist");
         
         uint256 seasonId = tokenToSeason[tokenId];
-        Season memory season = seasons[seasonId];
         
         // Return metadata URL (implement according to your metadata service)
         return string(abi.encodePacked(

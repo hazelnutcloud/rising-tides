@@ -22,9 +22,9 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     FishRegistry public fishRegistry;
 
     // Market state for each fish species
-    mapping(uint8 => MarketData) private marketData;
-    mapping(uint8 => uint256[]) private priceHistory; // Last 24 price points
-    mapping(uint8 => uint256) private lastPriceUpdate;
+    mapping(uint256 => MarketData) private marketData;
+    mapping(uint256 => uint256[]) private priceHistory; // Last 24 price points
+    mapping(uint256 => uint256) private lastPriceUpdate;
 
     // Bonding curve parameters
     uint256 public constant PRICE_DECAY_FACTOR = 9900; // 99% (1% decay per sale)
@@ -42,10 +42,10 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     address public feeCollector;
 
     // Volume tracking for 24h rolling window
-    mapping(uint8 => mapping(uint256 => uint256)) private hourlyVolume; // species => hour => volume
+    mapping(uint256 => mapping(uint256 => uint256)) private hourlyVolume; // species => hour => volume
     uint256 public constant VOLUME_WINDOW = 24 hours;
 
-    modifier validSpecies(uint8 species) {
+    modifier validSpecies(uint256 species) {
         require(fishRegistry.isValidSpecies(species), "Invalid fish species");
         _;
     }
@@ -72,7 +72,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
      * @dev Sell a single fish
      */
     function sellFish(
-        uint8 species,
+        uint256 species,
         uint16 weight,
         uint256 caughtAt
     ) external validSpecies(species) whenNotPaused nonReentrant returns (uint256 earnings) {
@@ -107,7 +107,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
      * @dev Sell multiple fish in a single transaction
      */
     function sellMultipleFish(
-        uint8[] calldata species,
+        uint256[] calldata species,
         uint16[] calldata weights,
         uint256[] calldata caughtTimestamps
     ) external whenNotPaused nonReentrant returns (uint256 totalEarnings) {
@@ -155,7 +155,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Get current market price for a species
      */
-    function getCurrentPrice(uint8 species) public view validSpecies(species) returns (uint256) {
+    function getCurrentPrice(uint256 species) public view validSpecies(species) returns (uint256) {
         MarketData memory data = marketData[species];
         
         if (data.currentPrice == 0) {
@@ -186,7 +186,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
      * @dev Calculate fish value including weight and freshness
      */
     function calculateFishValue(
-        uint8 species,
+        uint256 species,
         uint16 weight,
         uint256 caughtAt
     ) public view validSpecies(species) returns (uint256 value, uint8 freshness) {
@@ -229,7 +229,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Get market data for a species
      */
-    function getMarketData(uint8 species) external view validSpecies(species) returns (MarketData memory) {
+    function getMarketData(uint256 species) external view validSpecies(species) returns (MarketData memory) {
         MarketData memory data = marketData[species];
         
         // Update current price with recovery if needed
@@ -244,7 +244,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Internal function to update market data after a sale
      */
-    function _updateMarketData(uint8 species, uint256 saleValue) private {
+    function _updateMarketData(uint256 species, uint256 saleValue) private {
         MarketData storage data = marketData[species];
         
         // Initialize if first sale
@@ -286,7 +286,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Calculate 24-hour trading volume for a species
      */
-    function _calculate24hVolume(uint8 species) private view returns (uint256) {
+    function _calculate24hVolume(uint256 species) private view returns (uint256) {
         uint256 currentHour = block.timestamp / 1 hours;
         uint256 totalVolume = 0;
         
@@ -303,7 +303,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Get price history for a species
      */
-    function getPriceHistory(uint8 species) external view validSpecies(species) returns (uint256[] memory) {
+    function getPriceHistory(uint256 species) external view validSpecies(species) returns (uint256[] memory) {
         return priceHistory[species];
     }
 
@@ -326,7 +326,7 @@ contract FishMarket is IFishMarket, AccessControl, Pausable, ReentrancyGuard {
     /**
      * @dev Initialize market data for a species (admin only)
      */
-    function initializeMarketData(uint8 species) external onlyRole(ADMIN_ROLE) validSpecies(species) {
+    function initializeMarketData(uint256 species) external onlyRole(ADMIN_ROLE) validSpecies(species) {
         if (marketData[species].basePrice == 0) {
             FishRegistry.FishSpecies memory fishSpec = fishRegistry.getFishSpecies(species);
             marketData[species] = MarketData({

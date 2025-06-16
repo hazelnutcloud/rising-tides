@@ -36,7 +36,7 @@ contract FishMarketTest is Test {
     }
 
     function testSellFish() public {
-        uint8 species = 1;
+        uint256 species = 1;
         uint16 weight = 100; // 100g
         uint256 caughtAt = block.timestamp; // Just caught
 
@@ -44,11 +44,12 @@ contract FishMarketTest is Test {
         uint256 initialFeeBalance = currency.balanceOf(feeCollector);
 
         // Calculate expected values
-        (uint256 expectedValue, uint8 freshness) = fishMarket.calculateFishValue(species, weight, caughtAt);
+        (uint256 expectedValue, ) = fishMarket.calculateFishValue(species, weight, caughtAt);
         uint256 expectedFee = (expectedValue * 300) / 10000; // 3% fee
         uint256 expectedEarnings = expectedValue - expectedFee;
 
-        // Sell fish
+        // Sell fish as seller
+        vm.prank(seller);
         uint256 earnings = fishMarket.sellFish(species, weight, caughtAt);
 
         // Check earnings
@@ -58,13 +59,14 @@ contract FishMarketTest is Test {
     }
 
     function testBondingCurve() public {
-        uint8 species = 1;
+        uint256 species = 1;
         uint16 weight = 100;
         uint256 caughtAt = block.timestamp;
 
         uint256 initialPrice = fishMarket.getCurrentPrice(species);
         
         // Sell first fish
+        vm.prank(seller);
         fishMarket.sellFish(species, weight, caughtAt);
         uint256 priceAfterFirstSale = fishMarket.getCurrentPrice(species);
         
@@ -72,6 +74,7 @@ contract FishMarketTest is Test {
         assertTrue(priceAfterFirstSale < initialPrice);
         
         // Sell second fish
+        vm.prank(seller);
         fishMarket.sellFish(species, weight, caughtAt);
         uint256 priceAfterSecondSale = fishMarket.getCurrentPrice(species);
         
@@ -81,23 +84,25 @@ contract FishMarketTest is Test {
 
     function testFreshnessDecay() public {
         // Fresh fish (just caught)
-        uint256 freshCaughtAt = block.timestamp;
-        uint8 freshness1 = fishMarket.calculateFreshness(freshCaughtAt);
+        uint256 originalTimestamp = 1; // Fixed timestamp
+        vm.warp(originalTimestamp);
+        
+        uint8 freshness1 = fishMarket.calculateFreshness(originalTimestamp);
         assertEq(freshness1, 100); // Max freshness
 
-        // Fish caught 2 hours ago (simulate by warping time)
-        vm.warp(freshCaughtAt + 2 hours);
-        uint8 freshness2 = fishMarket.calculateFreshness(freshCaughtAt);
+        // Fish caught 2 hours ago (simulate by warping time)  
+        vm.warp(originalTimestamp + 2 hours);
+        uint8 freshness2 = fishMarket.calculateFreshness(originalTimestamp);
         assertEq(freshness2, 90); // 100 - (2 * 5) = 90
 
         // Fish caught 20 hours ago (completely spoiled)
-        vm.warp(freshCaughtAt + 20 hours);
-        uint8 freshness3 = fishMarket.calculateFreshness(freshCaughtAt);
+        vm.warp(originalTimestamp + 20 hours);
+        uint8 freshness3 = fishMarket.calculateFreshness(originalTimestamp);
         assertEq(freshness3, 0); // Completely spoiled
     }
 
     function testSellMultipleFish() public {
-        uint8[] memory species = new uint8[](3);
+        uint256[] memory species = new uint256[](3);
         uint16[] memory weights = new uint16[](3);
         uint256[] memory caughtTimestamps = new uint256[](3);
 
@@ -115,6 +120,7 @@ contract FishMarketTest is Test {
 
         uint256 initialBalance = currency.balanceOf(seller);
         
+        vm.prank(seller);
         uint256 totalEarnings = fishMarket.sellMultipleFish(species, weights, caughtTimestamps);
         
         assertTrue(totalEarnings > 0);
@@ -122,13 +128,12 @@ contract FishMarketTest is Test {
     }
 
     function testPriceRecovery() public {
-        uint8 species = 1;
+        uint256 species = 1;
         uint16 weight = 100;
         uint256 caughtAt = block.timestamp;
 
-        uint256 initialPrice = fishMarket.getCurrentPrice(species);
-        
         // Sell fish to decrease price
+        vm.prank(seller);
         fishMarket.sellFish(species, weight, caughtAt);
         uint256 priceAfterSale = fishMarket.getCurrentPrice(species);
         
@@ -141,8 +146,8 @@ contract FishMarketTest is Test {
         assertTrue(priceAfterTime > priceAfterSale);
     }
 
-    function testMarketData() public {
-        uint8 species = 1;
+    function testMarketData() public view {
+        uint256 species = 1;
         
         FishMarket.MarketData memory data = fishMarket.getMarketData(species);
         
@@ -152,7 +157,7 @@ contract FishMarketTest is Test {
     }
 
     function testSellSpoiledFish() public {
-        uint8 species = 1;
+        uint256 species = 1;
         uint16 weight = 100;
         uint256 fishCaughtTime = block.timestamp;
         
@@ -176,40 +181,32 @@ contract FishMarketTest is Test {
             vm.expectRevert("Fish is no longer fresh");
         }
         
+        vm.prank(seller);
         fishMarket.sellFish(species, weight, fishCaughtTime);
     }
 
     function testInvalidSpecies() public {
-        uint8 invalidSpecies = 99;
+        uint256 invalidSpecies = 99;
         uint16 weight = 100;
         uint256 caughtAt = block.timestamp;
 
         vm.expectRevert("Invalid fish species");
+        vm.prank(seller);
         fishMarket.sellFish(invalidSpecies, weight, caughtAt);
     }
 
     function _addTestFish() private {
-        uint8[] memory baits = new uint8[](1);
-        baits[0] = 1;
-        uint16[] memory probabilities = new uint16[](1);
-        probabilities[0] = 5000;
-        
         bytes memory shape = new bytes(1);
         shape[0] = 0x01;
         
         fishRegistry.registerFishSpecies(
             1,
-            "Test Fish",
             100 * 10**18, // Base price: 100 RTC
             1,
-            50,
-            150,
             1,
             1,
             shape,
-            5, // 5% freshness decay per hour
-            baits,
-            probabilities
+            5 // 5% freshness decay per hour
         );
     }
 }
