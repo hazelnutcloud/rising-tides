@@ -142,13 +142,8 @@ contract Deploy is Script {
     }
 
     function _addStarterShip(ShipRegistry shipRegistry) private {
-        // Create a basic cargo shape (4x4 grid, all slots available)
-        bytes memory cargoShape = new bytes(2); // 16 bits for 4x4 grid
-        cargoShape[0] = 0xFF; // First 8 bits
-        cargoShape[1] = 0xFF; // Last 8 bits
-
         // Create slot types array (16 slots for 4x4 grid)
-        // 0=normal, 1=engine, 2=equipment
+        // 0=normal, 1=engine, 2=equipment, 3=blocked
         uint8[] memory slotTypes = new uint8[](16);
         // Initialize all as normal cargo slots
         for (uint256 i = 0; i < 16; i++) {
@@ -170,13 +165,15 @@ contract Deploy is Script {
             100, // maxDurability
             4, // cargoWidth
             4, // cargoHeight
-            cargoShape,
             slotTypes,
             0, // purchasePrice (free starter ship)
             10 * 10 ** 18 // repairCostPerPoint (10 RTC per durability point)
         );
 
         console.log("Added starter ship");
+
+        // Add a second ship with blocked slots to demonstrate grid shape manipulation
+        _addShipWithBlockedSlots(shipRegistry);
     }
 
     function _addBasicFish(FishRegistry fishRegistry) private {
@@ -396,5 +393,43 @@ contract Deploy is Script {
         );
 
         console.log("Added basic fishing rods");
+    }
+
+    function _addShipWithBlockedSlots(ShipRegistry shipRegistry) private {
+        // Create L-shaped layout using blocked slots
+        uint8[] memory slotTypes = new uint8[](16);
+        // Initialize all as normal cargo slots
+        for (uint256 i = 0; i < 16; i++) {
+            slotTypes[i] = 0; // normal slot
+        }
+
+        // Create L-shape by blocking some slots:
+        // Layout: X = blocked, O = normal, E = engine, Q = equipment
+        // O O X X
+        // O O X X
+        // O O O O
+        // E O O Q
+        slotTypes[2] = 3;  // Block position 2 (top row)
+        slotTypes[3] = 3;  // Block position 3 (top row)
+        slotTypes[6] = 3;  // Block position 6 (second row)
+        slotTypes[7] = 3;  // Block position 7 (second row)
+
+        // Add engine and equipment slots
+        slotTypes[12] = 1; // Engine slot (bottom-left)
+        slotTypes[15] = 2; // Equipment slot (bottom-right)
+
+        shipRegistry.registerShip(
+            2, // id
+            "L-Shaped Clipper", // name
+            120, // fuelCapacity (slightly more than starter)
+            120, // maxDurability
+            4, // cargoWidth
+            4, // cargoHeight
+            slotTypes,
+            100 * 10 ** 18, // purchasePrice (100 RTC)
+            12 * 10 ** 18 // repairCostPerPoint (12 RTC per durability point)
+        );
+
+        console.log("Added L-shaped ship with blocked slots");
     }
 }

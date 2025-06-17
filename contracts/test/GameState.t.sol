@@ -286,10 +286,6 @@ contract GameStateTest is Test {
     }
 
     function _addTestShip() private {
-        bytes memory cargoShape = new bytes(2);
-        cargoShape[0] = 0xFF;
-        cargoShape[1] = 0xFF;
-
         // Create slot types array (16 slots for 4x4 grid)
         // 0=normal, 1=engine, 2=equipment
         uint8[] memory slotTypes = new uint8[](16);
@@ -302,7 +298,7 @@ contract GameStateTest is Test {
         // Set equipment slot
         slotTypes[15] = 2; // Bottom-right corner
 
-        shipRegistry.registerShip(1, "Test Ship", 100, 100, 4, 4, cargoShape, slotTypes, 0, 10 * 10 ** 18);
+        shipRegistry.registerShip(1, "Test Ship", 100, 100, 4, 4, slotTypes, 0, 10 * 10 ** 18);
     }
 
     function _addTestFish() private {
@@ -1044,5 +1040,162 @@ contract GameStateTest is Test {
         uint256 finalFuel = gameState.getCurrentFuel(player1);
         uint256 expectedCost = 1e18; // 1 * 1e18 * 100 / 100
         assertEq(finalFuel, initialFuel - expectedCost, "Fuel should decrease by calculated amount");
+    }
+
+    function testBlockedSlotValidation() public {
+        // First register a ship with some blocked slots for testing
+        _addShipWithBlockedSlots();
+        
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1); // Use map ID 1
+        
+        // Change to ship with blocked slots
+        vm.prank(player1);
+        gameState.changeShip(2);
+        
+        // Test that ship registry correctly identifies blocked slots
+        assertTrue(gameState.isBlockedSlot(2, 1), "Position 1 should be blocked");
+        assertTrue(gameState.isBlockedSlot(2, 2), "Position 2 should be blocked");
+        assertFalse(gameState.isBlockedSlot(2, 0), "Position 0 should not be blocked");
+        assertFalse(gameState.isBlockedSlot(2, 4), "Position 4 should not be blocked");
+    }
+
+    function testBlockedSlotPreventsFishPlacement() public {
+        // Register ship with blocked slots
+        _addShipWithBlockedSlots();
+        
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1); // Use map ID 1
+        
+        // Change to ship with blocked slots
+        vm.prank(player1);
+        gameState.changeShip(2);
+        
+        // Manually place fishing rod in equipment slot after ship change
+        _placeFishingRodManually(player1, 1, 15); // Place fishing rod ID 1 in slot 15 (equipment slot)
+        
+        // Try to initiate and fulfill fishing to place a fish on a blocked slot
+        uint256 baitType = 1;
+        uint256 baitAmount = 1;
+
+        vm.prank(player1);
+        gameState.purchaseBait(baitType, baitAmount);
+
+        vm.prank(player1);
+        uint256 fishingNonce = gameState.initiateFishing(baitType);
+
+        // Create fishing result
+        FishingResult memory result = FishingResult({
+            player: player1,
+            nonce: fishingNonce,
+            species: 1,
+            weight: 100,
+            timestamp: block.timestamp
+        });
+
+        bytes memory signature = _createTestSignature(result);
+
+        // Try to place fish on blocked slot (position 1, which is x=1, y=0 in 4x4 grid)
+        FishPlacement memory fishPlacement = FishPlacement({
+            shouldPlace: true,
+            x: 1, // This position should be blocked
+            y: 0,
+            rotation: 0
+        });
+
+        // Fulfill fishing should fail due to blocked slot
+        vm.prank(player1);
+        vm.expectRevert("Failed to place fish in inventory");
+        gameState.fulfillFishing(result, signature, fishPlacement);
+    }
+
+    function testBlockedSlotPreventsItemMovement() public {
+        // Register ship with blocked slots
+        _addShipWithBlockedSlots();
+        
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1); // Use map ID 1
+        
+        // Change to ship with blocked slots
+        vm.prank(player1);
+        gameState.changeShip(2);
+        
+        // Place a fish in a normal slot first
+        _placeFishManually(player1, 1, 0, 0); // Place sardine at position (0,0)
+        
+        // Try to move the fish to a blocked slot
+        vm.prank(player1);
+        vm.expectRevert("Failed to place item at new position");
+        gameState.moveInventoryItem(0, 0, 1, 0); // Try to move to position (1,0) which is blocked
+    }
+
+    function testInventoryShapeWithBlockedSlots() public {
+        // Register ship with blocked slots
+        _addShipWithBlockedSlots();
+        
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1); // Use map ID 1
+        
+        // Change to ship with blocked slots
+        vm.prank(player1);
+        gameState.changeShip(2);
+        
+        // Get inventory to verify blocked slots affect the layout
+        (uint8 width, uint8 height, uint8[] memory slotTypes, InventoryLib.GridItem[] memory items) = 
+            gameState.getPlayerInventory(player1);
+        
+        assertEq(width, 4, "Inventory width should be 4");
+        assertEq(height, 4, "Inventory height should be 4");
+        assertEq(slotTypes[1], 3, "Position 1 should be blocked (type 3)");
+        assertEq(slotTypes[2], 3, "Position 2 should be blocked (type 3)");
+        assertEq(slotTypes[0], 0, "Position 0 should be normal (type 0)");
+    }
+
+    // Helper function to add a ship with blocked slots for testing
+    function _addShipWithBlockedSlots() private {
+        // Create slot types array with some blocked slots
+        uint8[] memory slotTypes = new uint8[](16);
+        for (uint256 i = 0; i < 16; i++) {
+            slotTypes[i] = 0; // Initialize as normal slots
+        }
+        // Set some slots as blocked (type 3)
+        slotTypes[1] = 3; // Block position 1
+        slotTypes[2] = 3; // Block position 2
+        
+        // Add equipment slots for fishing rods
+        slotTypes[15] = 2; // Bottom-right corner as equipment slot
+        
+        shipRegistry.registerShip(
+            2, // id
+            "Test Ship with Blocked Slots",
+            100, // fuelCapacity
+            100, // maxDurability
+            4, // cargoWidth
+            4, // cargoHeight
+            slotTypes,
+            0, // purchasePrice
+            10 * 10 ** 18 // repairCostPerPoint
+        );
+    }
+
+    // Helper function to manually place fish in inventory for testing
+    function _placeFishManually(address player, uint256 species, uint8 x, uint8 y) private {
+        // This is a simplified manual placement for testing blocked slot behavior
+        // In a real scenario, fish would be placed through the fishing system
+        vm.store(
+            address(gameState),
+            keccak256(abi.encode(keccak256(abi.encode(player, uint256(11))), uint256(y) * 4 + uint256(x))),
+            bytes32(abi.encode(uint8(1), species, true)) // itemType=1 (fish), itemId=species, isOccupied=true
+        );
+    }
+
+    // Helper function to manually place fishing rod for testing
+    function _placeFishingRodManually(address player, uint256 rodId, uint8 slotIndex) private {
+        // Place fishing rod in inventory slot for testing
+        vm.store(
+            address(gameState),
+            keccak256(abi.encode(keccak256(abi.encode(player, uint256(11))), slotIndex)),
+            bytes32(abi.encode(uint8(3), rodId, true)) // itemType=3 (equipment), itemId=rodId, isOccupied=true
+        );
     }
 }

@@ -39,12 +39,11 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         uint256 maxDurability,
         uint8 cargoWidth,
         uint8 cargoHeight,
-        bytes calldata cargoShape,
         uint8[] calldata slotTypes,
         uint256 purchasePrice,
         uint256 repairCostPerPoint
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
-        _validateShipParams(id, name, fuelCapacity, maxDurability, cargoWidth, cargoHeight, cargoShape);
+        _validateShipParams(id, name, fuelCapacity, maxDurability, cargoWidth, cargoHeight);
         _validateSlotTypes(slotTypes, cargoWidth, cargoHeight);
 
         ships[id] = Ship({
@@ -55,7 +54,6 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
             maxDurability: maxDurability,
             cargoWidth: cargoWidth,
             cargoHeight: cargoHeight,
-            cargoShape: cargoShape,
             slotTypes: slotTypes,
             purchasePrice: purchasePrice,
             repairCostPerPoint: repairCostPerPoint
@@ -114,7 +112,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
     }
 
     /**
-     * @dev Check if a cargo position is valid for a ship
+     * @dev Check if a cargo position is valid for a ship (not blocked)
      */
     function isValidCargoPosition(uint256 shipId, uint8 x, uint8 y) external view validShipId(shipId) returns (bool) {
         Ship memory ship = ships[shipId];
@@ -123,17 +121,15 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
             return false;
         }
 
-        // Check if position is occupied in cargo shape
-        uint256 bitIndex = uint256(y) * uint256(ship.cargoWidth) + uint256(x);
-        uint256 byteIndex = bitIndex / 8;
-        uint256 bitOffset = bitIndex % 8;
-
-        if (byteIndex >= ship.cargoShape.length) {
+        // Convert coordinates to slot index
+        uint256 slotIndex = uint256(y) * uint256(ship.cargoWidth) + uint256(x);
+        
+        if (slotIndex >= ship.slotTypes.length) {
             return false;
         }
 
-        uint8 byte_ = uint8(ship.cargoShape[byteIndex]);
-        return (byte_ >> bitOffset) & 1 == 1;
+        // Position is valid if it's not blocked (type 3)
+        return ship.slotTypes[slotIndex] != 3;
     }
 
     /**
@@ -160,6 +156,19 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         }
 
         return ship.slotTypes[position] == 2; // 2 = equipment slot
+    }
+
+    /**
+     * @dev Check if a position is a blocked slot (no items can be placed)
+     */
+    function isBlockedSlot(uint256 shipId, uint8 position) external view validShipId(shipId) returns (bool) {
+        Ship memory ship = ships[shipId];
+
+        if (position >= ship.slotTypes.length) {
+            return false;
+        }
+
+        return ship.slotTypes[position] == 3; // 3 = blocked slot
     }
 
     /**
@@ -217,8 +226,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         uint256 fuelCapacity,
         uint256 maxDurability,
         uint8 cargoWidth,
-        uint8 cargoHeight,
-        bytes calldata cargoShape
+        uint8 cargoHeight
     ) private view {
         require(id > 0, "Ship ID must be greater than 0");
         require(!isValidShip(id), "Ship ID already exists");
@@ -226,11 +234,6 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         require(fuelCapacity > 0, "Fuel capacity must be greater than 0");
         require(maxDurability > 0, "Max durability must be greater than 0");
         require(cargoWidth > 0 && cargoHeight > 0, "Cargo dimensions must be greater than 0");
-        require(cargoShape.length > 0, "Cargo shape cannot be empty");
-
-        // Validate cargo shape size matches dimensions
-        uint256 expectedShapeSize = (uint256(cargoWidth) * uint256(cargoHeight) + 7) / 8;
-        require(cargoShape.length >= expectedShapeSize, "Cargo shape data too small");
     }
 
     /**
@@ -242,7 +245,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         require(slotTypes.length == totalSlots, "Slot types array length must match cargo dimensions");
 
         for (uint256 i = 0; i < slotTypes.length; i++) {
-            require(slotTypes[i] <= 2, "Invalid slot type (must be 0=normal, 1=engine, 2=equipment)");
+            require(slotTypes[i] <= 3, "Invalid slot type (must be 0=normal, 1=engine, 2=equipment, 3=blocked)");
         }
     }
 

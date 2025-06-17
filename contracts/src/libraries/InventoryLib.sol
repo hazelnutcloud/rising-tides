@@ -23,7 +23,7 @@ library InventoryLib {
         uint8 width;
         uint8 height;
         mapping(uint256 => GridItem) grid; // position => GridItem
-        uint8[] slotTypes; // Slot type for each position: 0=normal, 1=engine, 2=equipment
+        uint8[] slotTypes; // Slot type for each position: 0=normal, 1=engine, 2=equipment, 3=blocked
     }
 
     /**
@@ -88,6 +88,11 @@ library InventoryLib {
 
                     // Check if grid cell is already occupied
                     if (grid.grid[gridIndex].isOccupied) {
+                        return false;
+                    }
+
+                    // Check if this slot is blocked (type 3)
+                    if (gridIndex < grid.slotTypes.length && grid.slotTypes[gridIndex] == 3) {
                         return false;
                     }
                 }
@@ -227,6 +232,34 @@ library InventoryLib {
             return false;
         }
         return grid.slotTypes[position] == 2; // 2 = equipment slot
+    }
+
+    /**
+     * @dev Check if a position is blocked (no items can be placed)
+     * @param grid The inventory grid
+     * @param position Grid position (1D index)
+     * @return True if position is a blocked slot
+     */
+    function isBlockedSlot(InventoryGrid storage grid, uint8 position) internal view returns (bool) {
+        if (position >= grid.slotTypes.length) {
+            return false;
+        }
+        return grid.slotTypes[position] == 3; // 3 = blocked slot
+    }
+
+    /**
+     * @dev Check if a position is blocked using coordinates
+     * @param grid The inventory grid
+     * @param x X coordinate
+     * @param y Y coordinate
+     * @return True if position is a blocked slot
+     */
+    function isBlockedSlot(InventoryGrid storage grid, uint8 x, uint8 y) internal view returns (bool) {
+        if (!isValidPosition(x, y, grid.width, grid.height)) {
+            return false;
+        }
+        uint256 position = coordsToIndex(x, y, grid.width);
+        return isBlockedSlot(grid, uint8(position));
     }
 
     /**
