@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./MovementManager.sol";
+import {SlotType, ItemType} from "../../types/InventoryTypes.sol";
 
 /**
  * @title FishingManager
@@ -144,9 +145,9 @@ abstract contract FishingManager is MovementManager {
         
         // Check all equipment slots for fishing rods
         for (uint256 i = 0; i < ship.slotTypes.length; i++) {
-            if (ship.slotTypes[i] == 2) { // Equipment slot
+            if (ship.slotTypes[i] == SlotType.Equipment) { // Equipment slot
                 InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == 3) { // Equipment type
+                if (item.isOccupied && item.itemType == ItemType.Equipment) { // Equipment type
                     if (fishingRodRegistry.isValidFishingRod(item.itemId)) {
                         return true;
                     }

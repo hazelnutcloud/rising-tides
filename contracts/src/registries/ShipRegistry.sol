@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../interfaces/IShipRegistry.sol";
+import {SlotType} from "../types/InventoryTypes.sol";
 
 /**
  * @title ShipRegistry
@@ -39,7 +40,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         uint256 maxDurability,
         uint8 cargoWidth,
         uint8 cargoHeight,
-        uint8[] calldata slotTypes,
+        SlotType[] calldata slotTypes,
         uint256 purchasePrice,
         uint256 repairCostPerPoint
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
@@ -128,8 +129,8 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
             return false;
         }
 
-        // Position is valid if it's not blocked (type 3)
-        return ship.slotTypes[slotIndex] != 3;
+        // Position is valid if it's not blocked
+        return ship.slotTypes[slotIndex] != SlotType.Blocked;
     }
 
     /**
@@ -142,7 +143,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
             return false;
         }
 
-        return ship.slotTypes[position] == 1; // 1 = engine slot
+        return ship.slotTypes[position] == SlotType.Engine;
     }
 
     /**
@@ -155,7 +156,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
             return false;
         }
 
-        return ship.slotTypes[position] == 2; // 2 = equipment slot
+        return ship.slotTypes[position] == SlotType.Equipment;
     }
 
     /**
@@ -168,7 +169,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
             return false;
         }
 
-        return ship.slotTypes[position] == 3; // 3 = blocked slot
+        return ship.slotTypes[position] == SlotType.Blocked;
     }
 
     /**
@@ -239,14 +240,12 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
     /**
      * @dev Validate slot types array (internal helper to reduce stack depth)
      */
-    function _validateSlotTypes(uint8[] calldata slotTypes, uint8 cargoWidth, uint8 cargoHeight) private pure {
+    function _validateSlotTypes(SlotType[] calldata slotTypes, uint8 cargoWidth, uint8 cargoHeight) private pure {
         uint256 totalSlots = uint256(cargoWidth) * uint256(cargoHeight);
 
         require(slotTypes.length == totalSlots, "Slot types array length must match cargo dimensions");
 
-        for (uint256 i = 0; i < slotTypes.length; i++) {
-            require(slotTypes[i] <= 3, "Invalid slot type (must be 0=normal, 1=engine, 2=equipment, 3=blocked)");
-        }
+        // All SlotType enum values are valid by definition, no need to check range
     }
 
     /**

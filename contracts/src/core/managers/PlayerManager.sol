@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "./GameStateBase.sol";
+import {SlotType, ItemType} from "../../types/InventoryTypes.sol";
 
 /**
  * @title PlayerManager
@@ -132,10 +133,10 @@ abstract contract PlayerManager is GameStateBase {
 
         // Iterate through inventory slots looking for engines in engine slots
         for (uint256 i = 0; i < ship.slotTypes.length; i++) {
-            if (ship.slotTypes[i] == 1) {
+            if (ship.slotTypes[i] == SlotType.Engine) {
                 // Engine slot
                 InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == 2) {
+                if (item.isOccupied && item.itemType == ItemType.Engine) {
                     // Engine item type
                     if (engineRegistry.isValidEngine(item.itemId)) {
                         IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(item.itemId);
@@ -191,16 +192,16 @@ abstract contract PlayerManager is GameStateBase {
         bool enginePlaced = false;
         bool rodPlaced = false;
 
-        for (uint256 i = 0; i < inventory.slotTypes.length && !enginePlaced && !rodPlaced; i++) {
-            if (inventory.slotTypes[i] == 1 && !enginePlaced) { // Engine slot
+        for (uint256 i = 0; i < inventory.slotTypes.length && (!enginePlaced || !rodPlaced); i++) {
+            if (inventory.slotTypes[i] == SlotType.Engine && !enginePlaced) { // Engine slot
                 (uint8 x, uint8 y) = InventoryLib.indexToCoords(i, inventory.width);
-                if (InventoryLib.placeItem(inventory, engineShape, x, y, 2, 1)) {
+                if (InventoryLib.placeItem(inventory, engineShape, x, y, ItemType.Engine, 1)) {
                     enginePlaced = true;
                 }
             }
-            if (inventory.slotTypes[i] == 2 && !rodPlaced) { // Equipment slot
+            if (inventory.slotTypes[i] == SlotType.Equipment && !rodPlaced) { // Equipment slot
                 (uint8 x, uint8 y) = InventoryLib.indexToCoords(i, inventory.width);
-                if (InventoryLib.placeItem(inventory, rodShape, x, y, 3, 1)) {
+                if (InventoryLib.placeItem(inventory, rodShape, x, y, ItemType.Equipment, 1)) {
                     rodPlaced = true;
                 }
             }

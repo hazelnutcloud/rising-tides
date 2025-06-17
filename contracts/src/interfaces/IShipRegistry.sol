@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {SlotType} from "../types/InventoryTypes.sol";
+
 interface IShipRegistry {
     struct Ship {
         uint256 id;
@@ -10,7 +12,7 @@ interface IShipRegistry {
         uint256 maxDurability;
         uint8 cargoWidth;
         uint8 cargoHeight;
-        uint8[] slotTypes; // Slot type for each position: 0=normal, 1=engine, 2=equipment, 3=blocked
+        SlotType[] slotTypes; // Slot type for each position
         uint256 purchasePrice;
         uint256 repairCostPerPoint;
     }
@@ -32,7 +34,7 @@ interface IShipRegistry {
         uint256 maxDurability,
         uint8 cargoWidth,
         uint8 cargoHeight,
-        uint8[] calldata slotTypes, // 0=normal, 1=engine, 2=equipment, 3=blocked
+        SlotType[] calldata slotTypes,
         uint256 purchasePrice,
         uint256 repairCostPerPoint
     ) external;

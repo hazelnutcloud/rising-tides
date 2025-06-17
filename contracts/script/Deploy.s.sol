@@ -12,6 +12,7 @@ import "../src/registries/MapRegistry.sol";
 import "../src/core/GameStateCore.sol";
 import "../src/core/FishMarket.sol";
 import "../src/core/SeasonPass.sol";
+import {SlotType} from "../src/types/InventoryTypes.sol";
 
 /**
  * @title Deploy
@@ -143,20 +144,19 @@ contract Deploy is Script {
 
     function _addStarterShip(ShipRegistry shipRegistry) private {
         // Create slot types array (16 slots for 4x4 grid)
-        // 0=normal, 1=engine, 2=equipment, 3=blocked
-        uint8[] memory slotTypes = new uint8[](16);
+        SlotType[] memory slotTypes = new SlotType[](16);
         // Initialize all as normal cargo slots
         for (uint256 i = 0; i < 16; i++) {
-            slotTypes[i] = 0; // normal slot
+            slotTypes[i] = SlotType.Normal;
         }
         // Set engine slots
-        slotTypes[0] = 1; // Top-left corner
-        slotTypes[3] = 1; // Top-right corner
+        slotTypes[0] = SlotType.Engine; // Top-left corner
+        slotTypes[3] = SlotType.Engine; // Top-right corner
         // Set equipment slots
-        slotTypes[12] = 2; // Bottom-left
-        slotTypes[13] = 2; // Bottom-middle-left
-        slotTypes[14] = 2; // Bottom-middle-right
-        slotTypes[15] = 2; // Bottom-right
+        slotTypes[12] = SlotType.Equipment; // Bottom-left
+        slotTypes[13] = SlotType.Equipment; // Bottom-middle-left
+        slotTypes[14] = SlotType.Equipment; // Bottom-middle-right
+        slotTypes[15] = SlotType.Equipment; // Bottom-right
 
         shipRegistry.registerShip(
             1, // id
@@ -397,10 +397,10 @@ contract Deploy is Script {
 
     function _addShipWithBlockedSlots(ShipRegistry shipRegistry) private {
         // Create L-shaped layout using blocked slots
-        uint8[] memory slotTypes = new uint8[](16);
+        SlotType[] memory slotTypes = new SlotType[](16);
         // Initialize all as normal cargo slots
         for (uint256 i = 0; i < 16; i++) {
-            slotTypes[i] = 0; // normal slot
+            slotTypes[i] = SlotType.Normal;
         }
 
         // Create L-shape by blocking some slots:
@@ -409,14 +409,14 @@ contract Deploy is Script {
         // O O X X
         // O O O O
         // E O O Q
-        slotTypes[2] = 3;  // Block position 2 (top row)
-        slotTypes[3] = 3;  // Block position 3 (top row)
-        slotTypes[6] = 3;  // Block position 6 (second row)
-        slotTypes[7] = 3;  // Block position 7 (second row)
+        slotTypes[2] = SlotType.Blocked;  // Block position 2 (top row)
+        slotTypes[3] = SlotType.Blocked;  // Block position 3 (top row)
+        slotTypes[6] = SlotType.Blocked;  // Block position 6 (second row)
+        slotTypes[7] = SlotType.Blocked;  // Block position 7 (second row)
 
         // Add engine and equipment slots
-        slotTypes[12] = 1; // Engine slot (bottom-left)
-        slotTypes[15] = 2; // Equipment slot (bottom-right)
+        slotTypes[12] = SlotType.Engine; // Engine slot (bottom-left)
+        slotTypes[15] = SlotType.Equipment; // Equipment slot (bottom-right)
 
         shipRegistry.registerShip(
             2, // id

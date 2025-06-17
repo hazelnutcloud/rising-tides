@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {SlotType, ItemType} from "../types/InventoryTypes.sol";
+
 /**
  * @title InventoryLib
  * @dev Library for handling 2D grid-based inventory operations
@@ -8,7 +10,7 @@ pragma solidity ^0.8.20;
  */
 library InventoryLib {
     struct GridItem {
-        uint8 itemType; // 0 = empty, 1 = fish, 2 = engine, 3 = equipment
+        ItemType itemType;
         uint256 itemId;
         bool isOccupied;
     }
@@ -23,7 +25,7 @@ library InventoryLib {
         uint8 width;
         uint8 height;
         mapping(uint256 => GridItem) grid; // position => GridItem
-        uint8[] slotTypes; // Slot type for each position: 0=normal, 1=engine, 2=equipment, 3=blocked
+        SlotType[] slotTypes; // Slot type for each position
     }
 
     /**
@@ -91,8 +93,8 @@ library InventoryLib {
                         return false;
                     }
 
-                    // Check if this slot is blocked (type 3)
-                    if (gridIndex < grid.slotTypes.length && grid.slotTypes[gridIndex] == 3) {
+                    // Check if this slot is blocked
+                    if (gridIndex < grid.slotTypes.length && grid.slotTypes[gridIndex] == SlotType.Blocked) {
                         return false;
                     }
                 }
@@ -117,7 +119,7 @@ library InventoryLib {
         ItemShape memory shape,
         uint8 startX,
         uint8 startY,
-        uint8 itemType,
+        ItemType itemType,
         uint256 itemId
     ) internal returns (bool) {
         if (!canPlaceItem(grid, shape, startX, startY)) {
@@ -218,7 +220,7 @@ library InventoryLib {
         if (position >= grid.slotTypes.length) {
             return false;
         }
-        return grid.slotTypes[position] == 1; // 1 = engine slot
+        return grid.slotTypes[position] == SlotType.Engine;
     }
 
     /**
@@ -231,7 +233,7 @@ library InventoryLib {
         if (position >= grid.slotTypes.length) {
             return false;
         }
-        return grid.slotTypes[position] == 2; // 2 = equipment slot
+        return grid.slotTypes[position] == SlotType.Equipment;
     }
 
     /**
@@ -244,7 +246,7 @@ library InventoryLib {
         if (position >= grid.slotTypes.length) {
             return false;
         }
-        return grid.slotTypes[position] == 3; // 3 = blocked slot
+        return grid.slotTypes[position] == SlotType.Blocked;
     }
 
     /**
@@ -271,7 +273,7 @@ library InventoryLib {
      */
     function getItemAt(InventoryGrid storage grid, uint8 x, uint8 y) internal view returns (GridItem memory) {
         if (!isValidPosition(x, y, grid.width, grid.height)) {
-            return GridItem(0, 0, false);
+            return GridItem(ItemType.Empty, 0, false);
         }
 
         uint256 index = coordsToIndex(x, y, grid.width);
@@ -364,7 +366,7 @@ library InventoryLib {
         uint8 startX,
         uint8 startY,
         uint8 rotation,
-        uint8 itemType,
+        ItemType itemType,
         uint256 itemId
     ) internal returns (bool) {
         ItemShape memory rotatedShape = rotateItemShape(shape, rotation);

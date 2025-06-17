@@ -10,6 +10,7 @@ import "../src/registries/FishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
 import "../src/core/GameStateCore.sol";
 import "../src/interfaces/IGameState.sol";
+import {SlotType, ItemType} from "../src/types/InventoryTypes.sol";
 
 contract GameStateTest is Test {
     RisingTidesCurrency public currency;
@@ -287,16 +288,15 @@ contract GameStateTest is Test {
 
     function _addTestShip() private {
         // Create slot types array (16 slots for 4x4 grid)
-        // 0=normal, 1=engine, 2=equipment
-        uint8[] memory slotTypes = new uint8[](16);
+        SlotType[] memory slotTypes = new SlotType[](16);
         // Initialize all as normal cargo slots
         for (uint256 i = 0; i < 16; i++) {
-            slotTypes[i] = 0; // normal slot
+            slotTypes[i] = SlotType.Normal;
         }
         // Set engine slot
-        slotTypes[0] = 1; // Top-left corner
+        slotTypes[0] = SlotType.Engine; // Top-left corner
         // Set equipment slot
-        slotTypes[15] = 2; // Bottom-right corner
+        slotTypes[15] = SlotType.Equipment; // Bottom-right corner
 
         shipRegistry.registerShip(1, "Test Ship", 100, 100, 4, 4, slotTypes, 0, 10 * 10 ** 18);
     }
@@ -432,7 +432,7 @@ contract GameStateTest is Test {
         gameState.registerPlayer(0, 1); // shard 0, map 1
 
         // Test getting initial empty inventory
-        (uint8 width, uint8 height, uint8[] memory slotTypes, InventoryLib.GridItem[] memory items) =
+        (uint8 width, uint8 height, SlotType[] memory slotTypes, InventoryLib.GridItem[] memory items) =
             gameState.getPlayerInventory(player1);
 
         assertEq(width, 4);
@@ -443,12 +443,12 @@ contract GameStateTest is Test {
         // Check that initial inventory has default equipment
         // Slot 0 should have default engine (ID 1)
         assertTrue(items[0].isOccupied);
-        assertEq(items[0].itemType, 2); // Engine item type
+        assertEq(uint8(items[0].itemType), uint8(ItemType.Engine)); // Engine item type
         assertEq(items[0].itemId, 1); // Default engine ID
 
         // Slot 15 should have default fishing rod (ID 1)
         assertTrue(items[15].isOccupied);
-        assertEq(items[15].itemType, 3); // Equipment item type
+        assertEq(uint8(items[15].itemType), uint8(ItemType.Equipment)); // Equipment item type
         assertEq(items[15].itemId, 1); // Default fishing rod ID
 
         // All other slots should be empty
@@ -520,7 +520,7 @@ contract GameStateTest is Test {
         // Check inventory item was placed
         InventoryLib.GridItem memory item = gameState.getInventoryItem(player1, 1, 1);
         assertTrue(item.isOccupied);
-        assertEq(item.itemType, 1);
+        assertEq(uint8(item.itemType), uint8(ItemType.Fish));
         assertEq(item.itemId, 1);
     }
 
@@ -823,7 +823,7 @@ contract GameStateTest is Test {
         gameState.registerPlayer(0, 1);
 
         // Player should have fishing rod equipped by default
-        assertTrue(gameState.hasEquippedItemType(player1, 3)); // 3 = equipment type (fishing rod)
+        assertTrue(gameState.hasEquippedItemType(player1, ItemType.Equipment)); // Equipment type (fishing rod)
 
         // Player should be able to fish with equipped rod
         uint256 baitType = 1;
@@ -853,13 +853,13 @@ contract GameStateTest is Test {
         uint8 equipmentSlotY = 0;
         
         // Get the player's inventory to find equipment slot
-        (uint8 width, uint8 height, uint8[] memory slotTypes, InventoryLib.GridItem[] memory items) = 
+        (uint8 width, uint8 height, SlotType[] memory slotTypes, InventoryLib.GridItem[] memory items) = 
             gameState.getPlayerInventory(player1);
         
         // Find equipment slot with fishing rod
         bool foundEquipmentSlot = false;
         for (uint256 i = 0; i < slotTypes.length; i++) {
-            if (slotTypes[i] == 2 && items[i].isOccupied && items[i].itemType == 3) {
+            if (slotTypes[i] == SlotType.Equipment && items[i].isOccupied && items[i].itemType == ItemType.Equipment) {
                 equipmentSlotX = uint8(i % width);
                 equipmentSlotY = uint8(i / width);
                 foundEquipmentSlot = true;
@@ -874,7 +874,7 @@ contract GameStateTest is Test {
         gameState.discardInventoryItem(equipmentSlotX, equipmentSlotY);
 
         // Player should no longer have fishing rod equipped
-        assertFalse(gameState.hasEquippedItemType(player1, 3)); // 3 = equipment type (fishing rod)
+        assertFalse(gameState.hasEquippedItemType(player1, ItemType.Equipment)); // Equipment type (fishing rod)
 
         // Give player some bait
         uint256 baitType = 1;
@@ -936,7 +936,7 @@ contract GameStateTest is Test {
         // Equipment should still be there, but no fish
         if (item.isOccupied) {
             // If occupied, it should be equipment (itemType 2 or 3), not fish (itemType 1)
-            assertTrue(item.itemType == 2 || item.itemType == 3);
+            assertTrue(item.itemType == ItemType.Engine || item.itemType == ItemType.Equipment);
         }
     }
 
@@ -1141,29 +1141,29 @@ contract GameStateTest is Test {
         gameState.changeShip(2);
         
         // Get inventory to verify blocked slots affect the layout
-        (uint8 width, uint8 height, uint8[] memory slotTypes, InventoryLib.GridItem[] memory items) = 
+        (uint8 width, uint8 height, SlotType[] memory slotTypes, InventoryLib.GridItem[] memory items) = 
             gameState.getPlayerInventory(player1);
         
         assertEq(width, 4, "Inventory width should be 4");
         assertEq(height, 4, "Inventory height should be 4");
-        assertEq(slotTypes[1], 3, "Position 1 should be blocked (type 3)");
-        assertEq(slotTypes[2], 3, "Position 2 should be blocked (type 3)");
-        assertEq(slotTypes[0], 0, "Position 0 should be normal (type 0)");
+        assertEq(uint8(slotTypes[1]), uint8(SlotType.Blocked), "Position 1 should be blocked");
+        assertEq(uint8(slotTypes[2]), uint8(SlotType.Blocked), "Position 2 should be blocked");
+        assertEq(uint8(slotTypes[0]), uint8(SlotType.Normal), "Position 0 should be normal");
     }
 
     // Helper function to add a ship with blocked slots for testing
     function _addShipWithBlockedSlots() private {
         // Create slot types array with some blocked slots
-        uint8[] memory slotTypes = new uint8[](16);
+        SlotType[] memory slotTypes = new SlotType[](16);
         for (uint256 i = 0; i < 16; i++) {
-            slotTypes[i] = 0; // Initialize as normal slots
+            slotTypes[i] = SlotType.Normal; // Initialize as normal slots
         }
-        // Set some slots as blocked (type 3)
-        slotTypes[1] = 3; // Block position 1
-        slotTypes[2] = 3; // Block position 2
+        // Set some slots as blocked
+        slotTypes[1] = SlotType.Blocked; // Block position 1
+        slotTypes[2] = SlotType.Blocked; // Block position 2
         
         // Add equipment slots for fishing rods
-        slotTypes[15] = 2; // Bottom-right corner as equipment slot
+        slotTypes[15] = SlotType.Equipment; // Bottom-right corner as equipment slot
         
         shipRegistry.registerShip(
             2, // id
