@@ -15,6 +15,16 @@ struct FishingResult {
 }
 
 /**
+ * @dev Fish placement data for fishing fulfillment
+ */
+struct FishPlacement {
+    bool shouldPlace; // true = place fish in inventory, false = discard fish
+    uint8 x; // X coordinate for placement (only used if shouldPlace = true)
+    uint8 y; // Y coordinate for placement (only used if shouldPlace = true)
+    uint8 rotation; // Rotation for placement: 0=up, 1=right, 2=down, 3=left (only used if shouldPlace = true)
+}
+
+/**
  * @dev Inventory action for player inventory management
  */
 struct InventoryAction {
@@ -83,7 +93,7 @@ interface IGameState {
     function fulfillFishing(
         FishingResult memory result,
         bytes memory signature,
-        InventoryAction[] memory inventoryActions
+        FishPlacement memory fishPlacement
     ) external;
 
     // Bait Management

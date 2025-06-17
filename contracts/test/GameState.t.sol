@@ -156,12 +156,17 @@ contract GameStateTest is Test {
         // Create signature (simplified for testing - in production would be created server-side)
         bytes memory signature = _createTestSignature(result);
 
-        // Create inventory actions (empty for this basic test)
-        InventoryAction[] memory actions = new InventoryAction[](0);
+        // Create fish placement (place fish at 2,2 to avoid equipment slots)
+        FishPlacement memory fishPlacement = FishPlacement({
+            shouldPlace: true,
+            x: 2,
+            y: 2,
+            rotation: 0
+        });
 
         // Fulfill fishing
         vm.prank(player1);
-        gameState.fulfillFishing(result, signature, actions);
+        gameState.fulfillFishing(result, signature, fishPlacement);
 
         // Check fish was added to player inventory
         assertEq(gameState.getPlayerFishCount(player1), 1);
@@ -203,10 +208,15 @@ contract GameStateTest is Test {
         });
 
         bytes memory noCatchSignature = _createTestSignature(noCatchResult);
-        InventoryAction[] memory emptyActions = new InventoryAction[](0);
+        FishPlacement memory noCatchPlacement = FishPlacement({
+            shouldPlace: false, // No fish to place since no catch
+            x: 0,
+            y: 0,
+            rotation: 0
+        });
 
         vm.prank(player1);
-        gameState.fulfillFishing(noCatchResult, noCatchSignature, emptyActions);
+        gameState.fulfillFishing(noCatchResult, noCatchSignature, noCatchPlacement);
 
         // Now a new fishing attempt should work
         vm.prank(player1);
@@ -496,21 +506,17 @@ contract GameStateTest is Test {
 
         bytes memory signature = _createTestSignature(result);
 
-        // Create inventory actions to place the fish with rotation
-        InventoryAction[] memory actions = new InventoryAction[](1);
-        actions[0] = InventoryAction({
-            actionType: 0, // place
-            fromX: 0,
-            fromY: 0,
-            toX: 1,
-            toY: 1,
-            rotation: 2, // 180 degree rotation
-            itemId: 1
+        // Create fish placement to place the fish with rotation
+        FishPlacement memory fishPlacement = FishPlacement({
+            shouldPlace: true,
+            x: 1,
+            y: 1,
+            rotation: 2 // 180 degree rotation
         });
 
-        // Fulfill fishing with inventory management
+        // Fulfill fishing with fish placement
         vm.prank(player1);
-        gameState.fulfillFishing(result, signature, actions);
+        gameState.fulfillFishing(result, signature, fishPlacement);
 
         // Check fish was added
         assertEq(gameState.getPlayerFishCount(player1), 1);
@@ -885,5 +891,97 @@ contract GameStateTest is Test {
         vm.prank(player1);
         vm.expectRevert("No fishing rod equipped");
         gameState.initiateFishing(baitType);
+    }
+
+    function testFishingWithDiscardPlacement() public {
+        // Register player
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+
+        // Purchase bait
+        uint256 baitType = 1;
+        uint256 baitAmount = 1;
+
+        vm.prank(player1);
+        gameState.purchaseBait(baitType, baitAmount);
+
+        // Initiate fishing
+        vm.prank(player1);
+        uint256 fishingNonce = gameState.initiateFishing(baitType);
+
+        // Create fishing result with catch
+        FishingResult memory result = FishingResult({
+            player: player1,
+            nonce: fishingNonce,
+            species: 1,
+            weight: 100,
+            timestamp: block.timestamp
+        });
+
+        bytes memory signature = _createTestSignature(result);
+
+        // Create fish placement to discard the fish
+        FishPlacement memory fishPlacement = FishPlacement({
+            shouldPlace: false, // Discard the fish
+            x: 0,
+            y: 0,
+            rotation: 0
+        });
+
+        // Fulfill fishing with discard placement
+        vm.prank(player1);
+        gameState.fulfillFishing(result, signature, fishPlacement);
+
+        // Check that no fish was added to player's storage
+        assertEq(gameState.getPlayerFishCount(player1), 0);
+
+        // Check that the inventory remains unchanged (no fish placed)
+        InventoryLib.GridItem memory item = gameState.getInventoryItem(player1, 0, 0);
+        // Equipment should still be there, but no fish
+        if (item.isOccupied) {
+            // If occupied, it should be equipment (itemType 2 or 3), not fish (itemType 1)
+            assertTrue(item.itemType == 2 || item.itemType == 3);
+        }
+    }
+
+    function testFishingWithInvalidPlacement() public {
+        // Register player
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+
+        // Purchase bait
+        uint256 baitType = 1;
+        uint256 baitAmount = 1;
+
+        vm.prank(player1);
+        gameState.purchaseBait(baitType, baitAmount);
+
+        // Initiate fishing
+        vm.prank(player1);
+        uint256 fishingNonce = gameState.initiateFishing(baitType);
+
+        // Create fishing result with catch
+        FishingResult memory result = FishingResult({
+            player: player1,
+            nonce: fishingNonce,
+            species: 1,
+            weight: 100,
+            timestamp: block.timestamp
+        });
+
+        bytes memory signature = _createTestSignature(result);
+
+        // Create fish placement with invalid coordinates (outside inventory bounds)
+        FishPlacement memory fishPlacement = FishPlacement({
+            shouldPlace: true,
+            x: 255, // Invalid position (outside inventory bounds)
+            y: 255, // Invalid position (outside inventory bounds)
+            rotation: 0
+        });
+
+        // Fulfill fishing should fail due to invalid placement
+        vm.prank(player1);
+        vm.expectRevert("Failed to place fish in inventory");
+        gameState.fulfillFishing(result, signature, fishPlacement);
     }
 }

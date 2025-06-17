@@ -52,12 +52,12 @@ abstract contract FishingManager is MovementManager {
     }
 
     /**
-     * @dev Fulfill fishing with server-signed result and optional inventory management
+     * @dev Fulfill fishing with server-signed result and fish placement
      */
     function fulfillFishing(
         FishingResult memory result,
         bytes memory signature,
-        InventoryAction[] memory inventoryActions
+        FishPlacement memory fishPlacement
     ) external onlyRegisteredPlayer whenNotPaused nonReentrant {
         require(result.player == msg.sender, "Result not for caller");
         require(pendingFishingRequest[msg.sender] == result.nonce, "Invalid or expired fishing request");
@@ -88,23 +88,24 @@ abstract contract FishingManager is MovementManager {
         delete pendingFishingRequest[msg.sender];
         delete pendingBaitType[msg.sender];
 
-        // If server determined a catch occurred, process inventory actions
+        // If server determined a catch occurred, handle fish placement
         if (result.species > 0) {
             require(fishRegistry.isValidSpecies(result.species), "Invalid species");
 
-            // Process inventory management actions
-            _processInventoryActions(msg.sender, inventoryActions);
+            if (fishPlacement.shouldPlace) {
+                // Player wants to place the fish in inventory
+                require(_placeFishInInventory(msg.sender, result.species, fishPlacement.x, fishPlacement.y, fishPlacement.rotation), 
+                        "Failed to place fish in inventory");
 
-            // Store caught fish if it was successfully placed in inventory
-            uint256 fishId = playerFishCount[msg.sender];
-            playerFish[msg.sender][fishId] =
-                IGameState.FishCatch({species: result.species, weight: result.weight, caughtAt: block.timestamp});
-            playerFishCount[msg.sender]++;
+                // Store caught fish data
+                uint256 fishId = playerFishCount[msg.sender];
+                playerFish[msg.sender][fishId] =
+                    IGameState.FishCatch({species: result.species, weight: result.weight, caughtAt: block.timestamp});
+                playerFishCount[msg.sender]++;
 
-            emit IGameState.FishCaught(msg.sender, result.species, result.weight, fishId);
-        } else {
-            // Even if no fish caught, player can still manage inventory
-            _processInventoryActions(msg.sender, inventoryActions);
+                emit IGameState.FishCaught(msg.sender, result.species, result.weight, fishId);
+            }
+            // If shouldPlace is false, fish is discarded (no storage, no inventory placement)
         }
     }
 
@@ -128,6 +129,11 @@ abstract contract FishingManager is MovementManager {
         require(newSigner != address(0), "Invalid signer address");
         serverSigner = newSigner;
     }
+
+    /**
+     * @dev Place fish in player's inventory at specified coordinates
+     */
+    function _placeFishInInventory(address player, uint256 species, uint8 x, uint8 y, uint8 rotation) internal virtual returns (bool);
 
     /**
      * @dev Process array of inventory actions (to be implemented by InventoryManager)

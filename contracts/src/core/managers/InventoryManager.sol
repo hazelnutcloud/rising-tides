@@ -285,6 +285,29 @@ abstract contract InventoryManager is FishingManager {
     }
 
     /**
+     * @dev Place fish in player's inventory at specified coordinates
+     */
+    function _placeFishInInventory(address player, uint256 species, uint8 x, uint8 y, uint8 rotation) internal override returns (bool) {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+        
+        // Get fish shape from registry (simplified for now - assume 1x1)
+        InventoryLib.ItemShape memory fishShape = InventoryLib.ItemShape({width: 1, height: 1, data: hex"01"});
+        
+        // Validate that the position is within inventory bounds
+        if (x >= inventory.width || y >= inventory.height) {
+            return false;
+        }
+        
+        // Check if the fish can be placed at the specified position
+        if (!InventoryLib.canPlaceItem(inventory, fishShape, x, y)) {
+            return false;
+        }
+        
+        // Place the fish in inventory (itemType = 1 for fish)
+        return InventoryLib.placeItemWithRotation(inventory, fishShape, x, y, rotation, 1, uint16(species));
+    }
+
+    /**
      * @dev Process array of inventory actions
      */
     function _processInventoryActions(address player, InventoryAction[] memory actions) internal override {
