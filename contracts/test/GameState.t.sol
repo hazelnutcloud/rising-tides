@@ -984,4 +984,65 @@ contract GameStateTest is Test {
         vm.expectRevert("Failed to place fish in inventory");
         gameState.fulfillFishing(result, signature, fishPlacement);
     }
+
+    function testBasicFuelConsumptionCalculation() public {
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        // Test basic fuel calculation with default Test Engine (100 consumption rate)
+        uint8[] memory directions = new uint8[](2);
+        directions[0] = 1; // East
+        directions[1] = 2; // Southeast
+        
+        uint256 fuelCost = gameState.calculateFuelCost(player1, directions);
+        
+        // With new additive system:
+        // Test Engine: 100 consumption rate (1 cell * 100 per cell)
+        // Expected: 2 * 1e18 * 100 / 100 = 2e18
+        assertEq(fuelCost, 2e18, "Basic fuel cost calculation should be 2e18");
+    }
+
+    function testFuelCalculationWithDifferentDistances() public {
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        // Test with different movement distances
+        uint8[] memory shortMove = new uint8[](1);
+        shortMove[0] = 1; // East
+        
+        uint8[] memory longMove = new uint8[](3);
+        longMove[0] = 1; // East
+        longMove[1] = 2; // Southeast  
+        longMove[2] = 3; // Southwest
+        
+        uint256 shortFuelCost = gameState.calculateFuelCost(player1, shortMove);
+        uint256 longFuelCost = gameState.calculateFuelCost(player1, longMove);
+        
+        // Fuel cost should scale linearly with distance
+        // Test Engine has 100 consumption rate: 1 * 1e18 * 100 / 100 = 1e18
+        assertEq(shortFuelCost, 1e18, "Short move fuel cost should be 1e18");
+        assertEq(longFuelCost, 3e18, "Long move fuel cost should be 3e18");
+        assertEq(longFuelCost, shortFuelCost * 3, "Fuel cost should scale with distance");
+    }
+
+    function testActualFuelConsumptionDuringMovement() public {
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+        
+        // Check initial fuel
+        uint256 initialFuel = gameState.getCurrentFuel(player1);
+        assertEq(initialFuel, 100e18, "Initial fuel should be 100e18");
+        
+        // Make a movement
+        uint8[] memory directions = new uint8[](1);
+        directions[0] = 1; // East
+        
+        vm.prank(player1);
+        gameState.move(directions);
+        
+        // Check fuel after movement
+        uint256 finalFuel = gameState.getCurrentFuel(player1);
+        uint256 expectedCost = 1e18; // 1 * 1e18 * 100 / 100
+        assertEq(finalFuel, initialFuel - expectedCost, "Fuel should decrease by calculated amount");
+    }
 }

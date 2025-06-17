@@ -45,7 +45,7 @@ abstract contract MovementManager is PlayerManager {
         // Use equipped engine consumption rate or fallback to ship default
         uint256 fuelConsumptionRate = calculateCombinedFuelConsumptionRate(player);
 
-        // Fuel cost = distance * base_cost * fuel_consumption_rate
+        // Fuel cost = distance * base_cost * fuel_consumption_rate / 100
         return distance * HEX_MOVE_COST * fuelConsumptionRate / 100;
     }
 
@@ -73,39 +73,36 @@ abstract contract MovementManager is PlayerManager {
     }
 
     /**
-     * @dev Calculate combined fuel consumption rate from equipped engines
+     * @dev Calculate total fuel consumption rate from equipped engines (additive)
      */
-    function calculateCombinedFuelConsumptionRate(address player) public view returns (uint256 avgConsumptionRate) {
+    function calculateCombinedFuelConsumptionRate(address player) public view returns (uint256 totalConsumptionRate) {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
 
-        uint256 totalPower = 0;
-        uint256 weightedConsumptionRate = 0;
+        totalConsumptionRate = 0;
         uint256 engineCount = 0;
 
         // Iterate through inventory slots looking for engines in engine slots
-        for (uint256 i = 0; i < ship.slotTypes.length; i++) {
-            if (ship.slotTypes[i] == 1) {
+        for (uint256 i = 0; i < inventory.slotTypes.length; i++) {
+            if (inventory.slotTypes[i] == 1) {
                 // Engine slot
                 InventoryLib.GridItem memory item = inventory.grid[i];
                 if (item.isOccupied && item.itemType == 2) {
                     // Engine item type
                     if (engineRegistry.isValidEngine(item.itemId)) {
                         IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(item.itemId);
-                        totalPower += stats.enginePowerPerCell;
-                        weightedConsumptionRate += stats.enginePowerPerCell * stats.fuelConsumptionRatePerCell;
+                        totalConsumptionRate += stats.fuelConsumptionRatePerCell;
                         engineCount++;
                     }
                 }
             }
         }
 
-        if (totalPower == 0) {
+        if (engineCount == 0) {
             // Fallback to default fuel consumption rate if no engines equipped (should not happen with default equipment)
-            return 100; // 100% consumption rate (baseline)
+            return 0; // 100 consumption rate (baseline)
         }
 
-        return weightedConsumptionRate / totalPower;
+        return totalConsumptionRate;
     }
 
     /**
