@@ -170,34 +170,44 @@ abstract contract PlayerManager is GameStateBase {
      */
     function _assignDefaultEquipment(address player) internal {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-
-        // Find first engine slot and place default engine (ID 1)
+        
+        // Get engine ID 1 shape from registry
+        IEngineRegistry.Engine memory engine = engineRegistry.getEngine(1);
+        InventoryLib.ItemShape memory engineShape = InventoryLib.ItemShape({
+            width: engine.shapeWidth,
+            height: engine.shapeHeight,
+            data: engine.shapeData
+        });
+        
+        // Get fishing rod ID 1 shape from registry
+        IFishingRodRegistry.FishingRod memory rod = fishingRodRegistry.getFishingRod(1);
+        InventoryLib.ItemShape memory rodShape = InventoryLib.ItemShape({
+            width: rod.shapeWidth,
+            height: rod.shapeHeight,
+            data: rod.shapeData
+        });
+        
+        // Place engine in first engine slot
         bool enginePlaced = false;
-        for (uint256 i = 0; i < inventory.slotTypes.length && !enginePlaced; i++) {
-            if (inventory.slotTypes[i] == 1) {
-                // Engine slot
-                inventory.grid[i] = InventoryLib.GridItem({
-                    itemType: 2, // Engine item type
-                    itemId: 1, // Default engine ID
-                    isOccupied: true
-                });
-                enginePlaced = true;
-            }
-        }
+        bool rodPlaced = false;
 
-        // Find first equipment slot and place default fishing rod (ID 1)
-        bool fishingRodPlaced = false;
-        for (uint256 i = 0; i < inventory.slotTypes.length && !fishingRodPlaced; i++) {
-            if (inventory.slotTypes[i] == 2) {
-                // Equipment slot
-                inventory.grid[i] = InventoryLib.GridItem({
-                    itemType: 3, // Equipment item type
-                    itemId: 1, // Default fishing rod ID
-                    isOccupied: true
-                });
-                fishingRodPlaced = true;
+        for (uint256 i = 0; i < inventory.slotTypes.length && !enginePlaced && !rodPlaced; i++) {
+            if (inventory.slotTypes[i] == 1 && !enginePlaced) { // Engine slot
+                (uint8 x, uint8 y) = InventoryLib.indexToCoords(i, inventory.width);
+                if (InventoryLib.placeItem(inventory, engineShape, x, y, 2, 1)) {
+                    enginePlaced = true;
+                }
+            }
+            if (inventory.slotTypes[i] == 2 && !rodPlaced) { // Equipment slot
+                (uint8 x, uint8 y) = InventoryLib.indexToCoords(i, inventory.width);
+                if (InventoryLib.placeItem(inventory, rodShape, x, y, 3, 1)) {
+                    rodPlaced = true;
+                }
             }
         }
+        
+        require(enginePlaced, "Failed to place default engine");
+        require(rodPlaced, "Failed to place default fishing rod");
     }
 
     /**
