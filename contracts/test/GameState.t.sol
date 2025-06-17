@@ -112,7 +112,7 @@ contract GameStateTest is Test {
         vm.prank(player1);
         gameState.purchaseFuel(fuelToBuy);
 
-        assertEq(gameState.getCurrentFuel(player1), initialFuel + fuelToBuy);
+        assertEq(gameState.getCurrentFuel(player1), initialFuel + fuelToBuy * 1e18);
         assertEq(currency.balanceOf(player1), 1000 * 10 ** 18 - expectedCost);
     }
 
@@ -324,8 +324,8 @@ contract GameStateTest is Test {
         engineRegistry.registerEngine(
             1, // id
             "Test Engine", // name
-            30, // enginePower
-            100, // fuelEfficiency
+            30, // enginePowerPerCell
+            100, // fuelConsumptionRatePerCell
             1, // shapeWidth
             1, // shapeHeight
             engineShape,
@@ -827,7 +827,7 @@ contract GameStateTest is Test {
         gameState.registerPlayer(0, 1);
 
         // Player should have fishing rod equipped by default
-        assertTrue(gameState.isPlayerFishingRodEquipped(player1));
+        assertTrue(gameState.hasEquippedItemType(player1, 3)); // 3 = equipment type (fishing rod)
 
         // Player should be able to fish with equipped rod
         uint256 baitType = 1;
@@ -878,7 +878,7 @@ contract GameStateTest is Test {
         gameState.discardInventoryItem(equipmentSlotX, equipmentSlotY);
 
         // Player should no longer have fishing rod equipped
-        assertFalse(gameState.isPlayerFishingRodEquipped(player1));
+        assertFalse(gameState.hasEquippedItemType(player1, 3)); // 3 = equipment type (fishing rod)
 
         // Give player some bait
         uint256 baitType = 1;

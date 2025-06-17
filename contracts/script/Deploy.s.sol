@@ -294,8 +294,8 @@ contract Deploy is Script {
         engineRegistry.registerEngine(
             1, // id
             "Small Engine", // name
-            30, // enginePower
-            90, // fuelEfficiency (90% of base)
+            30, // enginePowerPerCell (1x1 = 1 cell, total power = 30)
+            90, // fuelConsumptionRatePerCell (90% consumption rate = 10% more efficient)
             1, // shapeWidth
             1, // shapeHeight
             smallEngineShape,
@@ -310,8 +310,8 @@ contract Deploy is Script {
         engineRegistry.registerEngine(
             2, // id
             "Medium Engine", // name
-            60, // enginePower
-            110, // fuelEfficiency (110% of base - less efficient but more power)
+            30, // enginePowerPerCell (1x2 = 2 cells, total power = 60)
+            55, // fuelConsumptionRatePerCell (110/2 = 55% per cell, 10% less efficient overall)
             1, // shapeWidth
             2, // shapeHeight
             mediumEngineShape,
@@ -326,8 +326,8 @@ contract Deploy is Script {
         engineRegistry.registerEngine(
             3, // id
             "Large Engine", // name
-            100, // enginePower
-            130, // fuelEfficiency (130% of base - least efficient but most power)
+            25, // enginePowerPerCell (2x2 = 4 cells, total power = 100)
+            32, // fuelConsumptionRatePerCell (130/4 = 32.5, rounded to 32, 30% less efficient overall)
             2, // shapeWidth
             2, // shapeHeight
             largeEngineShape,

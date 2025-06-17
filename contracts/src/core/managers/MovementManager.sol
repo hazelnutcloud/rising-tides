@@ -42,11 +42,11 @@ abstract contract MovementManager is PlayerManager {
         // Each direction costs base amount
         uint256 distance = directions.length;
 
-        // Use equipped engine efficiency or fallback to ship default
-        uint256 fuelEfficiency = calculateCombinedFuelEfficiency(player);
+        // Use equipped engine consumption rate or fallback to ship default
+        uint256 fuelConsumptionRate = calculateCombinedFuelConsumptionRate(player);
 
-        // Fuel cost = distance * base_cost * fuel_efficiency_modifier
-        return distance * HEX_MOVE_COST * fuelEfficiency / 100;
+        // Fuel cost = distance * base_cost * fuel_consumption_rate
+        return distance * HEX_MOVE_COST * fuelConsumptionRate / 100;
     }
 
     /**
@@ -58,9 +58,9 @@ abstract contract MovementManager is PlayerManager {
         uint256 totalCost = amount * FUEL_PRICE_PER_UNIT;
         require(currency.balanceOf(msg.sender) >= totalCost, "Insufficient currency");
 
-        // Burn currency and add fuel
+        // Burn currency and add fuel (convert amount to 18 decimal precision)
         currency.burn(msg.sender, totalCost, "Fuel purchase");
-        playerStates[msg.sender].currentFuel += amount;
+        playerStates[msg.sender].currentFuel += amount * 1e18;
 
         emit IGameState.FuelPurchased(msg.sender, amount, totalCost);
     }
@@ -73,21 +73,14 @@ abstract contract MovementManager is PlayerManager {
     }
 
     /**
-     * @dev Calculate total engine power from equipped engines
+     * @dev Calculate combined fuel consumption rate from equipped engines
      */
-    function calculateTotalEnginePower(address player) public view returns (uint256) {
-        return _calculateTotalEnginePower(player, playerStates[player].shipId);
-    }
-
-    /**
-     * @dev Calculate combined fuel efficiency from equipped engines
-     */
-    function calculateCombinedFuelEfficiency(address player) public view returns (uint256 avgEfficiency) {
+    function calculateCombinedFuelConsumptionRate(address player) public view returns (uint256 avgConsumptionRate) {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
         IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
 
         uint256 totalPower = 0;
-        uint256 weightedEfficiency = 0;
+        uint256 weightedConsumptionRate = 0;
         uint256 engineCount = 0;
 
         // Iterate through inventory slots looking for engines in engine slots
@@ -99,8 +92,8 @@ abstract contract MovementManager is PlayerManager {
                     // Engine item type
                     if (engineRegistry.isValidEngine(item.itemId)) {
                         IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(item.itemId);
-                        totalPower += stats.enginePower;
-                        weightedEfficiency += stats.enginePower * stats.fuelEfficiency;
+                        totalPower += stats.enginePowerPerCell;
+                        weightedConsumptionRate += stats.enginePowerPerCell * stats.fuelConsumptionRatePerCell;
                         engineCount++;
                     }
                 }
@@ -108,11 +101,11 @@ abstract contract MovementManager is PlayerManager {
         }
 
         if (totalPower == 0) {
-            // Fallback to default fuel efficiency if no engines equipped (should not happen with default equipment)
-            return 100; // 100% efficiency (no modifier)
+            // Fallback to default fuel consumption rate if no engines equipped (should not happen with default equipment)
+            return 100; // 100% consumption rate (baseline)
         }
 
-        return weightedEfficiency / totalPower;
+        return weightedConsumptionRate / totalPower;
     }
 
     /**

@@ -25,8 +25,8 @@ contract EngineRegistryTest is Test {
         engineRegistry.registerEngine(
             10, // id
             "Test Engine", // name
-            50, // enginePower
-            100, // fuelEfficiency
+            50, // enginePowerPerCell
+            100, // fuelConsumptionRatePerCell
             1, // shapeWidth
             1, // shapeHeight
             shape,
@@ -40,46 +40,18 @@ contract EngineRegistryTest is Test {
         IEngineRegistry.Engine memory engine = engineRegistry.getEngine(10);
         assertEq(engine.id, 10);
         assertEq(engine.name, "Test Engine");
-        assertEq(engine.enginePower, 50);
-        assertEq(engine.fuelEfficiency, 100);
+        assertEq(engine.enginePowerPerCell, 50);
+        assertEq(engine.fuelConsumptionRatePerCell, 100);
         assertTrue(engine.isActive);
     }
 
     function testEngineStats() public {
         IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(1);
-        assertEq(stats.enginePower, 30);
-        assertEq(stats.fuelEfficiency, 90);
+        assertEq(stats.enginePowerPerCell, 30);
+        assertEq(stats.fuelConsumptionRatePerCell, 90);
         assertEq(stats.weight, 50);
     }
 
-    function testCombinedPower() public {
-        uint256[] memory engineIds = new uint256[](2);
-        engineIds[0] = 1; // 30 power
-        engineIds[1] = 2; // 60 power
-
-        uint256 totalPower = engineRegistry.calculateCombinedPower(engineIds);
-        assertEq(totalPower, 90);
-    }
-
-    function testCombinedEfficiency() public {
-        uint256[] memory engineIds = new uint256[](2);
-        engineIds[0] = 1; // 30 power, 90% efficiency
-        engineIds[1] = 2; // 60 power, 110% efficiency
-
-        uint256 avgEfficiency = engineRegistry.calculateCombinedEfficiency(engineIds);
-        // Weighted average: (30*90 + 60*110) / (30+60) = (2700 + 6600) / 90 = 103.33...
-        assertEq(avgEfficiency, 103);
-    }
-
-    function testCombinedWeight() public {
-        uint256[] memory engineIds = new uint256[](3);
-        engineIds[0] = 1; // 50 weight
-        engineIds[1] = 2; // 80 weight
-        engineIds[2] = 3; // 120 weight
-
-        uint256 totalWeight = engineRegistry.calculateCombinedWeight(engineIds);
-        assertEq(totalWeight, 250);
-    }
 
     function testInvalidEngineOperations() public {
         // Test invalid engine ID
@@ -95,8 +67,8 @@ contract EngineRegistryTest is Test {
         engineRegistry.updateEngineStats(1, 35, 95, 55, 120 * 10 ** 18);
 
         IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(1);
-        assertEq(stats.enginePower, 35);
-        assertEq(stats.fuelEfficiency, 95);
+        assertEq(stats.enginePowerPerCell, 35);
+        assertEq(stats.fuelConsumptionRatePerCell, 95);
         assertEq(stats.weight, 55);
 
         IEngineRegistry.Engine memory engine = engineRegistry.getEngine(1);
@@ -110,13 +82,6 @@ contract EngineRegistryTest is Test {
 
         IEngineRegistry.Engine memory engine = engineRegistry.getEngine(1);
         assertFalse(engine.isActive);
-
-        // Inactive engines shouldn't contribute to combined calculations
-        uint256[] memory engineIds = new uint256[](1);
-        engineIds[0] = 1;
-
-        uint256 totalPower = engineRegistry.calculateCombinedPower(engineIds);
-        assertEq(totalPower, 0);
     }
 
     function testGetAllEngines() public {
@@ -146,8 +111,8 @@ contract EngineRegistryTest is Test {
         engineRegistry.registerEngine(
             1, // id
             "Small Engine", // name
-            30, // enginePower
-            90, // fuelEfficiency (90% of base)
+            30, // enginePowerPerCell (1x1 = 1 cell, total power = 30)
+            90, // fuelConsumptionRatePerCell (90% consumption = 10% more efficient)
             1, // shapeWidth
             1, // shapeHeight
             smallEngineShape,
@@ -162,8 +127,8 @@ contract EngineRegistryTest is Test {
         engineRegistry.registerEngine(
             2, // id
             "Medium Engine", // name
-            60, // enginePower
-            110, // fuelEfficiency (110% of base - less efficient but more power)
+            30, // enginePowerPerCell (1x2 = 2 cells, total power = 60)
+            55, // fuelConsumptionRatePerCell (110/2 = 55% per cell)
             1, // shapeWidth
             2, // shapeHeight
             mediumEngineShape,
@@ -178,8 +143,8 @@ contract EngineRegistryTest is Test {
         engineRegistry.registerEngine(
             3, // id
             "Large Engine", // name
-            100, // enginePower
-            130, // fuelEfficiency (130% of base - least efficient but most power)
+            25, // enginePowerPerCell (2x2 = 4 cells, total power = 100)
+            32, // fuelConsumptionRatePerCell (130/4 = 32.5, rounded to 32)
             2, // shapeWidth
             2, // shapeHeight
             largeEngineShape,

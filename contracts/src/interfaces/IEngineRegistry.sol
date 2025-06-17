@@ -5,8 +5,8 @@ interface IEngineRegistry {
     struct Engine {
         uint256 id;
         string name;
-        uint256 enginePower; // Power rating for movement calculations
-        uint256 fuelEfficiency; // Fuel consumption modifier (100 = baseline)
+        uint256 enginePowerPerCell; // Power rating per cell for movement calculations
+        uint256 fuelConsumptionRatePerCell; // Fuel consumption rate per cell (100 = baseline, higher = more fuel used)
         uint8 shapeWidth; // Physical inventory size
         uint8 shapeHeight;
         bytes shapeData; // Tetris-like shape bitmap
@@ -16,13 +16,13 @@ interface IEngineRegistry {
     }
 
     struct EngineStats {
-        uint256 enginePower;
-        uint256 fuelEfficiency;
+        uint256 enginePowerPerCell;
+        uint256 fuelConsumptionRatePerCell;
         uint256 weight;
     }
 
     // Events
-    event EngineRegistered(uint256 indexed engineId, string name, uint256 enginePower, uint256 price);
+    event EngineRegistered(uint256 indexed engineId, string name, uint256 enginePowerPerCell, uint256 price);
     event EngineStatsUpdated(uint256 indexed engineId, EngineStats stats);
     event EngineStatusUpdated(uint256 indexed engineId, bool isActive);
 
@@ -30,8 +30,8 @@ interface IEngineRegistry {
     function registerEngine(
         uint256 id,
         string calldata name,
-        uint256 enginePower,
-        uint256 fuelEfficiency,
+        uint256 enginePowerPerCell,
+        uint256 fuelConsumptionRatePerCell,
         uint8 shapeWidth,
         uint8 shapeHeight,
         bytes calldata shapeData,
@@ -49,15 +49,10 @@ interface IEngineRegistry {
     // Admin Functions
     function updateEngineStats(
         uint256 engineId,
-        uint256 enginePower,
-        uint256 fuelEfficiency,
+        uint256 enginePowerPerCell,
+        uint256 fuelConsumptionRatePerCell,
         uint256 weight,
         uint256 purchasePrice
     ) external;
     function setEngineStatus(uint256 engineId, bool isActive) external;
-
-    // Utility Functions
-    function calculateCombinedPower(uint256[] calldata engineIds) external view returns (uint256 totalPower);
-    function calculateCombinedEfficiency(uint256[] calldata engineIds) external view returns (uint256 avgEfficiency);
-    function calculateCombinedWeight(uint256[] calldata engineIds) external view returns (uint256 totalWeight);
 }

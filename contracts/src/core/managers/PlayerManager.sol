@@ -33,7 +33,7 @@ abstract contract PlayerManager is GameStateBase {
             shard: shard,
             mapId: mapId,
             shipId: 1,
-            currentFuel: 100, // Starting fuel
+            currentFuel: 100e18, // Starting fuel (100 units with 18 decimals precision)
             lastMoveTimestamp: block.timestamp,
             nextMoveTime: block.timestamp,
             movementSpeed: _calculateMovementSpeed(enginePower, totalWeight),
@@ -139,7 +139,7 @@ abstract contract PlayerManager is GameStateBase {
                     // Engine item type
                     if (engineRegistry.isValidEngine(item.itemId)) {
                         IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(item.itemId);
-                        totalPower += stats.enginePower;
+                        totalPower += stats.enginePowerPerCell;
                     }
                 }
             }

@@ -35,8 +35,8 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
     function registerEngine(
         uint256 id,
         string calldata name,
-        uint256 enginePower,
-        uint256 fuelEfficiency,
+        uint256 enginePowerPerCell,
+        uint256 fuelConsumptionRatePerCell,
         uint8 shapeWidth,
         uint8 shapeHeight,
         bytes calldata shapeData,
@@ -46,8 +46,8 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
         require(id > 0, "Engine ID must be greater than 0");
         require(!isValidEngine(id), "Engine ID already exists");
         require(bytes(name).length > 0, "Engine name cannot be empty");
-        require(enginePower > 0, "Engine power must be greater than 0");
-        require(fuelEfficiency > 0, "Fuel efficiency must be greater than 0");
+        require(enginePowerPerCell > 0, "Engine power per cell must be greater than 0");
+        require(fuelConsumptionRatePerCell > 0, "Fuel consumption rate per cell must be greater than 0");
         require(shapeWidth > 0 && shapeHeight > 0, "Shape dimensions must be greater than 0");
         require(weight > 0, "Engine weight must be greater than 0");
 
@@ -58,8 +58,8 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
         engines[id] = Engine({
             id: id,
             name: name,
-            enginePower: enginePower,
-            fuelEfficiency: fuelEfficiency,
+            enginePowerPerCell: enginePowerPerCell,
+            fuelConsumptionRatePerCell: fuelConsumptionRatePerCell,
             shapeWidth: shapeWidth,
             shapeHeight: shapeHeight,
             shapeData: shapeData,
@@ -71,7 +71,7 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
         engineIds.push(id);
         engineCount++;
 
-        emit EngineRegistered(id, name, enginePower, purchasePrice);
+        emit EngineRegistered(id, name, enginePowerPerCell, purchasePrice);
     }
 
     /**
@@ -87,7 +87,7 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
     function getEngineStats(uint256 engineId) external view validEngineId(engineId) returns (EngineStats memory) {
         Engine memory engine = engines[engineId];
         return
-            EngineStats({enginePower: engine.enginePower, fuelEfficiency: engine.fuelEfficiency, weight: engine.weight});
+            EngineStats({enginePowerPerCell: engine.enginePowerPerCell, fuelConsumptionRatePerCell: engine.fuelConsumptionRatePerCell, weight: engine.weight});
     }
 
     /**
@@ -122,23 +122,23 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
      */
     function updateEngineStats(
         uint256 engineId,
-        uint256 enginePower,
-        uint256 fuelEfficiency,
+        uint256 enginePowerPerCell,
+        uint256 fuelConsumptionRatePerCell,
         uint256 weight,
         uint256 purchasePrice
     ) external onlyRole(ADMIN_ROLE) validEngineId(engineId) whenNotPaused {
-        require(enginePower > 0, "Engine power must be greater than 0");
-        require(fuelEfficiency > 0, "Fuel efficiency must be greater than 0");
+        require(enginePowerPerCell > 0, "Engine power per cell must be greater than 0");
+        require(fuelConsumptionRatePerCell > 0, "Fuel consumption rate per cell must be greater than 0");
         require(weight > 0, "Engine weight must be greater than 0");
 
         Engine storage engine = engines[engineId];
-        engine.enginePower = enginePower;
-        engine.fuelEfficiency = fuelEfficiency;
+        engine.enginePowerPerCell = enginePowerPerCell;
+        engine.fuelConsumptionRatePerCell = fuelConsumptionRatePerCell;
         engine.weight = weight;
         engine.purchasePrice = purchasePrice;
 
         emit EngineStatsUpdated(
-            engineId, EngineStats({enginePower: enginePower, fuelEfficiency: fuelEfficiency, weight: weight})
+            engineId, EngineStats({enginePowerPerCell: enginePowerPerCell, fuelConsumptionRatePerCell: fuelConsumptionRatePerCell, weight: weight})
         );
     }
 
@@ -153,52 +153,6 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
     {
         engines[engineId].isActive = isActive;
         emit EngineStatusUpdated(engineId, isActive);
-    }
-
-    /**
-     * @dev Calculate combined power of multiple engines
-     */
-    function calculateCombinedPower(uint256[] calldata _engineIds) external view returns (uint256 totalPower) {
-        for (uint256 i = 0; i < _engineIds.length; i++) {
-            if (isValidEngine(_engineIds[i]) && engines[_engineIds[i]].isActive) {
-                totalPower += engines[_engineIds[i]].enginePower;
-            }
-        }
-    }
-
-    /**
-     * @dev Calculate combined fuel efficiency of multiple engines (weighted average)
-     */
-    function calculateCombinedEfficiency(uint256[] calldata _engineIds) external view returns (uint256 avgEfficiency) {
-        uint256 totalPower = 0;
-        uint256 weightedEfficiency = 0;
-
-        for (uint256 i = 0; i < _engineIds.length; i++) {
-            if (isValidEngine(_engineIds[i]) && engines[_engineIds[i]].isActive) {
-                uint256 power = engines[_engineIds[i]].enginePower;
-                uint256 efficiency = engines[_engineIds[i]].fuelEfficiency;
-
-                totalPower += power;
-                weightedEfficiency += power * efficiency;
-            }
-        }
-
-        if (totalPower == 0) {
-            return 100; // Default efficiency
-        }
-
-        return weightedEfficiency / totalPower;
-    }
-
-    /**
-     * @dev Calculate combined weight of multiple engines
-     */
-    function calculateCombinedWeight(uint256[] calldata _engineIds) external view returns (uint256 totalWeight) {
-        for (uint256 i = 0; i < _engineIds.length; i++) {
-            if (isValidEngine(_engineIds[i]) && engines[_engineIds[i]].isActive) {
-                totalWeight += engines[_engineIds[i]].weight;
-            }
-        }
     }
 
     /**
