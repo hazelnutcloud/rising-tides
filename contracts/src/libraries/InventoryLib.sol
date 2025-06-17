@@ -9,7 +9,7 @@ pragma solidity ^0.8.20;
 library InventoryLib {
     struct GridItem {
         uint8 itemType; // 0 = empty, 1 = fish, 2 = engine, 3 = equipment
-        uint16 itemId;
+        uint256 itemId;
         bool isOccupied;
     }
 
@@ -113,7 +113,7 @@ library InventoryLib {
         uint8 startX,
         uint8 startY,
         uint8 itemType,
-        uint16 itemId
+        uint256 itemId
     ) internal returns (bool) {
         if (!canPlaceItem(grid, shape, startX, startY)) {
             return false;
@@ -332,7 +332,7 @@ library InventoryLib {
         uint8 startY,
         uint8 rotation,
         uint8 itemType,
-        uint16 itemId
+        uint256 itemId
     ) internal returns (bool) {
         ItemShape memory rotatedShape = rotateItemShape(shape, rotation);
         return placeItem(grid, rotatedShape, startX, startY, itemType, itemId);

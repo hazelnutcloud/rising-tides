@@ -39,7 +39,7 @@ abstract contract InventoryManager is FishingManager {
     /**
      * @dev Move inventory item to new position
      */
-    function moveInventoryItem(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint8 rotation)
+    function moveInventoryItem(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY)
         external
         onlyRegisteredPlayer
         whenNotPaused
@@ -50,8 +50,8 @@ abstract contract InventoryManager is FishingManager {
         InventoryLib.GridItem memory item = InventoryLib.getItemAt(inventory, fromX, fromY);
         require(item.isOccupied, "No item at source position");
 
-        // Get item shape from registry (simplified for now)
-        InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({width: 1, height: 1, data: hex"01"});
+        // Get item shape from registry
+        InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
 
         // Remove from old position
         require(InventoryLib.removeItem(inventory, shape, fromX, fromY), "Failed to remove item");
@@ -73,8 +73,8 @@ abstract contract InventoryManager is FishingManager {
         InventoryLib.GridItem memory item = InventoryLib.getItemAt(inventory, x, y);
         require(item.isOccupied, "No item at position");
 
-        // Get item shape (simplified for now)
-        InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({width: 1, height: 1, data: hex"01"});
+        // Get item shape from registry
+        InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
 
         // Remove and replace with new rotation
         require(InventoryLib.removeItem(inventory, shape, x, y), "Failed to remove item");
@@ -92,8 +92,8 @@ abstract contract InventoryManager is FishingManager {
         InventoryLib.GridItem memory item = InventoryLib.getItemAt(inventory, x, y);
         require(item.isOccupied, "No item at position");
 
-        // Get item shape (simplified for now)
-        InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({width: 1, height: 1, data: hex"01"});
+        // Get item shape from registry
+        InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
 
         require(InventoryLib.removeItem(inventory, shape, x, y), "Failed to remove item");
 
@@ -201,14 +201,6 @@ abstract contract InventoryManager is FishingManager {
         return true;
     }
 
-
-    /**
-     * @dev Check if a player has a fishing rod equipped (public interface)
-     */
-    function isPlayerFishingRodEquipped(address player) external view returns (bool) {
-        return hasEquippedFishingRod(player);
-    }
-
     /**
      * @dev Check if a player has any equipment of a specific type equipped
      */
@@ -290,8 +282,8 @@ abstract contract InventoryManager is FishingManager {
     function _placeFishInInventory(address player, uint256 species, uint8 x, uint8 y, uint8 rotation) internal override returns (bool) {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
         
-        // Get fish shape from registry (simplified for now - assume 1x1)
-        InventoryLib.ItemShape memory fishShape = InventoryLib.ItemShape({width: 1, height: 1, data: hex"01"});
+        // Get fish shape from registry
+        InventoryLib.ItemShape memory fishShape = _getItemShape(1, species);
         
         // Validate that the position is within inventory bounds
         if (x >= inventory.width || y >= inventory.height) {
@@ -304,7 +296,43 @@ abstract contract InventoryManager is FishingManager {
         }
         
         // Place the fish in inventory (itemType = 1 for fish)
-        return InventoryLib.placeItemWithRotation(inventory, fishShape, x, y, rotation, 1, uint16(species));
+        return InventoryLib.placeItemWithRotation(inventory, fishShape, x, y, rotation, 1, species);
+    }
+
+    /**
+     * @dev Get proper item shape from registry based on item type and ID
+     */
+    function _getItemShape(uint8 itemType, uint256 itemId) internal view returns (InventoryLib.ItemShape memory) {
+        if (itemType == 1) {
+            // Fish item - get shape from fish registry
+            require(fishRegistry.isValidSpecies(itemId), "Invalid fish species");
+            FishRegistry.FishSpecies memory species = fishRegistry.getFishSpecies(itemId);
+            return InventoryLib.ItemShape({
+                width: species.shapeWidth,
+                height: species.shapeHeight,
+                data: species.shapeData
+            });
+        } else if (itemType == 2) {
+            // Engine item - get shape from engine registry
+            require(engineRegistry.isValidEngine(itemId), "Invalid engine ID");
+            IEngineRegistry.Engine memory engine = engineRegistry.getEngine(itemId);
+            return InventoryLib.ItemShape({
+                width: engine.shapeWidth,
+                height: engine.shapeHeight,
+                data: engine.shapeData
+            });
+        } else if (itemType == 3) {
+            // Equipment item (fishing rod) - get shape from fishing rod registry
+            require(fishingRodRegistry.isValidFishingRod(itemId), "Invalid fishing rod ID");
+            IFishingRodRegistry.FishingRod memory rod = fishingRodRegistry.getFishingRod(itemId);
+            return InventoryLib.ItemShape({
+                width: rod.shapeWidth,
+                height: rod.shapeHeight,
+                data: rod.shapeData
+            });
+        } else {
+            revert("Invalid item type");
+        }
     }
 
     /**
@@ -317,8 +345,8 @@ abstract contract InventoryManager is FishingManager {
             InventoryAction memory action = actions[i];
 
             if (action.actionType == 0) {
-                // Place item - simplified implementation
-                InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({width: 1, height: 1, data: hex"01"});
+                // Place item - get proper shape from registry
+                InventoryLib.ItemShape memory shape = _getItemShape(1, action.itemId); // Assume itemType 1 (fish) for placement
 
                 require(
                     InventoryLib.placeItemWithRotation(
@@ -331,7 +359,7 @@ abstract contract InventoryManager is FishingManager {
                 InventoryLib.GridItem memory item = InventoryLib.getItemAt(inventory, action.fromX, action.fromY);
                 require(item.isOccupied, "No item to move");
 
-                InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({width: 1, height: 1, data: hex"01"});
+                InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
 
                 require(InventoryLib.removeItem(inventory, shape, action.fromX, action.fromY), "Failed to remove item");
                 require(
@@ -345,7 +373,7 @@ abstract contract InventoryManager is FishingManager {
                 InventoryLib.GridItem memory item = InventoryLib.getItemAt(inventory, action.fromX, action.fromY);
                 require(item.isOccupied, "No item to discard");
 
-                InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({width: 1, height: 1, data: hex"01"});
+                InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
 
                 require(InventoryLib.removeItem(inventory, shape, action.fromX, action.fromY), "Failed to discard item");
             } else if (action.actionType == 3) {
@@ -353,7 +381,7 @@ abstract contract InventoryManager is FishingManager {
                 InventoryLib.GridItem memory item = InventoryLib.getItemAt(inventory, action.fromX, action.fromY);
                 require(item.isOccupied, "No item to rotate");
 
-                InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({width: 1, height: 1, data: hex"01"});
+                InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
 
                 require(InventoryLib.removeItem(inventory, shape, action.fromX, action.fromY), "Failed to remove item");
                 require(

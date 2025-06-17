@@ -34,7 +34,7 @@ struct InventoryAction {
     uint8 toX; // Target position
     uint8 toY;
     uint8 rotation; // 0=up, 1=right, 2=down, 3=left
-    uint16 itemId; // Item being manipulated
+    uint256 itemId; // Item being manipulated
 }
 
 interface IGameState {
