@@ -136,11 +136,6 @@ abstract contract FishingManager is MovementManager {
     function _placeFishInInventory(address player, uint256 species, uint8 x, uint8 y, uint8 rotation) internal virtual returns (bool);
 
     /**
-     * @dev Process array of inventory actions (to be implemented by InventoryManager)
-     */
-    function _processInventoryActions(address player, InventoryAction[] memory actions) internal virtual;
-
-    /**
      * @dev Check if a player has a fishing rod equipped
      */
     function hasEquippedFishingRod(address player) internal view returns (bool) {

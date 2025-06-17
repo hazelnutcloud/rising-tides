@@ -58,9 +58,9 @@ abstract contract GameStateBase is AccessControl, Pausable, ReentrancyGuard, EIP
     uint256 public maxPlayersPerShard = 1000; // Default limit, can be updated by admin
 
     // Game configuration constants
-    uint256 public constant FUEL_PRICE_PER_UNIT = 10 * 10 ** 18; // 10 RTC per fuel unit
+    uint256 public constant FUEL_PRICE_PER_UNIT = 10e18; // 10 RTC per fuel unit
     uint256 public constant MAX_SHARDS = 100;
-    uint256 public constant HEX_MOVE_COST = 1; // Base fuel cost per hex
+    uint256 public constant HEX_MOVE_COST = 1e18; // Base fuel cost per hex
     uint256 public constant BASE_MOVEMENT_SPEED = 1000; // Base movement speed (lower = faster)
     uint256 public constant SIGNATURE_TIMEOUT = 300; // 5 minutes
 
