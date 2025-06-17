@@ -175,3 +175,7 @@ When implementing features:
 8. Default equipment ensures new players can immediately play
 9. Shard system provides scalability for multiplayer
 10. Update development progress in memory/development-log.md
+
+## Memory
+
+- Do not try to maintain backward compatibility in smart contracts as long as we have not yet deployed them
