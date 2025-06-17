@@ -250,7 +250,6 @@ contract GameState is IGameState, AccessControl, Pausable, ReentrancyGuard, EIP7
         nonReentrant
         returns (uint256 fishingNonce)
     {
-        // TODO: validate if a fishing rod is currently equipped
 
         // Validate bait type and check if player has it
         require(fishRegistry.isValidBait(baitType), "Invalid bait type");

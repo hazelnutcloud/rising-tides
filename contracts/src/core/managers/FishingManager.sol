@@ -21,7 +21,8 @@ abstract contract FishingManager is MovementManager {
         nonReentrant
         returns (uint256 fishingNonce)
     {
-        // TODO: validate if a fishing rod is currently equipped
+        // Validate if a fishing rod is currently equipped
+        require(hasEquippedFishingRod(msg.sender), "No fishing rod equipped");
 
         // Validate bait type and check if player has it
         require(fishRegistry.isValidBait(baitType), "Invalid bait type");

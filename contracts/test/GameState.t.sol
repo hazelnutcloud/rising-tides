@@ -814,4 +814,76 @@ contract GameStateTest is Test {
         IGameState.PlayerState memory state = gameState.getPlayerState(player1);
         assertEq(state.shard, 1);
     }
+
+    function testEquipmentValidation() public {
+        // Register player - should have default equipment assigned
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+
+        // Player should have fishing rod equipped by default
+        assertTrue(gameState.isPlayerFishingRodEquipped(player1));
+
+        // Player should be able to fish with equipped rod
+        uint256 baitType = 1;
+        uint256 baitAmount = 1;
+
+        vm.prank(player1);
+        gameState.purchaseBait(baitType, baitAmount);
+
+        vm.prank(player1);
+        uint256 fishingNonce = gameState.initiateFishing(baitType);
+        assertEq(fishingNonce, 1);
+
+        // Get equipped fishing rods
+        uint256[] memory equippedRods = gameState.getEquippedFishingRods(player1);
+        assertEq(equippedRods.length, 1);
+        assertEq(equippedRods[0], 1); // Should be default fishing rod ID 1
+    }
+
+    function testFishingWithoutEquippedRod() public {
+        // Register player
+        vm.prank(player1);
+        gameState.registerPlayer(0, 1);
+
+        // Manually remove the equipped fishing rod by discarding it
+        // First, find the equipment slot position
+        uint8 equipmentSlotX = 0;
+        uint8 equipmentSlotY = 0;
+        
+        // Get the player's inventory to find equipment slot
+        (uint8 width, uint8 height, uint8[] memory slotTypes, InventoryLib.GridItem[] memory items) = 
+            gameState.getPlayerInventory(player1);
+        
+        // Find equipment slot with fishing rod
+        bool foundEquipmentSlot = false;
+        for (uint256 i = 0; i < slotTypes.length; i++) {
+            if (slotTypes[i] == 2 && items[i].isOccupied && items[i].itemType == 3) {
+                equipmentSlotX = uint8(i % width);
+                equipmentSlotY = uint8(i / width);
+                foundEquipmentSlot = true;
+                break;
+            }
+        }
+        
+        require(foundEquipmentSlot, "Could not find equipped fishing rod");
+
+        // Discard the fishing rod
+        vm.prank(player1);
+        gameState.discardInventoryItem(equipmentSlotX, equipmentSlotY);
+
+        // Player should no longer have fishing rod equipped
+        assertFalse(gameState.isPlayerFishingRodEquipped(player1));
+
+        // Give player some bait
+        uint256 baitType = 1;
+        uint256 baitAmount = 1;
+
+        vm.prank(player1);
+        gameState.purchaseBait(baitType, baitAmount);
+
+        // Trying to fish without equipped rod should fail
+        vm.prank(player1);
+        vm.expectRevert("No fishing rod equipped");
+        gameState.initiateFishing(baitType);
+    }
 }

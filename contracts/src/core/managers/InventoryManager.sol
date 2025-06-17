@@ -201,6 +201,78 @@ abstract contract InventoryManager is FishingManager {
         return true;
     }
 
+
+    /**
+     * @dev Check if a player has a fishing rod equipped (public interface)
+     */
+    function isPlayerFishingRodEquipped(address player) external view returns (bool) {
+        return hasEquippedFishingRod(player);
+    }
+
+    /**
+     * @dev Check if a player has any equipment of a specific type equipped
+     */
+    function hasEquippedItemType(address player, uint8 itemType) external view returns (bool) {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
+        
+        uint8 requiredSlotType = itemType == 2 ? 1 : 2; // Engine items need slot type 1, others need slot type 2
+        
+        // Check all appropriate slots for the item type
+        for (uint256 i = 0; i < ship.slotTypes.length; i++) {
+            if (ship.slotTypes[i] == requiredSlotType) {
+                InventoryLib.GridItem memory item = inventory.grid[i];
+                if (item.isOccupied && item.itemType == itemType) {
+                    // Additional validation for engines and fishing rods
+                    if (itemType == 2 && engineRegistry.isValidEngine(item.itemId)) {
+                        return true;
+                    } else if (itemType == 3 && fishingRodRegistry.isValidFishingRod(item.itemId)) {
+                        return true;
+                    } else if (itemType != 2 && itemType != 3) {
+                        return true; // For other item types, just check presence
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @dev Get all equipped fishing rods for a player
+     */
+    function getEquippedFishingRods(address player) external view returns (uint256[] memory fishingRodIds) {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
+        
+        // Count equipped fishing rods first
+        uint256 equippedCount = 0;
+        for (uint256 i = 0; i < ship.slotTypes.length; i++) {
+            if (ship.slotTypes[i] == 2) { // Equipment slot
+                InventoryLib.GridItem memory item = inventory.grid[i];
+                if (item.isOccupied && item.itemType == 3) { // Equipment type
+                    if (fishingRodRegistry.isValidFishingRod(item.itemId)) {
+                        equippedCount++;
+                    }
+                }
+            }
+        }
+        
+        // Populate the array
+        fishingRodIds = new uint256[](equippedCount);
+        uint256 index = 0;
+        for (uint256 i = 0; i < ship.slotTypes.length && index < equippedCount; i++) {
+            if (ship.slotTypes[i] == 2) { // Equipment slot
+                InventoryLib.GridItem memory item = inventory.grid[i];
+                if (item.isOccupied && item.itemType == 3) { // Equipment type
+                    if (fishingRodRegistry.isValidFishingRod(item.itemId)) {
+                        fishingRodIds[index] = item.itemId;
+                        index++;
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * @dev Get engine and equipment registries (for external access)
      */
