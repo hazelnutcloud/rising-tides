@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../interfaces/IFishingRodRegistry.sol";
+import "../utils/Errors.sol";
 
 contract FishingRodRegistry is IFishingRodRegistry, Ownable {
     mapping(uint256 => FishingRod) private fishingRods;
@@ -23,11 +24,11 @@ contract FishingRodRegistry is IFishingRodRegistry, Ownable {
         uint256 purchasePrice,
         uint256 weight
     ) external override onlyOwner {
-        require(id > 0, "Invalid ID");
-        require(!fishingRods[id].isActive, "Fishing rod already exists");
-        require(bytes(name).length > 0, "Name cannot be empty");
-        require(shapeWidth > 0 && shapeHeight > 0, "Invalid dimensions");
-        require(shapeData.length > 0, "Shape data cannot be empty");
+        if (id == 0) revert InvalidId(id);
+        if (fishingRods[id].isActive) revert AlreadyExists("FishingRod", id);
+        if (bytes(name).length == 0) revert EmptyString();
+        if (shapeWidth == 0 || shapeHeight == 0) revert InvalidDimensions(shapeWidth, shapeHeight);
+        if (shapeData.length == 0) revert ShapeDataTooSmall(1, 0);
 
         fishingRods[id] = FishingRod({
             id: id,
@@ -45,7 +46,7 @@ contract FishingRodRegistry is IFishingRodRegistry, Ownable {
     }
 
     function updateFishingRod(uint256 id, uint256 purchasePrice, uint256 weight) external override onlyOwner {
-        require(isValidFishingRod(id), "Invalid fishing rod ID");
+        if (!isValidFishingRod(id)) revert InvalidFishingRod(id);
 
         fishingRods[id].purchasePrice = purchasePrice;
         fishingRods[id].weight = weight;
@@ -54,14 +55,14 @@ contract FishingRodRegistry is IFishingRodRegistry, Ownable {
     }
 
     function setFishingRodStatus(uint256 id, bool isActive) external override onlyOwner {
-        require(fishingRods[id].id > 0, "Fishing rod does not exist");
+        if (fishingRods[id].id == 0) revert DoesNotExist("FishingRod", id);
 
         fishingRods[id].isActive = isActive;
         emit FishingRodStatusChanged(id, isActive);
     }
 
     function getFishingRod(uint256 id) external view override returns (FishingRod memory) {
-        require(fishingRods[id].id > 0, "Invalid fishing rod ID");
+        if (fishingRods[id].id == 0) revert InvalidFishingRod(id);
         return fishingRods[id];
     }
 

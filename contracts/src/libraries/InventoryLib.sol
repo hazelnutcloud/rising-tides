@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {SlotType, ItemType} from "../types/InventoryTypes.sol";
+import "../utils/Errors.sol";
 
 /**
  * @title InventoryLib
@@ -253,7 +254,7 @@ library InventoryLib {
      * @return Rotated item shape
      */
     function rotateItemShape(ItemShape memory shape, uint8 rotation) internal pure returns (ItemShape memory) {
-        require(rotation < 4, "Invalid rotation value");
+        if (rotation >= 4) revert InvalidRotation(rotation);
 
         if (rotation == 0) {
             return shape; // No rotation needed

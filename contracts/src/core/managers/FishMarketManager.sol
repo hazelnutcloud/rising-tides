@@ -11,7 +11,7 @@ abstract contract FishMarketManager is RisingTidesBase {
 
         (InventoryLib.GridItem memory item, uint8 x, uint8 y) = inventory.getItemByInstanceId(instanceId);
 
-        require(item.itemType == ItemType.Fish, "Not a fish");
+        if (item.itemType != ItemType.Fish) revert NotAFish(uint8(item.itemType));
 
         InventoryLib.ItemShape memory fishShape = _getItemShape(ItemType.Fish, item.itemId);
 
@@ -19,7 +19,7 @@ abstract contract FishMarketManager is RisingTidesBase {
 
         FishCatch storage fishData = playerFish[msg.sender][instanceId];
 
-        require(fishData.species > 0, "Invalid fish");
+        if (fishData.species == 0) revert InvalidSpecies(0);
 
         // Store fish data in memory before deletion
         uint256 species = fishData.species;
@@ -99,7 +99,7 @@ abstract contract FishMarketManager is RisingTidesBase {
         address player = msg.sender;
         FishCatch storage fishData = playerFish[player][instanceId];
 
-        require(fishData.species > 0, "Invalid fish");
+        if (fishData.species == 0) revert InvalidSpecies(0);
 
         uint256 freshness = _calculateFishFreshness(fishData.caughtAt);
         uint256 currentMarketPrice = _getMarketPrice(fishData.species);
@@ -111,7 +111,7 @@ abstract contract FishMarketManager is RisingTidesBase {
         address player = msg.sender;
         FishCatch storage fishData = playerFish[player][instanceId];
 
-        require(fishData.species > 0, "Invalid fish");
+        if (fishData.species == 0) revert InvalidSpecies(0);
 
         return _calculateFishFreshness(fishData.caughtAt);
     }
@@ -123,7 +123,7 @@ abstract contract FishMarketManager is RisingTidesBase {
         external
         onlyRole(ADMIN_ROLE)
     {
-        require(fishRegistry.isValidSpecies(species), "Invalid species");
+        if (!fishRegistry.isValidSpecies(species)) revert InvalidSpecies(species);
 
         fishMarketData[species] = FishMarketData({value: marketValue, lastSoldTimestamp: lastSoldTimestamp});
 

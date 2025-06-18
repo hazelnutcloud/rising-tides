@@ -8,6 +8,7 @@ import "./managers/InventoryManager.sol";
 import "./managers/MovementManager.sol";
 import "./managers/FishMarketManager.sol";
 import "../interfaces/IRisingTides.sol";
+import "../utils/Errors.sol";
 
 /**
  * @title RisingTides
@@ -31,13 +32,13 @@ contract RisingTides is
         address _mapRegistry,
         address _serverSigner
     ) EIP712("RisingTides", "1") {
-        require(_currency != address(0), "Currency address cannot be zero");
-        require(_shipRegistry != address(0), "Ship registry address cannot be zero");
-        require(_fishRegistry != address(0), "Fish registry address cannot be zero");
-        require(_engineRegistry != address(0), "Engine registry address cannot be zero");
-        require(_fishingRodRegistry != address(0), "Fishing rod registry address cannot be zero");
-        require(_mapRegistry != address(0), "Map registry address cannot be zero");
-        require(_serverSigner != address(0), "Server signer address cannot be zero");
+        if (_currency == address(0)) revert InvalidAddress(_currency);
+        if (_shipRegistry == address(0)) revert InvalidAddress(_shipRegistry);
+        if (_fishRegistry == address(0)) revert InvalidAddress(_fishRegistry);
+        if (_engineRegistry == address(0)) revert InvalidAddress(_engineRegistry);
+        if (_fishingRodRegistry == address(0)) revert InvalidAddress(_fishingRodRegistry);
+        if (_mapRegistry == address(0)) revert InvalidAddress(_mapRegistry);
+        if (_serverSigner == address(0)) revert InvalidAddress(_serverSigner);
 
         currency = RisingTidesCurrency(_currency);
         shipRegistry = IShipRegistry(_shipRegistry);

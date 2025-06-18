@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "../utils/Errors.sol";
 
 /**
  * @title FishRegistry
@@ -42,12 +43,12 @@ contract FishRegistry is AccessControl, Pausable {
     event BaitTypeUpdated(uint256 indexed baitId, uint256 newPrice, bool isActive);
 
     modifier validSpeciesId(uint256 speciesId) {
-        require(isValidSpecies(speciesId), "Invalid species ID");
+        if (!isValidSpecies(speciesId)) revert InvalidSpecies(speciesId);
         _;
     }
 
     modifier validBaitId(uint256 baitId) {
-        require(isValidBait(baitId), "Invalid bait ID");
+        if (!isValidBait(baitId)) revert InvalidBait(baitId);
         _;
     }
 
@@ -67,14 +68,14 @@ contract FishRegistry is AccessControl, Pausable {
         uint8 shapeHeight,
         bytes calldata shapeData
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
-        require(id > 0, "Species ID must be greater than 0");
-        require(!isValidSpecies(id), "Species ID already exists");
-        require(basePrice > 0, "Base price must be greater than 0");
-        require(shapeWidth > 0 && shapeHeight > 0, "Shape dimensions must be greater than 0");
+        if (id == 0) revert InvalidId(id);
+        if (isValidSpecies(id)) revert AlreadyExists("FishSpecies", id);
+        if (basePrice == 0) revert InvalidAmount(basePrice);
+        if (shapeWidth == 0 || shapeHeight == 0) revert InvalidDimensions(shapeWidth, shapeHeight);
 
         // Validate shape data size
         uint256 expectedShapeSize = (uint256(shapeWidth) * uint256(shapeHeight) + 7) / 8;
-        require(shapeData.length >= expectedShapeSize, "Shape data too small");
+        if (shapeData.length < expectedShapeSize) revert ShapeDataTooSmall(expectedShapeSize, shapeData.length);
 
         fishSpecies[id] = FishSpecies({
             id: id,
@@ -98,10 +99,10 @@ contract FishRegistry is AccessControl, Pausable {
         onlyRole(ADMIN_ROLE)
         whenNotPaused
     {
-        require(id > 0, "Bait ID must be greater than 0");
-        require(!isValidBait(id), "Bait ID already exists");
-        require(bytes(name).length > 0, "Bait name cannot be empty");
-        require(price > 0, "Bait price must be greater than 0");
+        if (id == 0) revert InvalidId(id);
+        if (isValidBait(id)) revert AlreadyExists("BaitType", id);
+        if (bytes(name).length == 0) revert EmptyString();
+        if (price == 0) revert InvalidAmount(price);
 
         baitTypes[id] = BaitType({id: id, name: name, price: price, isActive: true});
 
@@ -174,7 +175,7 @@ contract FishRegistry is AccessControl, Pausable {
         validSpeciesId(speciesId)
         whenNotPaused
     {
-        require(newBasePrice > 0, "Base price must be greater than 0");
+        if (newBasePrice == 0) revert InvalidAmount(newBasePrice);
 
         fishSpecies[speciesId].basePrice = newBasePrice;
         emit FishSpeciesUpdated(speciesId, newBasePrice);
@@ -189,7 +190,7 @@ contract FishRegistry is AccessControl, Pausable {
         validBaitId(baitId)
         whenNotPaused
     {
-        require(newPrice > 0, "Bait price must be greater than 0");
+        if (newPrice == 0) revert InvalidAmount(newPrice);
 
         baitTypes[baitId].price = newPrice;
         baitTypes[baitId].isActive = isActive;

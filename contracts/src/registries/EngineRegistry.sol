@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../interfaces/IEngineRegistry.sol";
+import "../utils/Errors.sol";
 
 /**
  * @title EngineRegistry
@@ -19,7 +20,7 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
     uint256[] private engineIds;
 
     modifier validEngineId(uint256 engineId) {
-        require(isValidEngine(engineId), "Invalid engine ID");
+        if (!isValidEngine(engineId)) revert InvalidEngine(engineId);
         _;
     }
 
@@ -43,17 +44,17 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
         uint256 purchasePrice,
         uint256 weight
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
-        require(id > 0, "Engine ID must be greater than 0");
-        require(!isValidEngine(id), "Engine ID already exists");
-        require(bytes(name).length > 0, "Engine name cannot be empty");
-        require(enginePowerPerCell > 0, "Engine power per cell must be greater than 0");
-        require(fuelConsumptionRatePerCell > 0, "Fuel consumption rate per cell must be greater than 0");
-        require(shapeWidth > 0 && shapeHeight > 0, "Shape dimensions must be greater than 0");
-        require(weight > 0, "Engine weight must be greater than 0");
+        if (id == 0) revert InvalidId(id);
+        if (isValidEngine(id)) revert AlreadyExists("Engine", id);
+        if (bytes(name).length == 0) revert EmptyString();
+        if (enginePowerPerCell == 0) revert InvalidAmount(enginePowerPerCell);
+        if (fuelConsumptionRatePerCell == 0) revert InvalidAmount(fuelConsumptionRatePerCell);
+        if (shapeWidth == 0 || shapeHeight == 0) revert InvalidDimensions(shapeWidth, shapeHeight);
+        if (weight == 0) revert InvalidAmount(weight);
 
         // Validate shape data size
         uint256 expectedShapeSize = (uint256(shapeWidth) * uint256(shapeHeight) + 7) / 8;
-        require(shapeData.length >= expectedShapeSize, "Shape data too small");
+        if (shapeData.length < expectedShapeSize) revert ShapeDataTooSmall(expectedShapeSize, shapeData.length);
 
         engines[id] = Engine({
             id: id,
@@ -130,9 +131,9 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
         uint256 weight,
         uint256 purchasePrice
     ) external onlyRole(ADMIN_ROLE) validEngineId(engineId) whenNotPaused {
-        require(enginePowerPerCell > 0, "Engine power per cell must be greater than 0");
-        require(fuelConsumptionRatePerCell > 0, "Fuel consumption rate per cell must be greater than 0");
-        require(weight > 0, "Engine weight must be greater than 0");
+        if (enginePowerPerCell == 0) revert InvalidAmount(enginePowerPerCell);
+        if (fuelConsumptionRatePerCell == 0) revert InvalidAmount(fuelConsumptionRatePerCell);
+        if (weight == 0) revert InvalidAmount(weight);
 
         Engine storage engine = engines[engineId];
         engine.enginePowerPerCell = enginePowerPerCell;

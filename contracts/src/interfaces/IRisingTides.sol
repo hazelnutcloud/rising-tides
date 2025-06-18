@@ -24,19 +24,6 @@ struct FishPlacement {
     uint8 rotation; // Rotation for placement: 0=up, 1=right, 2=down, 3=left (only used if shouldPlace = true)
 }
 
-/**
- * @dev Inventory action for player inventory management
- */
-struct InventoryAction {
-    uint8 actionType; // 0=place, 1=move, 2=discard, 3=rotate
-    uint8 fromX; // Source position
-    uint8 fromY;
-    uint8 toX; // Target position
-    uint8 toY;
-    uint8 rotation; // 0=up, 1=right, 2=down, 3=left
-    uint256 itemId; // Item being manipulated
-}
-
 interface IRisingTides {
     struct Position {
         int32 x;
@@ -45,21 +32,20 @@ interface IRisingTides {
 
     struct PlayerState {
         Position position;
-        uint8 shard;
         uint256 mapId;
         uint256 shipId;
         uint256 currentFuel;
         uint256 lastMoveTimestamp;
         uint256 nextMoveTime;
         uint256 movementSpeed;
-        uint256 totalWeight;
+        uint8 shard;
         bool isActive;
     }
 
     struct FishCatch {
         uint256 species;
-        uint16 weight;
         uint256 caughtAt;
+        uint16 weight;
     }
 
     struct FishMarketData {
@@ -123,9 +109,6 @@ interface IRisingTides {
 
     // Shard Management
     function changeShard(uint8 newShard) external;
-
-    // Weight Management
-    function updatePlayerWeight(address player) external;
 
     // Inventory Management
     function getPlayerInventory(address player)

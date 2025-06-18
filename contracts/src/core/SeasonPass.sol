@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "../utils/Errors.sol";
 
 /**
  * @title SeasonPass
@@ -70,15 +71,19 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
     event RewardsDistributed(uint256 indexed seasonId, uint256 totalRewards);
 
     modifier activeSeason() {
-        require(currentSeasonId > 0, "No active season");
-        require(seasons[currentSeasonId].isActive, "Season not active");
-        require(block.timestamp >= seasons[currentSeasonId].startTime, "Season not started");
-        require(block.timestamp <= seasons[currentSeasonId].endTime, "Season ended");
+        if (currentSeasonId == 0) revert NoActiveSeason();
+        if (!seasons[currentSeasonId].isActive) revert SeasonNotActive(currentSeasonId);
+        if (block.timestamp < seasons[currentSeasonId].startTime) {
+            revert SeasonNotStarted(currentSeasonId, seasons[currentSeasonId].startTime, block.timestamp);
+        }
+        if (block.timestamp > seasons[currentSeasonId].endTime) {
+            revert SeasonHasEnded(currentSeasonId, seasons[currentSeasonId].endTime, block.timestamp);
+        }
         _;
     }
 
     modifier validSeason(uint256 seasonId) {
-        require(seasonId > 0 && seasonId <= currentSeasonId, "Invalid season ID");
+        if (seasonId == 0 || seasonId > currentSeasonId) revert InvalidId(seasonId);
         _;
     }
 
@@ -95,9 +100,9 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
         external
         onlyRole(ADMIN_ROLE)
     {
-        require(startTime > block.timestamp, "Start time must be in the future");
-        require(endTime > startTime, "End time must be after start time");
-        require(bytes(name).length > 0, "Season name cannot be empty");
+        if (startTime <= block.timestamp) revert StartTimeNotInFuture(startTime, block.timestamp);
+        if (endTime <= startTime) revert InvalidTimeRange(startTime, endTime);
+        if (bytes(name).length == 0) revert EmptyString();
 
         // End current season if active
         if (currentSeasonId > 0 && seasons[currentSeasonId].isActive) {
@@ -126,8 +131,8 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
      */
     function purchaseSeasonPass() external payable activeSeason whenNotPaused nonReentrant {
         Season storage season = seasons[currentSeasonId];
-        require(msg.value >= season.passPrice, "Insufficient payment");
-        require(!hasSeasonPass[currentSeasonId][msg.sender], "Already owns season pass");
+        if (msg.value < season.passPrice) revert InsufficientPayment(season.passPrice, msg.value);
+        if (hasSeasonPass[currentSeasonId][msg.sender]) revert AlreadyOwnsSeasonPass(currentSeasonId, msg.sender);
 
         // Mint season pass NFT
         uint256 tokenId = nextTokenId++;
@@ -161,7 +166,7 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
         onlyRole(ADMIN_ROLE)
         activeSeason
     {
-        require(hasSeasonPass[currentSeasonId][player], "Player does not have season pass");
+        if (!hasSeasonPass[currentSeasonId][player]) revert NoSeasonPass(currentSeasonId, player);
 
         PlayerStats storage stats = seasonStats[currentSeasonId][player];
         stats.totalEarnings += earnings;
@@ -226,8 +231,8 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
      * @dev End current season manually
      */
     function endSeason() external onlyRole(ADMIN_ROLE) {
-        require(currentSeasonId > 0, "No season to end");
-        require(seasons[currentSeasonId].isActive, "Season already ended");
+        if (currentSeasonId == 0) revert NoActiveSeason();
+        if (!seasons[currentSeasonId].isActive) revert SeasonAlreadyEnded(currentSeasonId);
 
         seasons[currentSeasonId].isActive = false;
         emit SeasonEnded(currentSeasonId);
@@ -237,8 +242,8 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
      * @dev Distribute rewards to top players
      */
     function distributeRewards(uint256 seasonId) external onlyRole(ADMIN_ROLE) validSeason(seasonId) {
-        require(!seasons[seasonId].isActive, "Season still active");
-        require(!seasonRewardsDistributed[seasonId], "Rewards already distributed");
+        if (seasons[seasonId].isActive) revert SeasonNotActive(seasonId);
+        if (seasonRewardsDistributed[seasonId]) revert RewardsAlreadyDistributed(seasonId);
 
         address[] memory seasonLeaderboard = leaderboards[seasonId];
         uint256 rewardCount =
@@ -332,9 +337,9 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
      * @dev Withdraw contract balance (admin only)
      */
     function withdraw(address to) external onlyRole(ADMIN_ROLE) {
-        require(to != address(0), "Cannot withdraw to zero address");
+        if (to == address(0)) revert InvalidAddress(to);
         uint256 balance = address(this).balance;
-        require(balance > 0, "No balance to withdraw");
+        if (balance == 0) revert NoBalance();
 
         payable(to).transfer(balance);
     }
@@ -343,7 +348,7 @@ contract SeasonPass is ERC721, AccessControl, Pausable, ReentrancyGuard {
      * @dev Override tokenURI to provide metadata
      */
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        require(_ownerOf(tokenId) != address(0), "Token does not exist");
+        if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist(tokenId);
 
         uint256 seasonId = tokenToSeason[tokenId];
 

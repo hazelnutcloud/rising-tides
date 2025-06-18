@@ -23,14 +23,16 @@ abstract contract FishingManager is RisingTidesBase {
         returns (uint256 fishingNonce)
     {
         // Validate if a fishing rod is currently equipped
-        require(hasEquippedFishingRod(msg.sender), "No fishing rod equipped");
+        if (!hasEquippedFishingRod(msg.sender)) revert NoFishingRodEquipped(msg.sender);
 
         // Validate bait type and check if player has it
-        require(fishRegistry.isValidBait(baitType), "Invalid bait type");
-        require(playerBait[msg.sender][baitType] > 0, "Insufficient bait");
+        if (!fishRegistry.isValidBait(baitType)) revert InvalidBait(baitType);
+        if (playerBait[msg.sender][baitType] == 0) revert InsufficientBait(baitType, 1, 0);
 
         // Check if player already has a pending fishing request
-        require(pendingFishingRequest[msg.sender] == 0, "Already have pending fishing request");
+        if (pendingFishingRequest[msg.sender] != 0) {
+            revert PendingFishingRequest(msg.sender, pendingFishingRequest[msg.sender]);
+        }
 
         // Consume one bait
         playerBait[msg.sender][baitType]--;
@@ -62,17 +64,19 @@ abstract contract FishingManager is RisingTidesBase {
         nonReentrant
         returns (uint256 instanceId)
     {
-        require(result.player == msg.sender, "Result not for caller");
-        require(pendingFishingRequest[msg.sender] == result.nonce, "Invalid or expired fishing request");
-        require(result.nonce > 0, "Invalid nonce");
+        if (result.player != msg.sender) revert InvalidFishingResult("Result not for caller");
+        if (pendingFishingRequest[msg.sender] != result.nonce) revert ExpiredFishingRequest(result.nonce);
+        if (result.nonce == 0) revert InvalidFishingResult("Invalid nonce");
 
         // Verify signature timestamp is recent
-        require(block.timestamp <= result.timestamp + SIGNATURE_TIMEOUT, "Signature expired");
-        require(result.timestamp <= block.timestamp, "Future timestamp not allowed");
+        if (block.timestamp > result.timestamp + SIGNATURE_TIMEOUT) {
+            revert SignatureExpired(block.timestamp, result.timestamp + SIGNATURE_TIMEOUT);
+        }
+        if (result.timestamp > block.timestamp) revert FutureTimestamp(result.timestamp, block.timestamp);
 
         // Verify signature hasn't been used before
         bytes32 signatureHash = keccak256(signature);
-        require(!usedSignatures[signatureHash], "Signature already used");
+        if (usedSignatures[signatureHash]) revert SignatureAlreadyUsed(signatureHash);
 
         // Verify server signature
         bytes32 structHash = keccak256(
@@ -82,7 +86,7 @@ abstract contract FishingManager is RisingTidesBase {
         );
         bytes32 hash = _hashTypedDataV4(structHash);
         address recoveredSigner = hash.recover(signature);
-        require(recoveredSigner == serverSigner, "Invalid signature");
+        if (recoveredSigner != serverSigner) revert InvalidSignature(recoveredSigner, serverSigner);
 
         // Mark signature as used
         usedSignatures[signatureHash] = true;
@@ -93,7 +97,7 @@ abstract contract FishingManager is RisingTidesBase {
 
         // If server determined a catch occurred, handle fish placement
         if (result.species > 0) {
-            require(fishRegistry.isValidSpecies(result.species), "Invalid species");
+            if (!fishRegistry.isValidSpecies(result.species)) revert InvalidSpecies(result.species);
 
             if (fishPlacement.shouldPlace) {
                 // Player wants to place the fish in inventory
@@ -101,7 +105,7 @@ abstract contract FishingManager is RisingTidesBase {
                     msg.sender, result.species, fishPlacement.x, fishPlacement.y, fishPlacement.rotation
                 );
 
-                require(instanceId > 0, "Failed to place fish in inventory");
+                if (instanceId == 0) revert OperationFailed("Failed to place fish in inventory");
 
                 playerFish[msg.sender][instanceId] =
                     FishCatch({species: result.species, weight: result.weight, caughtAt: result.timestamp});
@@ -129,7 +133,7 @@ abstract contract FishingManager is RisingTidesBase {
      * @dev Update server signer address (admin only)
      */
     function updateServerSigner(address newSigner) external onlyRole(ADMIN_ROLE) {
-        require(newSigner != address(0), "Invalid signer address");
+        if (newSigner == address(0)) revert InvalidAddress(newSigner);
         serverSigner = newSigner;
     }
 

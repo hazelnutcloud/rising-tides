@@ -13,6 +13,7 @@ import "../registries/FishRegistry.sol";
 import "../registries/EngineRegistry.sol";
 import "../registries/FishingRodRegistry.sol";
 import "../libraries/InventoryLib.sol";
+import "../utils/Errors.sol";
 
 /**
  * @title RisingTidesBase
@@ -104,18 +105,12 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
 
     // Modifiers
     modifier onlyRegisteredPlayer() {
-        require(registeredPlayers[msg.sender], "Player not registered");
-        _;
-    }
-
-    modifier validCoordinates(int32 x, int32 y) {
-        require(x >= MIN_COORDINATE && x <= MAX_COORDINATE, "X coordinate out of bounds");
-        require(y >= MIN_COORDINATE && y <= MAX_COORDINATE, "Y coordinate out of bounds");
+        if (!registeredPlayers[msg.sender]) revert PlayerNotRegistered(msg.sender);
         _;
     }
 
     modifier validShard(uint8 shard) {
-        require(shard < MAX_SHARDS, "Invalid shard ID");
+        if (shard >= MAX_SHARDS) revert InvalidShardId(shard, MAX_SHARDS);
         _;
     }
 }

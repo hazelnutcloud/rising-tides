@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../interfaces/IShipRegistry.sol";
 import {SlotType} from "../types/InventoryTypes.sol";
+import "../utils/Errors.sol";
 
 /**
  * @title ShipRegistry
@@ -20,7 +21,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
     uint256[] private shipIds;
 
     modifier validShipId(uint256 shipId) {
-        require(isValidShip(shipId), "Invalid ship ID");
+        if (!isValidShip(shipId)) revert InvalidShip(shipId);
         _;
     }
 
@@ -169,12 +170,12 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
         uint8 cargoWidth,
         uint8 cargoHeight
     ) private view {
-        require(id > 0, "Ship ID must be greater than 0");
-        require(!isValidShip(id), "Ship ID already exists");
-        require(bytes(name).length > 0, "Ship name cannot be empty");
-        require(fuelCapacity > 0, "Fuel capacity must be greater than 0");
-        require(maxDurability > 0, "Max durability must be greater than 0");
-        require(cargoWidth > 0 && cargoHeight > 0, "Cargo dimensions must be greater than 0");
+        if (id == 0) revert InvalidId(id);
+        if (isValidShip(id)) revert AlreadyExists("Ship", id);
+        if (bytes(name).length == 0) revert EmptyString();
+        if (fuelCapacity == 0) revert InvalidAmount(fuelCapacity);
+        if (maxDurability == 0) revert InvalidAmount(maxDurability);
+        if (cargoWidth == 0 || cargoHeight == 0) revert InvalidDimensions(cargoWidth, cargoHeight);
     }
 
     /**
@@ -183,7 +184,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
     function _validateSlotTypes(SlotType[] calldata slotTypes, uint8 cargoWidth, uint8 cargoHeight) private pure {
         uint256 totalSlots = uint256(cargoWidth) * uint256(cargoHeight);
 
-        require(slotTypes.length == totalSlots, "Slot types array length must match cargo dimensions");
+        if (slotTypes.length != totalSlots) revert ArrayLengthMismatch(totalSlots, slotTypes.length);
 
         // All SlotType enum values are valid by definition, no need to check range
     }

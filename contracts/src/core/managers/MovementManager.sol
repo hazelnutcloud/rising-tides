@@ -14,16 +14,18 @@ abstract contract MovementManager is RisingTidesBase {
      */
     function move(uint8[] calldata directions) external onlyRegisteredPlayer whenNotPaused {
         IRisingTides.PlayerState storage player = playerStates[msg.sender];
-        require(block.timestamp >= player.nextMoveTime, "Movement still on cooldown");
-        require(directions.length > 0, "No directions provided");
-        require(directions.length <= 20, "Too many moves at once"); // Limit batch size
+        if (block.timestamp < player.nextMoveTime) {
+            revert OnCooldown(block.timestamp, player.nextMoveTime);
+        }
+        if (directions.length == 0) revert NoDirectionsProvided();
+        if (directions.length > 20) revert TooManyMoves(directions.length, 20); // Limit batch size
 
         // Validate movement path and terrain collision
         (int32 finalX, int32 finalY) = _validateMovementPath(player.mapId, player.position, directions);
 
         // Calculate fuel cost for the entire movement
         uint256 fuelCost = calculateFuelCost(msg.sender, directions);
-        require(player.currentFuel >= fuelCost, "Insufficient fuel");
+        if (player.currentFuel < fuelCost) revert InsufficientFuel(fuelCost, player.currentFuel);
 
         // Update position and fuel
         player.position = IRisingTides.Position(finalX, finalY);
@@ -54,10 +56,12 @@ abstract contract MovementManager is RisingTidesBase {
      * @dev Purchase fuel
      */
     function purchaseFuel(uint256 amount) external onlyRegisteredPlayer whenNotPaused nonReentrant {
-        require(amount > 0, "Amount must be greater than zero");
+        if (amount == 0) revert InvalidAmount(amount);
 
         uint256 totalCost = amount * FUEL_PRICE_PER_UNIT;
-        require(currency.balanceOf(msg.sender) >= totalCost, "Insufficient currency");
+        if (currency.balanceOf(msg.sender) < totalCost) {
+            revert InsufficientBalance(msg.sender, totalCost, currency.balanceOf(msg.sender));
+        }
 
         // Burn currency and add fuel (convert amount to 18 decimal precision)
         currency.burn(msg.sender, totalCost, "Fuel purchase");
@@ -120,15 +124,19 @@ abstract contract MovementManager is RisingTidesBase {
         finalY = startPos.y;
 
         for (uint256 i = 0; i < directions.length; i++) {
-            require(directions[i] < 6, "Invalid direction");
+            if (directions[i] >= 6) revert InvalidDirection(directions[i]);
 
             // Calculate next position
             int32 nextX = finalX + hexDirectionsX[directions[i]];
             int32 nextY = finalY + hexDirectionsY[directions[i]];
 
             // Check if position is valid and passable
-            require(mapRegistry.isValidPosition(mapId, nextX, nextY), "Position out of map bounds");
-            require(mapRegistry.isPassable(mapId, nextX, nextY), "Terrain is not passable");
+            if (!mapRegistry.isValidPosition(mapId, nextX, nextY)) {
+                revert PositionOutOfBounds(mapId, uint256(uint32(nextX)), uint256(uint32(nextY)));
+            }
+            if (!mapRegistry.isPassable(mapId, nextX, nextY)) {
+                revert TerrainNotPassable(mapId, uint256(uint32(nextX)), uint256(uint32(nextY)));
+            }
 
             finalX = nextX;
             finalY = nextY;

@@ -15,9 +15,11 @@ abstract contract PlayerManager is RisingTidesBase {
      * @dev Register a new player
      */
     function registerPlayer(uint8 shard, uint256 mapId) external validShard(shard) whenNotPaused {
-        require(!registeredPlayers[msg.sender], "Player already registered");
-        require(mapRegistry.isValidMap(mapId), "Invalid map ID");
-        require(playersPerShard[shard] < maxPlayersPerShard, "Shard is full");
+        if (registeredPlayers[msg.sender]) revert PlayerAlreadyRegistered(msg.sender);
+        if (!mapRegistry.isValidMap(mapId)) revert InvalidMap(mapId);
+        if (playersPerShard[shard] >= maxPlayersPerShard) {
+            revert ShardFull(shard, playersPerShard[shard], maxPlayersPerShard);
+        }
 
         // Initialize inventory grid based on default ship
         _initializeInventory(msg.sender, 1);
@@ -40,7 +42,6 @@ abstract contract PlayerManager is RisingTidesBase {
             lastMoveTimestamp: block.timestamp,
             nextMoveTime: block.timestamp,
             movementSpeed: _calculateMovementSpeed(enginePower, totalWeight),
-            totalWeight: totalWeight,
             isActive: true
         });
 
@@ -71,8 +72,10 @@ abstract contract PlayerManager is RisingTidesBase {
         IRisingTides.PlayerState storage player = playerStates[msg.sender];
         uint8 oldShard = player.shard;
 
-        require(newShard != oldShard, "Already in this shard");
-        require(playersPerShard[newShard] < maxPlayersPerShard, "Target shard is full");
+        if (newShard == oldShard) revert AlreadyInShard(msg.sender, newShard);
+        if (playersPerShard[newShard] >= maxPlayersPerShard) {
+            revert ShardFull(newShard, playersPerShard[newShard], maxPlayersPerShard);
+        }
 
         // Update shard counts
         playersPerShard[oldShard]--;
@@ -81,21 +84,6 @@ abstract contract PlayerManager is RisingTidesBase {
         player.shard = newShard;
 
         emit IRisingTides.ShardChanged(msg.sender, oldShard, newShard);
-    }
-
-    /**
-     * @dev Update player's total weight (used when inventory changes)
-     */
-    function updatePlayerWeight(address player) external onlyRegisteredPlayer {
-        require(player == msg.sender, "Can only update own weight");
-        IRisingTides.PlayerState storage playerState = playerStates[player];
-
-        uint256 newWeight = _calculatePlayerWeight(player, playerState.shipId);
-        playerState.totalWeight = newWeight;
-
-        // Recalculate movement speed with new weight and engine power
-        uint256 enginePower = _calculateTotalEnginePower(player, playerState.shipId);
-        playerState.movementSpeed = _calculateMovementSpeed(enginePower, newWeight);
     }
 
     /**
@@ -219,8 +207,8 @@ abstract contract PlayerManager is RisingTidesBase {
             }
         }
 
-        require(enginePlaced, "Failed to place default engine");
-        require(rodPlaced, "Failed to place default fishing rod");
+        if (!enginePlaced) revert OperationFailed("Failed to place default engine");
+        if (!rodPlaced) revert OperationFailed("Failed to place default fishing rod");
     }
 
     /**
@@ -267,8 +255,8 @@ abstract contract PlayerManager is RisingTidesBase {
      * @dev Update maximum players per shard (admin only)
      */
     function setMaxPlayersPerShard(uint256 newLimit) external onlyRole(ADMIN_ROLE) {
-        require(newLimit > 0, "Limit must be greater than zero");
-        require(newLimit <= 10000, "Limit too high"); // Reasonable upper bound
+        if (newLimit == 0) revert LimitOutOfBounds(newLimit, 1, 10000);
+        if (newLimit > 10000) revert LimitOutOfBounds(newLimit, 1, 10000); // Reasonable upper bound
 
         uint256 oldLimit = maxPlayersPerShard;
         maxPlayersPerShard = newLimit;
@@ -288,16 +276,18 @@ abstract contract PlayerManager is RisingTidesBase {
         validShard(newShard)
         whenNotPaused
     {
-        require(registeredPlayers[player], "Player not registered");
+        if (!registeredPlayers[player]) revert PlayerNotRegistered(player);
 
         IRisingTides.PlayerState storage playerState = playerStates[player];
         uint8 oldShard = playerState.shard;
 
-        require(newShard != oldShard, "Player already in target shard");
+        if (newShard == oldShard) revert AlreadyInShard(player, newShard);
 
         // Check shard capacity unless bypassing limit
         if (!bypassLimit) {
-            require(playersPerShard[newShard] < maxPlayersPerShard, "Target shard is full");
+            if (playersPerShard[newShard] >= maxPlayersPerShard) {
+                revert ShardFull(newShard, playersPerShard[newShard], maxPlayersPerShard);
+            }
         }
 
         // Update shard counts

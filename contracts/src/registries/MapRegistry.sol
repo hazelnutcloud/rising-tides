@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "../interfaces/IMapRegistry.sol";
+import "../utils/Errors.sol";
 
 /**
  * @title MapRegistry
@@ -28,7 +29,7 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     mapping(uint256 => mapping(int32 => mapping(int32 => bool))) private terrain;
 
     modifier validMap(uint256 mapId) {
-        require(isValidMap(mapId), "Invalid map ID");
+        if (!isValidMap(mapId)) revert InvalidMap(mapId);
         _;
     }
 
@@ -52,9 +53,9 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
         int32 minY,
         int32 maxY
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
-        require(!isValidMap(id), "Map already exists");
-        require(minX < maxX && minY < maxY, "Invalid boundaries");
-        require(bytes(name).length > 0, "Name cannot be empty");
+        if (isValidMap(id)) revert AlreadyExists("Map", id);
+        if (minX >= maxX || minY >= maxY) revert InvalidBoundaries(minX, maxX, minY, maxY);
+        if (bytes(name).length == 0) revert EmptyString();
 
         maps[id] = Map({
             id: id,
@@ -89,7 +90,7 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
         validMap(mapId)
         whenNotPaused
     {
-        require(bytes(name).length > 0, "Name cannot be empty");
+        if (bytes(name).length == 0) revert EmptyString();
 
         Map storage map = maps[mapId];
         map.name = name;
@@ -108,8 +109,8 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
         validMap(mapId)
         whenNotPaused
     {
-        require(species.length > 0, "Empty distribution");
-        require(isValidPosition(mapId, x, y), "Position out of map bounds");
+        if (species.length == 0) revert EmptyDistribution();
+        if (!isValidPosition(mapId, x, y)) revert PositionOutOfBounds(mapId, uint256(uint32(x)), uint256(uint32(y)));
 
         FishDistribution storage distribution = fishDistributions[mapId][x][y];
         distribution.species = species;
@@ -140,9 +141,9 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
         whenNotPaused
         returns (uint256 shopId)
     {
-        require(availableBait.length > 0, "No bait types specified");
-        require(isValidPosition(mapId, x, y), "Position out of map bounds");
-        require(isPassable(mapId, x, y), "Position is not passable");
+        if (availableBait.length == 0) revert NoBaitTypesSpecified();
+        if (!isValidPosition(mapId, x, y)) revert PositionOutOfBounds(mapId, uint256(uint32(x)), uint256(uint32(y)));
+        if (!isPassable(mapId, x, y)) revert TerrainNotPassable(mapId, uint256(uint32(x)), uint256(uint32(y)));
 
         shopId = baitShops[mapId].length;
         baitShops[mapId].push(BaitShop({position: Position(x, y), availableBait: availableBait, isActive: true}));
@@ -160,8 +161,8 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
         validMap(mapId)
         whenNotPaused
     {
-        require(shopId < baitShops[mapId].length, "Invalid shop ID");
-        require(availableBait.length > 0, "No bait types specified");
+        if (shopId >= baitShops[mapId].length) revert ShopDoesNotExist(mapId, shopId);
+        if (availableBait.length == 0) revert NoBaitTypesSpecified();
 
         baitShops[mapId][shopId].availableBait = availableBait;
 
@@ -172,7 +173,7 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
      * @dev Get bait shop information
      */
     function getBaitShop(uint256 mapId, uint256 shopId) external view validMap(mapId) returns (BaitShop memory) {
-        require(shopId < baitShops[mapId].length, "Invalid shop ID");
+        if (shopId >= baitShops[mapId].length) revert ShopDoesNotExist(mapId, shopId);
         return baitShops[mapId][shopId];
     }
 
@@ -192,7 +193,7 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
         validMap(mapId)
         whenNotPaused
     {
-        require(isValidPosition(mapId, x, y), "Position out of map bounds");
+        if (!isValidPosition(mapId, x, y)) revert PositionOutOfBounds(mapId, uint256(uint32(x)), uint256(uint32(y)));
         terrain[mapId][x][y] = passable;
         emit TerrainUpdated(mapId, x, y, passable);
     }
@@ -206,10 +207,14 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
         validMap(mapId)
         whenNotPaused
     {
-        require(x.length == y.length && y.length == passable.length, "Array length mismatch");
+        if (x.length != y.length || y.length != passable.length) {
+            revert ArrayLengthMismatch(x.length, y.length);
+        }
 
         for (uint256 i = 0; i < x.length; i++) {
-            require(isValidPosition(mapId, x[i], y[i]), "Position out of map bounds");
+            if (!isValidPosition(mapId, x[i], y[i])) {
+                revert PositionOutOfBounds(mapId, uint256(uint32(x[i])), uint256(uint32(y[i])));
+            }
             terrain[mapId][x[i]][y[i]] = passable[i];
             emit TerrainUpdated(mapId, x[i], y[i], passable[i]);
         }

@@ -12,15 +12,17 @@ abstract contract ResourceManager is RisingTidesBase {
      * @dev Purchase bait at a bait shop
      */
     function purchaseBait(uint256 baitType, uint256 amount) external onlyRegisteredPlayer whenNotPaused nonReentrant {
-        require(amount > 0, "Amount must be greater than zero");
+        if (amount == 0) revert InvalidAmount(amount);
         IRisingTides.PlayerState memory player = playerStates[msg.sender];
 
         // Check if player is at a bait shop on current map
         uint256 shopId = _findBaitShopAtPosition(player.mapId, player.position);
-        require(shopId < mapRegistry.getBaitShopsCount(player.mapId), "No bait shop at current position");
+        if (shopId >= mapRegistry.getBaitShopsCount(player.mapId)) {
+            revert ShopDoesNotExist(player.mapId, shopId);
+        }
 
         IMapRegistry.BaitShop memory shop = mapRegistry.getBaitShop(player.mapId, shopId);
-        require(shop.isActive, "Bait shop is inactive");
+        if (!shop.isActive) revert ShopInactive(shopId);
 
         // Check if bait type is available at this shop
         bool baitAvailable = false;
@@ -30,12 +32,14 @@ abstract contract ResourceManager is RisingTidesBase {
                 break;
             }
         }
-        require(baitAvailable, "Bait type not available at this shop");
+        if (!baitAvailable) revert BaitNotAvailable(shopId, baitType);
 
         // Calculate cost
         FishRegistry.BaitType memory bait = fishRegistry.getBaitType(baitType);
         uint256 totalCost = bait.price * amount;
-        require(currency.balanceOf(msg.sender) >= totalCost, "Insufficient currency");
+        if (currency.balanceOf(msg.sender) < totalCost) {
+            revert InsufficientBalance(msg.sender, totalCost, currency.balanceOf(msg.sender));
+        }
 
         // Burn currency and add bait to inventory
         currency.burn(msg.sender, totalCost, "Bait purchase");
@@ -94,13 +98,15 @@ abstract contract ResourceManager is RisingTidesBase {
      */
     function travelToMap(uint256 newMapId) external onlyRegisteredPlayer whenNotPaused nonReentrant {
         IRisingTides.PlayerState storage player = playerStates[msg.sender];
-        require(newMapId != player.mapId, "Already on this map");
-        require(mapRegistry.isValidMap(newMapId), "Invalid map ID");
+        if (newMapId == player.mapId) revert AlreadyOnMap(newMapId);
+        if (!mapRegistry.isValidMap(newMapId)) revert InvalidMap(newMapId);
 
         IMapRegistry.Map memory newMap = mapRegistry.getMap(newMapId);
         uint256 travelCost = newMap.travelCost;
 
-        require(currency.balanceOf(msg.sender) >= travelCost, "Insufficient currency for travel");
+        if (currency.balanceOf(msg.sender) < travelCost) {
+            revert InsufficientBalance(msg.sender, travelCost, currency.balanceOf(msg.sender));
+        }
 
         // Burn currency for travel cost
         if (travelCost > 0) {
@@ -120,7 +126,7 @@ abstract contract ResourceManager is RisingTidesBase {
      * @dev Change player's ship
      */
     function changeShip(uint256 newShipId) external onlyRegisteredPlayer whenNotPaused {
-        require(shipRegistry.isValidShip(newShipId), "Invalid ship ID");
+        if (!shipRegistry.isValidShip(newShipId)) revert InvalidShip(newShipId);
 
         IRisingTides.PlayerState storage player = playerStates[msg.sender];
 
@@ -130,12 +136,12 @@ abstract contract ResourceManager is RisingTidesBase {
         player.shipId = newShipId;
 
         // Recalculate weight and movement speed based on new ship
-        uint256 newWeight = _calculatePlayerWeight(msg.sender, newShipId);
-        player.totalWeight = newWeight;
+        // uint256 newWeight = _calculatePlayerWeight(msg.sender, newShipId);
+        // player.totalWeight = newWeight;
 
         // Use equipped engine power or fallback to ship default
-        uint256 enginePower = _calculateTotalEnginePower(msg.sender, newShipId);
-        player.movementSpeed = _calculateMovementSpeed(enginePower, newWeight);
+        // uint256 enginePower = _calculateTotalEnginePower(msg.sender, newShipId);
+        // player.movementSpeed = _calculateMovementSpeed(enginePower, newWeight);
 
         // Reinitialize inventory for new ship
         _initializeInventory(msg.sender, newShipId);

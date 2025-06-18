@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "../utils/Errors.sol";
 
 /**
  * @title RisingTidesCurrency
@@ -39,9 +40,11 @@ contract RisingTidesCurrency is ERC20, AccessControl, Pausable {
      * @param reason Reason for minting (for tracking/events)
      */
     function mint(address to, uint256 amount, string calldata reason) external onlyRole(MINTER_ROLE) whenNotPaused {
-        require(to != address(0), "Cannot mint to zero address");
-        require(amount > 0, "Amount must be greater than zero");
-        require(totalSupply() + amount <= MAX_SUPPLY, "Would exceed max supply");
+        if (to == address(0)) revert InvalidAddress(to);
+        if (amount == 0) revert InvalidAmount(amount);
+        if (totalSupply() + amount > MAX_SUPPLY) {
+            revert ExceedsMaxSupply(totalSupply(), amount, MAX_SUPPLY);
+        }
 
         totalMinted += amount;
         minted[to] += amount;
@@ -57,9 +60,9 @@ contract RisingTidesCurrency is ERC20, AccessControl, Pausable {
      * @param reason Reason for burning (for tracking/events)
      */
     function burn(address from, uint256 amount, string calldata reason) external onlyRole(BURNER_ROLE) whenNotPaused {
-        require(from != address(0), "Cannot burn from zero address");
-        require(amount > 0, "Amount must be greater than zero");
-        require(balanceOf(from) >= amount, "Insufficient balance to burn");
+        if (from == address(0)) revert InvalidAddress(from);
+        if (amount == 0) revert InvalidAmount(amount);
+        if (balanceOf(from) < amount) revert InsufficientBalance(from, amount, balanceOf(from));
 
         totalBurned += amount;
         burned[from] += amount;
@@ -74,8 +77,10 @@ contract RisingTidesCurrency is ERC20, AccessControl, Pausable {
      * @param reason Reason for burning
      */
     function burnFrom(uint256 amount, string calldata reason) external whenNotPaused {
-        require(amount > 0, "Amount must be greater than zero");
-        require(balanceOf(msg.sender) >= amount, "Insufficient balance to burn");
+        if (amount == 0) revert InvalidAmount(amount);
+        if (balanceOf(msg.sender) < amount) {
+            revert InsufficientBalance(msg.sender, amount, balanceOf(msg.sender));
+        }
 
         totalBurned += amount;
         burned[msg.sender] += amount;

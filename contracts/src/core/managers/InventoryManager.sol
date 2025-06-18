@@ -52,28 +52,26 @@ abstract contract InventoryManager is RisingTidesBase {
         onlyRegisteredPlayer
         whenNotPaused
     {
-        require(rotation < 4, "Invalid rotation value");
+        if (rotation >= 4) revert InvalidRotation(rotation);
 
         InventoryLib.InventoryGrid storage inventory = playerInventories[msg.sender];
 
         // Get item at source position
         InventoryLib.GridItem memory item = InventoryLib.getItemAt(inventory, fromX, fromY);
-        require(item.itemType != ItemType.Empty, "No item at source position");
+        if (item.itemType == ItemType.Empty) revert ItemNotFound(fromX, fromY);
 
         // Get item shape from registry
         InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
 
         // Remove from old position
-        require(
-            InventoryLib.removeItem(inventory, shape, fromX, fromY, item.rotation, item.instanceId),
-            "Failed to remove item"
-        );
+        if (!InventoryLib.removeItem(inventory, shape, fromX, fromY, item.rotation, item.instanceId)) {
+            revert OperationFailed("Failed to remove item");
+        }
 
         // Place at new position with rotation if specified
-        require(
-            inventory.placeItem(shape, toX, toY, rotation, item.itemType, item.itemId, item.instanceId) > 0,
-            "Failed to place item at new position"
-        );
+        if (inventory.placeItem(shape, toX, toY, rotation, item.itemType, item.itemId, item.instanceId) == 0) {
+            revert CannotPlaceItem("Failed to place item at new position");
+        }
     }
 
     /**
@@ -82,12 +80,14 @@ abstract contract InventoryManager is RisingTidesBase {
     function discardInventoryItem(uint8 x, uint8 y) external onlyRegisteredPlayer whenNotPaused {
         InventoryLib.InventoryGrid storage inventory = playerInventories[msg.sender];
         InventoryLib.GridItem memory item = InventoryLib.getItemAt(inventory, x, y);
-        require(item.itemType != ItemType.Empty, "No item at position");
+        if (item.itemType == ItemType.Empty) revert ItemNotFound(x, y);
 
         // Get item shape from registry
         InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
 
-        require(inventory.removeItem(shape, x, y, item.rotation, item.instanceId), "Failed to remove item");
+        if (!inventory.removeItem(shape, x, y, item.rotation, item.instanceId)) {
+            revert OperationFailed("Failed to remove item");
+        }
 
         // Could emit event for discarded item
         // emit ItemDiscarded(msg.sender, item.itemType, item.itemId);
@@ -121,7 +121,7 @@ abstract contract InventoryManager is RisingTidesBase {
     {
         if (itemType == ItemType.Fish) {
             // Fish item - get shape from fish registry
-            require(fishRegistry.isValidSpecies(itemId), "Invalid fish species");
+            if (!fishRegistry.isValidSpecies(itemId)) revert InvalidSpecies(itemId);
             FishRegistry.FishSpecies memory species = fishRegistry.getFishSpecies(itemId);
             return InventoryLib.ItemShape({
                 width: species.shapeWidth,
@@ -130,17 +130,17 @@ abstract contract InventoryManager is RisingTidesBase {
             });
         } else if (itemType == ItemType.Engine) {
             // Engine item - get shape from engine registry
-            require(engineRegistry.isValidEngine(itemId), "Invalid engine ID");
+            if (!engineRegistry.isValidEngine(itemId)) revert InvalidEngine(itemId);
             IEngineRegistry.Engine memory engine = engineRegistry.getEngine(itemId);
             return
                 InventoryLib.ItemShape({width: engine.shapeWidth, height: engine.shapeHeight, data: engine.shapeData});
         } else if (itemType == ItemType.FishingRod) {
             // Equipment item (fishing rod) - get shape from fishing rod registry
-            require(fishingRodRegistry.isValidFishingRod(itemId), "Invalid fishing rod ID");
+            if (!fishingRodRegistry.isValidFishingRod(itemId)) revert InvalidFishingRod(itemId);
             IFishingRodRegistry.FishingRod memory rod = fishingRodRegistry.getFishingRod(itemId);
             return InventoryLib.ItemShape({width: rod.shapeWidth, height: rod.shapeHeight, data: rod.shapeData});
         } else {
-            revert("Invalid item type");
+            revert InvalidItemType(uint8(itemType));
         }
     }
 
