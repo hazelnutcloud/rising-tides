@@ -339,3 +339,12 @@ error StartTimeNotInFuture(uint256 provided, uint256 currentTime);
 /// @param startTime The start time
 /// @param endTime The end time
 error InvalidTimeRange(uint256 startTime, uint256 endTime);
+
+/// @notice Thrown when arrays have mismatched lengths
+error InvalidArrayLength();
+
+/// @notice Thrown when player is not at a harbor location
+/// @param mapId The map ID
+/// @param x The x coordinate
+/// @param y The y coordinate
+error NotAtHarbor(uint256 mapId, int32 x, int32 y);

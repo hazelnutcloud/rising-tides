@@ -57,6 +57,9 @@ abstract contract MovementManager is RisingTidesBase {
      */
     function purchaseFuel(uint256 amount) external onlyRegisteredPlayer whenNotPaused nonReentrant {
         if (amount == 0) revert InvalidAmount(amount);
+        
+        // Require player to be at a harbor
+        _requireHarbor(msg.sender);
 
         uint256 totalCost = amount * FUEL_PRICE_PER_UNIT;
         if (currency.balanceOf(msg.sender) < totalCost) {

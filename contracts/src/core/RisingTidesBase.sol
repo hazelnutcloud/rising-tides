@@ -89,4 +89,14 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
         if (shard >= MAX_SHARDS) revert InvalidShardId(shard, MAX_SHARDS);
         _;
     }
+
+    /**
+     * @dev Require player to be at a harbor location
+     */
+    function _requireHarbor(address player) internal view {
+        IRisingTides.PlayerState memory playerState = playerStates[player];
+        if (!mapRegistry.isHarbor(playerState.mapId, playerState.position.x, playerState.position.y)) {
+            revert NotAtHarbor(playerState.mapId, playerState.position.x, playerState.position.y);
+        }
+    }
 }

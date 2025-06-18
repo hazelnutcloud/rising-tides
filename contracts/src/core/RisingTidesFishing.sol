@@ -181,7 +181,7 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
     }
 
     /**
-     * @dev Purchase bait at a bait shop
+     * @dev Purchase bait at a harbor
      */
     function purchaseBait(address player, uint256 baitType, uint256 amount) 
         external 
@@ -194,24 +194,13 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         // Get player state for position validation
         (,uint256 mapId, int32 x, int32 y) = getPlayerStateForFishing(player);
 
-        // Check if player is at a bait shop on current map
-        uint256 shopId = _findBaitShopAtPosition(mapId, x, y);
-        if (shopId >= mapRegistry.getBaitShopsCount(mapId)) {
-            revert ShopDoesNotExist(mapId, shopId);
+        // Check if player is at a harbor
+        if (!mapRegistry.isHarbor(mapId, x, y)) {
+            revert NotAtHarbor(mapId, x, y);
         }
 
-        IMapRegistry.BaitShop memory shop = mapRegistry.getBaitShop(mapId, shopId);
-        if (!shop.isActive) revert ShopInactive(shopId);
-
-        // Check if bait type is available at this shop
-        bool baitAvailable = false;
-        for (uint256 i = 0; i < shop.availableBait.length; i++) {
-            if (shop.availableBait[i] == baitType) {
-                baitAvailable = true;
-                break;
-            }
-        }
-        if (!baitAvailable) revert BaitNotAvailable(shopId, baitType);
+        // Validate bait type exists
+        if (!fishRegistry.isValidBait(baitType)) revert InvalidBait(baitType);
 
         // Calculate cost
         FishRegistry.BaitType memory bait = fishRegistry.getBaitType(baitType);
@@ -305,19 +294,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         return (playerState.shard, playerState.mapId, playerState.position.x, playerState.position.y);
     }
 
-    /**
-     * @dev Find bait shop at player's current position
-     */
-    function _findBaitShopAtPosition(uint256 mapId, int32 x, int32 y) internal view returns (uint256) {
-        uint256 shopCount = mapRegistry.getBaitShopsCount(mapId);
-        for (uint256 i = 0; i < shopCount; i++) {
-            IMapRegistry.BaitShop memory shop = mapRegistry.getBaitShop(mapId, i);
-            if (shop.position.x == x && shop.position.y == y) {
-                return i;
-            }
-        }
-        return type(uint256).max; // Not found
-    }
 
     // Admin functions
     function setGameContract(address _gameContract) external onlyRole(ADMIN_ROLE) {

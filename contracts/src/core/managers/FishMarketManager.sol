@@ -6,6 +6,9 @@ import "../RisingTidesBase.sol";
 abstract contract FishMarketManager is RisingTidesBase {
 
     function sellFish(uint256 instanceId) external onlyRegisteredPlayer whenNotPaused returns (uint256 salePrice) {
+        // Require player to be at a harbor
+        _requireHarbor(msg.sender);
+
         // Get fish data from inventory contract and remove it
         IRisingTides.FishCatch memory fishData = inventoryContract.removeFishFromInventory(msg.sender, instanceId);
 

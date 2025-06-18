@@ -288,13 +288,8 @@ contract Deploy is Script {
             100 // maxY
         );
 
-        // Add a bait shop at the origin (0,0)
-        uint256[] memory availableBait = new uint256[](3);
-        availableBait[0] = 1; // Basic bait
-        availableBait[1] = 2; // Premium bait
-        availableBait[2] = 3; // Specialized bait
-
-        mapRegistry.addBaitShop(1, 0, 0, availableBait);
+        // Set up harbor at the origin (0,0) for all services
+        mapRegistry.setHarbor(1, 0, 0, true);
 
         // Add some fish distributions for testing
         uint256[] memory fishSpecies = new uint256[](2);

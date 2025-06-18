@@ -39,6 +39,9 @@ interface IRisingTides {
     event PlayerRegistered(address indexed player, uint8 shard);
     event PlayerMoved(address indexed player, uint8 shard, uint256 mapId, int32 x, int32 y, uint256 fuelConsumed);
     event FuelPurchased(address indexed player, uint256 amount, uint256 cost);
+    event ShipPurchased(address indexed player, uint256 shipId, uint256 cost);
+    event EnginePurchased(address indexed player, uint256 engineId, uint256 cost);
+    event FishingRodPurchased(address indexed player, uint256 rodId, uint256 cost);
     event ShipChanged(address indexed player, uint256 newShipId);
     event ShardChanged(address indexed player, uint8 oldShard, uint8 newShard);
     event MapChanged(address indexed player, uint256 oldMapId, uint256 newMapId, uint256 cost);
@@ -59,6 +62,11 @@ interface IRisingTides {
     // Fuel Management
     function purchaseFuel(uint256 amount) external;
     function getCurrentFuel(address player) external view returns (uint256);
+
+    // Equipment Purchasing (Harbor Required)
+    function purchaseShip(uint256 shipId) external;
+    function purchaseEngine(uint256 engineId) external;
+    function purchaseFishingRod(uint256 rodId) external;
 
     // Fishing (delegates to fishing contract)
     function initiateFishing(uint256 baitType) external returns (uint256 fishingNonce);

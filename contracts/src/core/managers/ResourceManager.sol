@@ -66,4 +66,79 @@ abstract contract ResourceManager is RisingTidesBase {
         emit IRisingTides.ShipChanged(msg.sender, newShipId);
     }
 
+    /**
+     * @dev Purchase a ship at a harbor
+     */
+    function purchaseShip(uint256 shipId) external onlyRegisteredPlayer whenNotPaused nonReentrant {
+        if (!shipRegistry.isValidShip(shipId)) revert InvalidShip(shipId);
+        
+        // Require player to be at a harbor
+        _requireHarbor(msg.sender);
+
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(shipId);
+        uint256 cost = ship.purchasePrice;
+        
+        if (currency.balanceOf(msg.sender) < cost) {
+            revert InsufficientBalance(msg.sender, cost, currency.balanceOf(msg.sender));
+        }
+
+        // Burn currency for purchase
+        currency.burn(msg.sender, cost, "Ship purchase");
+
+        // TODO: Add ship to player's ship roster
+
+        emit IRisingTides.ShipPurchased(msg.sender, shipId, cost);
+        emit IRisingTides.ShipChanged(msg.sender, shipId);
+    }
+
+    /**
+     * @dev Purchase an engine at a harbor
+     */
+    function purchaseEngine(uint256 engineId) external onlyRegisteredPlayer whenNotPaused nonReentrant {
+        if (!engineRegistry.isValidEngine(engineId)) revert InvalidEngine(engineId);
+        
+        // Require player to be at a harbor
+        _requireHarbor(msg.sender);
+
+        IEngineRegistry.Engine memory engine = engineRegistry.getEngine(engineId);
+        uint256 cost = engine.purchasePrice;
+        
+        if (currency.balanceOf(msg.sender) < cost) {
+            revert InsufficientBalance(msg.sender, cost, currency.balanceOf(msg.sender));
+        }
+
+        // Burn currency for purchase
+        currency.burn(msg.sender, cost, "Engine purchase");
+
+        // TODO: Add engine to player's inventory or storage
+        // For now, just emit the purchase event
+        
+        emit IRisingTides.EnginePurchased(msg.sender, engineId, cost);
+    }
+
+    /**
+     * @dev Purchase a fishing rod at a harbor
+     */
+    function purchaseFishingRod(uint256 rodId) external onlyRegisteredPlayer whenNotPaused nonReentrant {
+        if (!fishingRodRegistry.isValidFishingRod(rodId)) revert InvalidFishingRod(rodId);
+        
+        // Require player to be at a harbor
+        _requireHarbor(msg.sender);
+
+        IFishingRodRegistry.FishingRod memory rod = fishingRodRegistry.getFishingRod(rodId);
+        uint256 cost = rod.purchasePrice;
+        
+        if (currency.balanceOf(msg.sender) < cost) {
+            revert InsufficientBalance(msg.sender, cost, currency.balanceOf(msg.sender));
+        }
+
+        // Burn currency for purchase
+        currency.burn(msg.sender, cost, "Fishing rod purchase");
+
+        // TODO: Add fishing rod to player's inventory or storage
+        // For now, just emit the purchase event
+        
+        emit IRisingTides.FishingRodPurchased(msg.sender, rodId, cost);
+    }
+
 }

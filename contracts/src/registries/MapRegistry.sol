@@ -8,7 +8,7 @@ import "../utils/Errors.sol";
 
 /**
  * @title MapRegistry
- * @dev Registry for managing game maps, fish distributions, bait shops, and terrain
+ * @dev Registry for managing game maps, fish distributions, harbors, and terrain
  */
 contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
@@ -22,8 +22,8 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     // Fish distributions per map
     mapping(uint256 => mapping(int32 => mapping(int32 => FishDistribution))) private fishDistributions;
 
-    // Bait shops per map
-    mapping(uint256 => BaitShop[]) private baitShops;
+    // Harbor locations per map
+    mapping(uint256 => mapping(int32 => mapping(int32 => bool))) private harbors;
 
     // Terrain data per map (true = passable, false = blocked)
     mapping(uint256 => mapping(int32 => mapping(int32 => bool))) private terrain;
@@ -132,56 +132,45 @@ contract MapRegistry is IMapRegistry, AccessControl, Pausable {
     }
 
     /**
-     * @dev Add a new bait shop to a map
+     * @dev Set harbor status for a single position
      */
-    function addBaitShop(uint256 mapId, int32 x, int32 y, uint256[] calldata availableBait)
+    function setHarbor(uint256 mapId, int32 x, int32 y, bool harborStatus)
         external
         onlyRole(ADMIN_ROLE)
         validMap(mapId)
         whenNotPaused
-        returns (uint256 shopId)
     {
-        if (availableBait.length == 0) revert NoBaitTypesSpecified();
         if (!isValidPosition(mapId, x, y)) revert PositionOutOfBounds(mapId, uint256(uint32(x)), uint256(uint32(y)));
-        if (!isPassable(mapId, x, y)) revert TerrainNotPassable(mapId, uint256(uint32(x)), uint256(uint32(y)));
 
-        shopId = baitShops[mapId].length;
-        baitShops[mapId].push(BaitShop({position: Position(x, y), availableBait: availableBait, isActive: true}));
-
-        emit BaitShopAdded(mapId, shopId, x, y);
-        return shopId;
+        harbors[mapId][x][y] = harborStatus;
+        emit HarborUpdated(mapId, x, y, harborStatus);
     }
 
     /**
-     * @dev Update bait shop inventory
+     * @dev Set harbor status for multiple positions
      */
-    function updateBaitShop(uint256 mapId, uint256 shopId, uint256[] calldata availableBait)
+    function setHarborBatch(uint256 mapId, int32[] calldata x, int32[] calldata y, bool[] calldata harborStatus)
         external
         onlyRole(ADMIN_ROLE)
         validMap(mapId)
         whenNotPaused
     {
-        if (shopId >= baitShops[mapId].length) revert ShopDoesNotExist(mapId, shopId);
-        if (availableBait.length == 0) revert NoBaitTypesSpecified();
+        if (x.length != y.length || y.length != harborStatus.length) revert InvalidArrayLength();
 
-        baitShops[mapId][shopId].availableBait = availableBait;
-
-        emit BaitShopUpdated(mapId, shopId, availableBait);
+        for (uint256 i = 0; i < x.length; i++) {
+            if (!isValidPosition(mapId, x[i], y[i])) {
+                revert PositionOutOfBounds(mapId, uint256(uint32(x[i])), uint256(uint32(y[i])));
+            }
+            harbors[mapId][x[i]][y[i]] = harborStatus[i];
+            emit HarborUpdated(mapId, x[i], y[i], harborStatus[i]);
+        }
     }
 
     /**
-     * @dev Get bait shop information
+     * @dev Check if a position is a harbor
      */
-    function getBaitShop(uint256 mapId, uint256 shopId) external view validMap(mapId) returns (BaitShop memory) {
-        if (shopId >= baitShops[mapId].length) revert ShopDoesNotExist(mapId, shopId);
-        return baitShops[mapId][shopId];
-    }
-
-    /**
-     * @dev Get total number of bait shops on a map
-     */
-    function getBaitShopsCount(uint256 mapId) external view validMap(mapId) returns (uint256) {
-        return baitShops[mapId].length;
+    function isHarbor(uint256 mapId, int32 x, int32 y) external view validMap(mapId) returns (bool) {
+        return harbors[mapId][x][y];
     }
 
     /**

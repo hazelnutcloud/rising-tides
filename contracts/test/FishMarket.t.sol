@@ -504,9 +504,8 @@ contract FishMarketTest is Test {
     function _addTestMap() private {
         mapRegistry.registerMap(1, "Test Ocean", 1, 0, -50, 50, -50, 50);
 
-        uint256[] memory availableBait = new uint256[](1);
-        availableBait[0] = 1;
-        mapRegistry.addBaitShop(1, 0, 0, availableBait);
+        // Set up harbor at origin for all services
+        mapRegistry.setHarbor(1, 0, 0, true);
     }
 
     uint256 private latestFishInstanceId;

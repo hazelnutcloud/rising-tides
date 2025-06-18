@@ -383,10 +383,8 @@ contract GameStateTest is Test {
             50 // maxY
         );
 
-        // Add a bait shop at (0,0)
-        uint256[] memory availableBait = new uint256[](1);
-        availableBait[0] = 1;
-        mapRegistry.addBaitShop(1, 0, 0, availableBait);
+        // Set up harbor at (0,0) for all services
+        mapRegistry.setHarbor(1, 0, 0, true);
     }
 
     function testBaitPurchase() public {
