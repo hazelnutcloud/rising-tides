@@ -4,29 +4,17 @@ pragma solidity ^0.8.20;
 import "../RisingTidesBase.sol";
 
 abstract contract FishMarketManager is RisingTidesBase {
-    using InventoryLib for InventoryLib.InventoryGrid;
 
     function sellFish(uint256 instanceId) external onlyRegisteredPlayer whenNotPaused returns (uint256 salePrice) {
-        InventoryLib.InventoryGrid storage inventory = playerInventories[msg.sender];
-
-        (InventoryLib.GridItem memory item, uint8 x, uint8 y) = inventory.getItemByInstanceId(instanceId);
-
-        if (item.itemType != ItemType.Fish) revert NotAFish(uint8(item.itemType));
-
-        InventoryLib.ItemShape memory fishShape = _getItemShape(ItemType.Fish, item.itemId);
-
-        inventory.removeItem(fishShape, x, y, item.rotation, item.instanceId);
-
-        FishCatch storage fishData = playerFish[msg.sender][instanceId];
+        // Get fish data from inventory contract and remove it
+        IRisingTides.FishCatch memory fishData = inventoryContract.removeFishFromInventory(msg.sender, instanceId);
 
         if (fishData.species == 0) revert InvalidSpecies(0);
 
-        // Store fish data in memory before deletion
+        // Store fish data in memory
         uint256 species = fishData.species;
         uint16 weight = fishData.weight;
-        uint256 caughtAt = fishData.caughtAt;
-
-        delete playerFish[msg.sender][instanceId];
+        uint256 caughtAt = fishData.caughtTimestamp;
 
         uint256 freshness = _calculateFishFreshness(caughtAt);
 
@@ -97,11 +85,11 @@ abstract contract FishMarketManager is RisingTidesBase {
 
     function estimateSalePrice(uint256 instanceId) external view returns (uint256 estimatedPrice) {
         address player = msg.sender;
-        FishCatch storage fishData = playerFish[player][instanceId];
+        IRisingTides.FishCatch memory fishData = inventoryContract.getFishData(player, instanceId);
 
         if (fishData.species == 0) revert InvalidSpecies(0);
 
-        uint256 freshness = _calculateFishFreshness(fishData.caughtAt);
+        uint256 freshness = _calculateFishFreshness(fishData.caughtTimestamp);
         uint256 currentMarketPrice = _getMarketPrice(fishData.species);
 
         return currentMarketPrice * fishData.weight * freshness / 100;
@@ -109,11 +97,11 @@ abstract contract FishMarketManager is RisingTidesBase {
 
     function getFishFreshness(uint256 instanceId) external view returns (uint256 freshness) {
         address player = msg.sender;
-        FishCatch storage fishData = playerFish[player][instanceId];
+        IRisingTides.FishCatch memory fishData = inventoryContract.getFishData(player, instanceId);
 
         if (fishData.species == 0) revert InvalidSpecies(0);
 
-        return _calculateFishFreshness(fishData.caughtAt);
+        return _calculateFishFreshness(fishData.caughtTimestamp);
     }
 
     /**

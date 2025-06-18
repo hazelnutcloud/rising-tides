@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "../interfaces/IRisingTides.sol";
+import "../interfaces/IRisingTidesInventory.sol";
 import "../interfaces/IShipRegistry.sol";
 import "../interfaces/IMapRegistry.sol";
 import "../tokens/RisingTidesCurrency.sol";
@@ -32,6 +33,7 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
     EngineRegistry public engineRegistry;
     FishingRodRegistry public fishingRodRegistry;
     IMapRegistry public mapRegistry;
+    IRisingTidesInventory public inventoryContract;
 
     // Signature verification
     address public serverSigner;
@@ -39,7 +41,6 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
 
     // Game state mappings
     mapping(address => IRisingTides.PlayerState) internal playerStates;
-    mapping(address => InventoryLib.InventoryGrid) internal playerInventories;
     mapping(address => bool) internal registeredPlayers;
 
     // Player bait inventory
@@ -49,7 +50,6 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
     mapping(address => uint256) internal playerFishingNonce;
     mapping(address => uint256) internal pendingFishingRequest;
     mapping(address => uint256) internal pendingBaitType;
-    mapping(address player => mapping(uint256 instanceId => FishCatch)) internal playerFish;
 
     // Fish market
     mapping(uint256 species => FishMarketData) internal fishMarketData;
@@ -92,16 +92,6 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
         pure
         virtual
         returns (uint256);
-    function _initializeInventory(address player, uint256 shipId) internal virtual;
-    function _placeFishInInventory(address player, uint256 species, uint8 x, uint8 y, uint8 rotation)
-        internal
-        virtual
-        returns (uint256);
-    function _getItemShape(ItemType itemType, uint256 itemId)
-        internal
-        view
-        virtual
-        returns (InventoryLib.ItemShape memory);
 
     // Modifiers
     modifier onlyRegisteredPlayer() {

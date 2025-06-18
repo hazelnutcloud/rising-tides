@@ -81,18 +81,23 @@ abstract contract MovementManager is RisingTidesBase {
      * @dev Calculate total fuel consumption rate from equipped engines (additive)
      */
     function calculateCombinedFuelConsumptionRate(address player) public view returns (uint256 totalConsumptionRate) {
-        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+        // Get player ship ID to calculate fuel consumption based on equipped engines
+        uint256 shipId = playerStates[player].shipId;
+        
+        // Use inventory contract to get engine data
+        IRisingTidesInventory.InventoryData memory inventoryData = inventoryContract.getPlayerInventory(player);
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(shipId);
 
         totalConsumptionRate = 0;
         uint256 engineCount = 0;
 
-        uint256 inventoryArea = inventory.width * inventory.height;
+        uint256 inventoryArea = inventoryData.width * inventoryData.height;
 
         // Iterate through inventory slots looking for engines in engine slots
         for (uint256 i = 0; i < inventoryArea; i++) {
-            if (inventory.slotTypes[i] == SlotType.Engine) {
+            if (ship.slotTypes[i] == SlotType.Engine) {
                 // Engine slot
-                InventoryLib.GridItem memory item = inventory.grid[i];
+                InventoryLib.GridItem memory item = inventoryData.items[i];
                 if (item.itemType == ItemType.Engine) {
                     // Engine item type
                     if (engineRegistry.isValidEngine(item.itemId)) {
@@ -106,7 +111,7 @@ abstract contract MovementManager is RisingTidesBase {
 
         if (engineCount == 0) {
             // Fallback to default fuel consumption rate if no engines equipped (should not happen with default equipment)
-            return 0; // 100 consumption rate (baseline)
+            return 100; // 100 consumption rate (baseline)
         }
 
         return totalConsumptionRate;

@@ -10,6 +10,7 @@ import "../src/registries/FishingRodRegistry.sol";
 import "../src/interfaces/IFishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
 import "../src/core/RisingTides.sol";
+import "../src/core/RisingTidesInventory.sol";
 import "../src/core/SeasonPass.sol";
 import {SlotType} from "../src/types/InventoryTypes.sol";
 
@@ -57,7 +58,19 @@ contract Deploy is Script {
         MapRegistry mapRegistry = new MapRegistry();
         console.log("MapRegistry deployed to:", address(mapRegistry));
 
-        // 7. Deploy Game State
+        // 7. Deploy Inventory Contract
+        console.log("\n=== Deploying RisingTidesInventory ===");
+        // Deploy inventory contract with deployer address as temporary game contract
+        RisingTidesInventory inventoryContract = new RisingTidesInventory(
+            deployerAddress, // temporary game contract address
+            address(fishRegistry),
+            address(engineRegistry),
+            address(fishingRodRegistry),
+            address(shipRegistry)
+        );
+        console.log("RisingTidesInventory deployed to:", address(inventoryContract));
+
+        // 8. Deploy Game State
         console.log("\n=== Deploying RisingTides ===");
         // Note: Using deployer address as initial server signer (should be changed after deployment)
         RisingTides gameState = new RisingTides(
@@ -67,6 +80,7 @@ contract Deploy is Script {
             address(engineRegistry),
             address(fishingRodRegistry),
             address(mapRegistry),
+            address(inventoryContract),
             deployerAddress
         );
         console.log("RisingTides deployed to:", address(gameState));
@@ -76,7 +90,14 @@ contract Deploy is Script {
         SeasonPass seasonPass = new SeasonPass();
         console.log("SeasonPass deployed to:", address(seasonPass));
 
-        // 10. Setup Roles and Permissions
+        // 10. Setup Cross-Contract Connections
+        console.log("\n=== Setting up cross-contract connections ===");
+        
+        // Set the game contract address in the inventory contract
+        inventoryContract.setGameContract(address(gameState));
+        console.log("Set game contract address in inventory contract");
+
+        // 11. Setup Roles and Permissions
         console.log("\n=== Setting up roles and permissions ===");
 
         // Grant BURNER_ROLE to GameState for fuel/bait purchases
@@ -91,7 +112,7 @@ contract Deploy is Script {
         seasonPass.grantRole(seasonPass.ADMIN_ROLE(), address(gameState));
         console.log("Granted ADMIN_ROLE to SeasonPass for RisingTides");
 
-        // 11. Initialize with sample data
+        // 12. Initialize with sample data
         console.log("\n=== Initializing sample data ===");
 
         // Add a basic starter ship
@@ -114,7 +135,7 @@ contract Deploy is Script {
 
         vm.stopBroadcast();
 
-        // 12. Log deployment summary
+        // 13. Log deployment summary
         console.log("\n=== DEPLOYMENT SUMMARY ===");
         console.log("RisingTidesCurrency:", address(currency));
         console.log("ShipRegistry:", address(shipRegistry));
@@ -122,6 +143,7 @@ contract Deploy is Script {
         console.log("EngineRegistry:", address(engineRegistry));
         console.log("FishingRodRegistry:", address(fishingRodRegistry));
         console.log("MapRegistry:", address(mapRegistry));
+        console.log("RisingTidesInventory:", address(inventoryContract));
         console.log("RisingTides:", address(gameState));
         console.log("SeasonPass:", address(seasonPass));
         console.log("\n=== NEXT STEPS ===");

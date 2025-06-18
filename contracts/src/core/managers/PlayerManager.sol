@@ -9,7 +9,6 @@ import "../RisingTidesBase.sol";
  * @dev Manages player registration, state, and weight calculations
  */
 abstract contract PlayerManager is RisingTidesBase {
-    using InventoryLib for InventoryLib.InventoryGrid;
 
     /**
      * @dev Register a new player
@@ -25,7 +24,7 @@ abstract contract PlayerManager is RisingTidesBase {
         _initializeInventory(msg.sender, 1);
 
         // Place default equipment (Engine ID 1 and Fishing Rod ID 1)
-        _assignDefaultEquipment(msg.sender);
+        inventoryContract.assignDefaultEquipment(msg.sender, 1, 1);
 
         // Calculate initial player weight (ship base weight + engine weight)
         uint256 totalWeight = _calculatePlayerWeight(msg.sender, 1);
@@ -128,88 +127,17 @@ abstract contract PlayerManager is RisingTidesBase {
         override
         returns (uint256 totalPower)
     {
-        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-        IShipRegistry.Ship memory ship = shipRegistry.getShip(shipId);
-
-        uint256 shipArea = ship.cargoWidth * ship.cargoHeight;
-
-        // Iterate through inventory slots looking for engines in engine slots
-        for (uint256 i = 0; i < shipArea; i++) {
-            if (ship.slotTypes[i] == SlotType.Engine) {
-                // Engine slot
-                InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.itemType == ItemType.Engine) {
-                    // Engine item type
-                    if (engineRegistry.isValidEngine(item.itemId)) {
-                        IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(item.itemId);
-                        totalPower += stats.enginePowerPerCell;
-                    }
-                }
-            }
-        }
-
-        // Fallback to default engine power if no engines equipped (should not happen with default equipment)
-        if (totalPower == 0) {
-            return 30; // Default engine power for basic gameplay
-        }
-
-        return totalPower;
+        return inventoryContract.getTotalEnginePower(player, shipId);
     }
 
     /**
      * @dev Initialize player inventory based on ship
      */
-    function _initializeInventory(address player, uint256 shipId) internal override {
+    function _initializeInventory(address player, uint256 shipId) internal {
         IShipRegistry.Ship memory ship = shipRegistry.getShip(shipId);
-
-        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-        inventory.width = ship.cargoWidth;
-        inventory.height = ship.cargoHeight;
-        inventory.slotTypes = ship.slotTypes;
+        inventoryContract.initializeInventory(player, shipId, ship.cargoWidth, ship.cargoHeight, ship.slotTypes);
     }
 
-    /**
-     * @dev Assign default equipment (Engine ID 1 and Fishing Rod ID 1) to new player
-     */
-    function _assignDefaultEquipment(address player) internal {
-        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-
-        // Get engine ID 1 shape from registry
-        IEngineRegistry.Engine memory engine = engineRegistry.getEngine(1);
-        InventoryLib.ItemShape memory engineShape =
-            InventoryLib.ItemShape({width: engine.shapeWidth, height: engine.shapeHeight, data: engine.shapeData});
-
-        // Get fishing rod ID 1 shape from registry
-        IFishingRodRegistry.FishingRod memory rod = fishingRodRegistry.getFishingRod(1);
-        InventoryLib.ItemShape memory rodShape =
-            InventoryLib.ItemShape({width: rod.shapeWidth, height: rod.shapeHeight, data: rod.shapeData});
-
-        // Place engine in first engine slot
-        bool enginePlaced = false;
-        bool rodPlaced = false;
-
-        uint256 inventoryArea = inventory.width * inventory.height;
-
-        for (uint256 i = 0; i < inventoryArea && (!enginePlaced || !rodPlaced); i++) {
-            if (inventory.slotTypes[i] == SlotType.Engine && !enginePlaced) {
-                // Engine slot
-                (uint8 x, uint8 y) = InventoryLib.indexToCoords(i, inventory.width);
-                if (inventory.placeItem(engineShape, x, y, 0, ItemType.Engine, 1, 0) > 0) {
-                    enginePlaced = true;
-                }
-            }
-            if (inventory.slotTypes[i] == SlotType.FishingRod && !rodPlaced) {
-                // Equipment slot
-                (uint8 x, uint8 y) = InventoryLib.indexToCoords(i, inventory.width);
-                if (inventory.placeItem(rodShape, x, y, 0, ItemType.FishingRod, 1, 0) > 0) {
-                    rodPlaced = true;
-                }
-            }
-        }
-
-        if (!enginePlaced) revert OperationFailed("Failed to place default engine");
-        if (!rodPlaced) revert OperationFailed("Failed to place default fishing rod");
-    }
 
     /**
      * @dev Get current player count for a shard

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "../libraries/InventoryLib.sol";
+import "./IRisingTidesInventory.sol";
 
 /**
  * @dev Fishing result data structure for server signatures
@@ -44,7 +45,7 @@ interface IRisingTides {
 
     struct FishCatch {
         uint256 species;
-        uint256 caughtAt;
+        uint256 caughtTimestamp;
         uint16 weight;
     }
 
@@ -110,7 +111,10 @@ interface IRisingTides {
     // Shard Management
     function changeShard(uint8 newShard) external;
 
-    // Inventory Management
+    // Inventory Contract Access
+    function inventoryContract() external view returns (IRisingTidesInventory);
+    
+    // Inventory Management (delegates to inventory contract)
     function getPlayerInventory(address player)
         external
         view

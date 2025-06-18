@@ -144,7 +144,8 @@ abstract contract ResourceManager is RisingTidesBase {
         // player.movementSpeed = _calculateMovementSpeed(enginePower, newWeight);
 
         // Reinitialize inventory for new ship
-        _initializeInventory(msg.sender, newShipId);
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(newShipId);
+        inventoryContract.initializeInventory(msg.sender, newShipId, ship.cargoWidth, ship.cargoHeight, ship.slotTypes);
 
         emit IRisingTides.ShipChanged(msg.sender, newShipId);
     }

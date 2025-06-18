@@ -9,6 +9,7 @@ import "../src/registries/EngineRegistry.sol";
 import "../src/registries/FishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
 import "../src/core/RisingTides.sol";
+import "../src/core/RisingTidesInventory.sol";
 import "../src/interfaces/IRisingTides.sol";
 import {SlotType, ItemType} from "../src/types/InventoryTypes.sol";
 import "../src/libraries/InventoryLib.sol";
@@ -20,6 +21,7 @@ contract FishMarketTest is Test {
     EngineRegistry public engineRegistry;
     FishingRodRegistry public fishingRodRegistry;
     MapRegistry public mapRegistry;
+    RisingTidesInventory public inventoryContract;
     RisingTides public risingTides;
 
     address public player1 = address(0x1);
@@ -46,6 +48,15 @@ contract FishMarketTest is Test {
         // Set up test server signer
         testServerSigner = vm.addr(TEST_SERVER_PRIVATE_KEY);
 
+        // Deploy inventory contract first with admin address as temporary game contract
+        inventoryContract = new RisingTidesInventory(
+            address(this), // temporary game contract address
+            address(fishRegistry),
+            address(engineRegistry),
+            address(fishingRodRegistry),
+            address(shipRegistry)
+        );
+
         risingTides = new RisingTides(
             address(currency),
             address(shipRegistry),
@@ -53,8 +64,12 @@ contract FishMarketTest is Test {
             address(engineRegistry),
             address(fishingRodRegistry),
             address(mapRegistry),
+            address(inventoryContract),
             testServerSigner
         );
+
+        // Set the game contract address in inventory
+        inventoryContract.setGameContract(address(risingTides));
 
         // Grant minter and burner roles to game state
         currency.grantRole(currency.MINTER_ROLE(), address(risingTides));

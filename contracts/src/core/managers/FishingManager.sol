@@ -101,14 +101,11 @@ abstract contract FishingManager is RisingTidesBase {
 
             if (fishPlacement.shouldPlace) {
                 // Player wants to place the fish in inventory
-                instanceId = _placeFishInInventory(
-                    msg.sender, result.species, fishPlacement.x, fishPlacement.y, fishPlacement.rotation
+                instanceId = inventoryContract.placeFishInInventory(
+                    msg.sender, result.species, result.weight, fishPlacement.x, fishPlacement.y, fishPlacement.rotation
                 );
 
                 if (instanceId == 0) revert OperationFailed("Failed to place fish in inventory");
-
-                playerFish[msg.sender][instanceId] =
-                    FishCatch({species: result.species, weight: result.weight, caughtAt: result.timestamp});
 
                 emit IRisingTides.FishCaught(msg.sender, result.species, result.weight);
             }
@@ -141,23 +138,6 @@ abstract contract FishingManager is RisingTidesBase {
      * @dev Check if a player has a fishing rod equipped
      */
     function hasEquippedFishingRod(address player) internal view returns (bool) {
-        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
-        uint256 shipArea = ship.cargoHeight * ship.cargoWidth;
-
-        // Check all equipment slots for fishing rods
-        for (uint256 i = 0; i < shipArea; i++) {
-            if (ship.slotTypes[i] == SlotType.FishingRod) {
-                // Equipment slot
-                InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.itemType == ItemType.FishingRod) {
-                    // Equipment type
-                    if (fishingRodRegistry.isValidFishingRod(item.itemId)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+        return inventoryContract.hasEquippedFishingRod(player);
     }
 }
