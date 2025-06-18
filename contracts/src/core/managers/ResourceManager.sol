@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./InventoryManager.sol";
+import "../GameStateBase.sol";
 
 /**
  * @title ResourceManager
  * @dev Manages bait, travel, ship changes, and other resource-related operations
  */
-abstract contract ResourceManager is InventoryManager {
+abstract contract ResourceManager is GameStateBase {
     /**
      * @dev Purchase bait at a bait shop
      */

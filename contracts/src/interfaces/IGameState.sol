@@ -68,12 +68,13 @@ interface IGameState {
     event FishingInitiated(
         address indexed player, uint8 shard, uint256 mapId, int32 x, int32 y, uint256 baitType, uint256 nonce
     );
-    event FishCaught(address indexed player, uint256 species, uint16 weight, uint256 inventorySlot);
+    event FishCaught(address indexed player, uint256 species, uint16 weight);
     event FuelPurchased(address indexed player, uint256 amount, uint256 cost);
     event ShipChanged(address indexed player, uint256 newShipId);
     event ShardChanged(address indexed player, uint8 oldShard, uint8 newShard);
     event MapChanged(address indexed player, uint256 oldMapId, uint256 newMapId, uint256 cost);
     event BaitPurchased(address indexed player, uint256 baitType, uint256 amount, uint256 cost);
+    event MaxPlayersPerShardUpdated(uint256 oldLimit, uint256 newLimit);
 
     // Player Management
     function registerPlayer(uint8 shard, uint256 mapId) external;
@@ -90,11 +91,8 @@ interface IGameState {
 
     // Fishing
     function initiateFishing(uint256 baitType) external returns (uint256 fishingNonce);
-    function fulfillFishing(
-        FishingResult memory result,
-        bytes memory signature,
-        FishPlacement memory fishPlacement
-    ) external;
+    function fulfillFishing(FishingResult memory result, bytes memory signature, FishPlacement memory fishPlacement)
+        external;
 
     // Bait Management
     function purchaseBait(uint256 baitType, uint256 amount) external;
@@ -124,9 +122,9 @@ interface IGameState {
     function getPlayerInventory(address player)
         external
         view
-        returns (uint8 width, uint8 height, uint8[] memory slotTypes, InventoryLib.GridItem[] memory items);
+        returns (uint8 width, uint8 height, SlotType[] memory slotTypes, InventoryLib.GridItem[] memory items);
     function getInventoryItem(address player, uint8 x, uint8 y) external view returns (InventoryLib.GridItem memory);
-    function moveInventoryItem(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint8 rotation) external;
+    function moveInventoryItem(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) external;
     function rotateInventoryItem(uint8 x, uint8 y, uint8 newRotation) external;
     function discardInventoryItem(uint8 x, uint8 y) external;
     function getAvailableInventorySpace(address player, uint8 itemWidth, uint8 itemHeight)

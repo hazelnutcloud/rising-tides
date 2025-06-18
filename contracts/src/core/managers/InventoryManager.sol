@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./FishingManager.sol";
 import {SlotType, ItemType} from "../../types/InventoryTypes.sol";
+import "../GameStateBase.sol";
 
 /**
  * @title InventoryManager
  * @dev Manages all inventory operations, item placement, movement, and validation
  */
-abstract contract InventoryManager is FishingManager {
+abstract contract InventoryManager is GameStateBase {
     /**
      * @dev Get player's full inventory grid
      */
@@ -208,9 +208,9 @@ abstract contract InventoryManager is FishingManager {
     function hasEquippedItemType(address player, ItemType itemType) external view returns (bool) {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
         IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
-        
+
         SlotType requiredSlotType = itemType == ItemType.Engine ? SlotType.Engine : SlotType.Equipment;
-        
+
         // Check all appropriate slots for the item type
         for (uint256 i = 0; i < ship.slotTypes.length; i++) {
             if (ship.slotTypes[i] == requiredSlotType) {
@@ -236,27 +236,31 @@ abstract contract InventoryManager is FishingManager {
     function getEquippedFishingRods(address player) external view returns (uint256[] memory fishingRodIds) {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
         IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
-        
+
         // Count equipped fishing rods first
         uint256 equippedCount = 0;
         for (uint256 i = 0; i < ship.slotTypes.length; i++) {
-            if (ship.slotTypes[i] == SlotType.Equipment) { // Equipment slot
+            if (ship.slotTypes[i] == SlotType.Equipment) {
+                // Equipment slot
                 InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == ItemType.Equipment) { // Equipment type
+                if (item.isOccupied && item.itemType == ItemType.Equipment) {
+                    // Equipment type
                     if (fishingRodRegistry.isValidFishingRod(item.itemId)) {
                         equippedCount++;
                     }
                 }
             }
         }
-        
+
         // Populate the array
         fishingRodIds = new uint256[](equippedCount);
         uint256 index = 0;
         for (uint256 i = 0; i < ship.slotTypes.length && index < equippedCount; i++) {
-            if (ship.slotTypes[i] == SlotType.Equipment) { // Equipment slot
+            if (ship.slotTypes[i] == SlotType.Equipment) {
+                // Equipment slot
                 InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == ItemType.Equipment) { // Equipment type
+                if (item.isOccupied && item.itemType == ItemType.Equipment) {
+                    // Equipment type
                     if (fishingRodRegistry.isValidFishingRod(item.itemId)) {
                         fishingRodIds[index] = item.itemId;
                         index++;
@@ -267,35 +271,28 @@ abstract contract InventoryManager is FishingManager {
     }
 
     /**
-     * @dev Get engine and equipment registries (for external access)
-     */
-    function getEngineRegistry() external view returns (address) {
-        return address(engineRegistry);
-    }
-
-    function getFishingRodRegistry() external view returns (address) {
-        return address(fishingRodRegistry);
-    }
-
-    /**
      * @dev Place fish in player's inventory at specified coordinates
      */
-    function _placeFishInInventory(address player, uint256 species, uint8 x, uint8 y, uint8 rotation) internal override returns (bool) {
+    function _placeFishInInventory(address player, uint256 species, uint8 x, uint8 y, uint8 rotation)
+        internal
+        override
+        returns (bool)
+    {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-        
+
         // Get fish shape from registry
         InventoryLib.ItemShape memory fishShape = _getItemShape(ItemType.Fish, species);
-        
+
         // Validate that the position is within inventory bounds
         if (x >= inventory.width || y >= inventory.height) {
             return false;
         }
-        
+
         // Check if the fish can be placed at the specified position
         if (!InventoryLib.canPlaceItem(inventory, fishShape, x, y)) {
             return false;
         }
-        
+
         // Place the fish in inventory
         return InventoryLib.placeItemWithRotation(inventory, fishShape, x, y, rotation, ItemType.Fish, species);
     }
@@ -317,20 +314,13 @@ abstract contract InventoryManager is FishingManager {
             // Engine item - get shape from engine registry
             require(engineRegistry.isValidEngine(itemId), "Invalid engine ID");
             IEngineRegistry.Engine memory engine = engineRegistry.getEngine(itemId);
-            return InventoryLib.ItemShape({
-                width: engine.shapeWidth,
-                height: engine.shapeHeight,
-                data: engine.shapeData
-            });
+            return
+                InventoryLib.ItemShape({width: engine.shapeWidth, height: engine.shapeHeight, data: engine.shapeData});
         } else if (itemType == ItemType.Equipment) {
             // Equipment item (fishing rod) - get shape from fishing rod registry
             require(fishingRodRegistry.isValidFishingRod(itemId), "Invalid fishing rod ID");
             IFishingRodRegistry.FishingRod memory rod = fishingRodRegistry.getFishingRod(itemId);
-            return InventoryLib.ItemShape({
-                width: rod.shapeWidth,
-                height: rod.shapeHeight,
-                data: rod.shapeData
-            });
+            return InventoryLib.ItemShape({width: rod.shapeWidth, height: rod.shapeHeight, data: rod.shapeData});
         } else {
             revert("Invalid item type");
         }

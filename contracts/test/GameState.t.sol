@@ -158,24 +158,16 @@ contract GameStateTest is Test {
         bytes memory signature = _createTestSignature(result);
 
         // Create fish placement (place fish at 2,2 to avoid equipment slots)
-        FishPlacement memory fishPlacement = FishPlacement({
-            shouldPlace: true,
-            x: 2,
-            y: 2,
-            rotation: 0
-        });
+        FishPlacement memory fishPlacement = FishPlacement({shouldPlace: true, x: 2, y: 2, rotation: 0});
 
         // Fulfill fishing
         vm.prank(player1);
         gameState.fulfillFishing(result, signature, fishPlacement);
 
-        // Check fish was added to player inventory
-        assertEq(gameState.getPlayerFishCount(player1), 1);
-
-        // Check the specific fish data
-        IGameState.FishCatch memory caughtFish = gameState.getPlayerFish(player1, 0);
-        assertEq(caughtFish.species, species);
-        assertEq(caughtFish.weight, weight);
+        InventoryLib.GridItem memory item = gameState.getInventoryItem(player1, 2, 2);
+        assertTrue(item.isOccupied);
+        assertEq(uint8(item.itemType), uint8(ItemType.Fish));
+        assertEq(item.itemId, 1);
     }
 
     function testFishingPendingGuard() public {
@@ -514,9 +506,6 @@ contract GameStateTest is Test {
         vm.prank(player1);
         gameState.fulfillFishing(result, signature, fishPlacement);
 
-        // Check fish was added
-        assertEq(gameState.getPlayerFishCount(player1), 1);
-
         // Check inventory item was placed
         InventoryLib.GridItem memory item = gameState.getInventoryItem(player1, 1, 1);
         assertTrue(item.isOccupied);
@@ -851,11 +840,11 @@ contract GameStateTest is Test {
         // First, find the equipment slot position
         uint8 equipmentSlotX = 0;
         uint8 equipmentSlotY = 0;
-        
+
         // Get the player's inventory to find equipment slot
-        (uint8 width, uint8 height, SlotType[] memory slotTypes, InventoryLib.GridItem[] memory items) = 
+        (uint8 width,, SlotType[] memory slotTypes, InventoryLib.GridItem[] memory items) =
             gameState.getPlayerInventory(player1);
-        
+
         // Find equipment slot with fishing rod
         bool foundEquipmentSlot = false;
         for (uint256 i = 0; i < slotTypes.length; i++) {
@@ -866,7 +855,7 @@ contract GameStateTest is Test {
                 break;
             }
         }
-        
+
         require(foundEquipmentSlot, "Could not find equipped fishing rod");
 
         // Discard the fishing rod
@@ -906,13 +895,8 @@ contract GameStateTest is Test {
         uint256 fishingNonce = gameState.initiateFishing(baitType);
 
         // Create fishing result with catch
-        FishingResult memory result = FishingResult({
-            player: player1,
-            nonce: fishingNonce,
-            species: 1,
-            weight: 100,
-            timestamp: block.timestamp
-        });
+        FishingResult memory result =
+            FishingResult({player: player1, nonce: fishingNonce, species: 1, weight: 100, timestamp: block.timestamp});
 
         bytes memory signature = _createTestSignature(result);
 
@@ -927,9 +911,6 @@ contract GameStateTest is Test {
         // Fulfill fishing with discard placement
         vm.prank(player1);
         gameState.fulfillFishing(result, signature, fishPlacement);
-
-        // Check that no fish was added to player's storage
-        assertEq(gameState.getPlayerFishCount(player1), 0);
 
         // Check that the inventory remains unchanged (no fish placed)
         InventoryLib.GridItem memory item = gameState.getInventoryItem(player1, 0, 0);
@@ -957,13 +938,8 @@ contract GameStateTest is Test {
         uint256 fishingNonce = gameState.initiateFishing(baitType);
 
         // Create fishing result with catch
-        FishingResult memory result = FishingResult({
-            player: player1,
-            nonce: fishingNonce,
-            species: 1,
-            weight: 100,
-            timestamp: block.timestamp
-        });
+        FishingResult memory result =
+            FishingResult({player: player1, nonce: fishingNonce, species: 1, weight: 100, timestamp: block.timestamp});
 
         bytes memory signature = _createTestSignature(result);
 
@@ -984,14 +960,14 @@ contract GameStateTest is Test {
     function testBasicFuelConsumptionCalculation() public {
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         // Test basic fuel calculation with default Test Engine (100 consumption rate)
         uint8[] memory directions = new uint8[](2);
         directions[0] = 1; // East
         directions[1] = 2; // Southeast
-        
+
         uint256 fuelCost = gameState.calculateFuelCost(player1, directions);
-        
+
         // With new additive system:
         // Test Engine: 100 consumption rate (1 cell * 100 per cell)
         // Expected: 2 * 1e18 * 100 / 100 = 2e18
@@ -1001,19 +977,19 @@ contract GameStateTest is Test {
     function testFuelCalculationWithDifferentDistances() public {
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         // Test with different movement distances
         uint8[] memory shortMove = new uint8[](1);
         shortMove[0] = 1; // East
-        
+
         uint8[] memory longMove = new uint8[](3);
         longMove[0] = 1; // East
-        longMove[1] = 2; // Southeast  
+        longMove[1] = 2; // Southeast
         longMove[2] = 3; // Southwest
-        
+
         uint256 shortFuelCost = gameState.calculateFuelCost(player1, shortMove);
         uint256 longFuelCost = gameState.calculateFuelCost(player1, longMove);
-        
+
         // Fuel cost should scale linearly with distance
         // Test Engine has 100 consumption rate: 1 * 1e18 * 100 / 100 = 1e18
         assertEq(shortFuelCost, 1e18, "Short move fuel cost should be 1e18");
@@ -1024,18 +1000,18 @@ contract GameStateTest is Test {
     function testActualFuelConsumptionDuringMovement() public {
         vm.prank(player1);
         gameState.registerPlayer(0, 1);
-        
+
         // Check initial fuel
         uint256 initialFuel = gameState.getCurrentFuel(player1);
         assertEq(initialFuel, 100e18, "Initial fuel should be 100e18");
-        
+
         // Make a movement
         uint8[] memory directions = new uint8[](1);
         directions[0] = 1; // East
-        
+
         vm.prank(player1);
         gameState.move(directions);
-        
+
         // Check fuel after movement
         uint256 finalFuel = gameState.getCurrentFuel(player1);
         uint256 expectedCost = 1e18; // 1 * 1e18 * 100 / 100
@@ -1045,14 +1021,14 @@ contract GameStateTest is Test {
     function testBlockedSlotValidation() public {
         // First register a ship with some blocked slots for testing
         _addShipWithBlockedSlots();
-        
+
         vm.prank(player1);
         gameState.registerPlayer(0, 1); // Use map ID 1
-        
+
         // Change to ship with blocked slots
         vm.prank(player1);
         gameState.changeShip(2);
-        
+
         // Test that ship registry correctly identifies blocked slots
         assertTrue(gameState.isBlockedSlot(2, 1), "Position 1 should be blocked");
         assertTrue(gameState.isBlockedSlot(2, 2), "Position 2 should be blocked");
@@ -1063,17 +1039,17 @@ contract GameStateTest is Test {
     function testBlockedSlotPreventsFishPlacement() public {
         // Register ship with blocked slots
         _addShipWithBlockedSlots();
-        
+
         vm.prank(player1);
         gameState.registerPlayer(0, 1); // Use map ID 1
-        
+
         // Change to ship with blocked slots
         vm.prank(player1);
         gameState.changeShip(2);
-        
+
         // Manually place fishing rod in equipment slot after ship change
         _placeFishingRodManually(player1, 1, 15); // Place fishing rod ID 1 in slot 15 (equipment slot)
-        
+
         // Try to initiate and fulfill fishing to place a fish on a blocked slot
         uint256 baitType = 1;
         uint256 baitAmount = 1;
@@ -1085,13 +1061,8 @@ contract GameStateTest is Test {
         uint256 fishingNonce = gameState.initiateFishing(baitType);
 
         // Create fishing result
-        FishingResult memory result = FishingResult({
-            player: player1,
-            nonce: fishingNonce,
-            species: 1,
-            weight: 100,
-            timestamp: block.timestamp
-        });
+        FishingResult memory result =
+            FishingResult({player: player1, nonce: fishingNonce, species: 1, weight: 100, timestamp: block.timestamp});
 
         bytes memory signature = _createTestSignature(result);
 
@@ -1112,17 +1083,17 @@ contract GameStateTest is Test {
     function testBlockedSlotPreventsItemMovement() public {
         // Register ship with blocked slots
         _addShipWithBlockedSlots();
-        
+
         vm.prank(player1);
         gameState.registerPlayer(0, 1); // Use map ID 1
-        
+
         // Change to ship with blocked slots
         vm.prank(player1);
         gameState.changeShip(2);
-        
+
         // Place a fish in a normal slot first
         _placeFishManually(player1, 1, 0, 0); // Place sardine at position (0,0)
-        
+
         // Try to move the fish to a blocked slot
         vm.prank(player1);
         vm.expectRevert("Failed to place item at new position");
@@ -1132,18 +1103,17 @@ contract GameStateTest is Test {
     function testInventoryShapeWithBlockedSlots() public {
         // Register ship with blocked slots
         _addShipWithBlockedSlots();
-        
+
         vm.prank(player1);
         gameState.registerPlayer(0, 1); // Use map ID 1
-        
+
         // Change to ship with blocked slots
         vm.prank(player1);
         gameState.changeShip(2);
-        
+
         // Get inventory to verify blocked slots affect the layout
-        (uint8 width, uint8 height, SlotType[] memory slotTypes, InventoryLib.GridItem[] memory items) = 
-            gameState.getPlayerInventory(player1);
-        
+        (uint8 width, uint8 height, SlotType[] memory slotTypes,) = gameState.getPlayerInventory(player1);
+
         assertEq(width, 4, "Inventory width should be 4");
         assertEq(height, 4, "Inventory height should be 4");
         assertEq(uint8(slotTypes[1]), uint8(SlotType.Blocked), "Position 1 should be blocked");
@@ -1161,10 +1131,10 @@ contract GameStateTest is Test {
         // Set some slots as blocked
         slotTypes[1] = SlotType.Blocked; // Block position 1
         slotTypes[2] = SlotType.Blocked; // Block position 2
-        
+
         // Add equipment slots for fishing rods
         slotTypes[15] = SlotType.Equipment; // Bottom-right corner as equipment slot
-        
+
         shipRegistry.registerShip(
             2, // id
             "Test Ship with Blocked Slots",

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./GameStateBase.sol";
 import {SlotType, ItemType} from "../../types/InventoryTypes.sol";
+import "../GameStateBase.sol";
 
 /**
  * @title PlayerManager
@@ -99,7 +99,7 @@ abstract contract PlayerManager is GameStateBase {
     /**
      * @dev Calculate player's total weight based on ship and inventory
      */
-    function _calculatePlayerWeight(address, /* player */ uint256 shipId) internal view returns (uint256) {
+    function _calculatePlayerWeight(address, /* player */ uint256 shipId) internal view override returns (uint256) {
         // Get base ship weight
         IShipRegistry.Ship memory ship = shipRegistry.getShip(shipId);
         uint256 baseWeight = ship.durability; // Using durability as proxy for ship weight
@@ -114,7 +114,12 @@ abstract contract PlayerManager is GameStateBase {
     /**
      * @dev Calculate movement speed based on engine power and total weight
      */
-    function _calculateMovementSpeed(uint256 enginePower, uint256 totalWeight) internal pure returns (uint256) {
+    function _calculateMovementSpeed(uint256 enginePower, uint256 totalWeight)
+        internal
+        pure
+        override
+        returns (uint256)
+    {
         if (enginePower == 0 || totalWeight == 0) {
             return BASE_MOVEMENT_SPEED;
         }
@@ -127,7 +132,12 @@ abstract contract PlayerManager is GameStateBase {
     /**
      * @dev Calculate total engine power from equipped engines
      */
-    function _calculateTotalEnginePower(address player, uint256 shipId) internal view returns (uint256 totalPower) {
+    function _calculateTotalEnginePower(address player, uint256 shipId)
+        internal
+        view
+        override
+        returns (uint256 totalPower)
+    {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
         IShipRegistry.Ship memory ship = shipRegistry.getShip(shipId);
 
@@ -157,7 +167,7 @@ abstract contract PlayerManager is GameStateBase {
     /**
      * @dev Initialize player inventory based on ship
      */
-    function _initializeInventory(address player, uint256 shipId) internal {
+    function _initializeInventory(address player, uint256 shipId) internal override {
         IShipRegistry.Ship memory ship = shipRegistry.getShip(shipId);
 
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
@@ -171,59 +181,40 @@ abstract contract PlayerManager is GameStateBase {
      */
     function _assignDefaultEquipment(address player) internal {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-        
+
         // Get engine ID 1 shape from registry
         IEngineRegistry.Engine memory engine = engineRegistry.getEngine(1);
-        InventoryLib.ItemShape memory engineShape = InventoryLib.ItemShape({
-            width: engine.shapeWidth,
-            height: engine.shapeHeight,
-            data: engine.shapeData
-        });
-        
+        InventoryLib.ItemShape memory engineShape =
+            InventoryLib.ItemShape({width: engine.shapeWidth, height: engine.shapeHeight, data: engine.shapeData});
+
         // Get fishing rod ID 1 shape from registry
         IFishingRodRegistry.FishingRod memory rod = fishingRodRegistry.getFishingRod(1);
-        InventoryLib.ItemShape memory rodShape = InventoryLib.ItemShape({
-            width: rod.shapeWidth,
-            height: rod.shapeHeight,
-            data: rod.shapeData
-        });
-        
+        InventoryLib.ItemShape memory rodShape =
+            InventoryLib.ItemShape({width: rod.shapeWidth, height: rod.shapeHeight, data: rod.shapeData});
+
         // Place engine in first engine slot
         bool enginePlaced = false;
         bool rodPlaced = false;
 
         for (uint256 i = 0; i < inventory.slotTypes.length && (!enginePlaced || !rodPlaced); i++) {
-            if (inventory.slotTypes[i] == SlotType.Engine && !enginePlaced) { // Engine slot
+            if (inventory.slotTypes[i] == SlotType.Engine && !enginePlaced) {
+                // Engine slot
                 (uint8 x, uint8 y) = InventoryLib.indexToCoords(i, inventory.width);
                 if (InventoryLib.placeItem(inventory, engineShape, x, y, ItemType.Engine, 1)) {
                     enginePlaced = true;
                 }
             }
-            if (inventory.slotTypes[i] == SlotType.Equipment && !rodPlaced) { // Equipment slot
+            if (inventory.slotTypes[i] == SlotType.Equipment && !rodPlaced) {
+                // Equipment slot
                 (uint8 x, uint8 y) = InventoryLib.indexToCoords(i, inventory.width);
                 if (InventoryLib.placeItem(inventory, rodShape, x, y, ItemType.Equipment, 1)) {
                     rodPlaced = true;
                 }
             }
         }
-        
+
         require(enginePlaced, "Failed to place default engine");
         require(rodPlaced, "Failed to place default fishing rod");
-    }
-
-    /**
-     * @dev Get player's fish by ID
-     */
-    function getPlayerFish(address player, uint256 fishId) external view returns (IGameState.FishCatch memory) {
-        require(fishId < playerFishCount[player], "Invalid fish ID");
-        return playerFish[player][fishId];
-    }
-
-    /**
-     * @dev Get player's total fish count
-     */
-    function getPlayerFishCount(address player) external view returns (uint256) {
-        return playerFishCount[player];
     }
 
     /**
@@ -264,6 +255,19 @@ abstract contract PlayerManager is GameStateBase {
             playerCounts[i] = playersPerShard[i];
             available[i] = playersPerShard[i] < maxPlayersPerShard;
         }
+    }
+
+    /**
+     * @dev Update maximum players per shard (admin only)
+     */
+    function setMaxPlayersPerShard(uint256 newLimit) external onlyRole(ADMIN_ROLE) {
+        require(newLimit > 0, "Limit must be greater than zero");
+        require(newLimit <= 10000, "Limit too high"); // Reasonable upper bound
+
+        uint256 oldLimit = maxPlayersPerShard;
+        maxPlayersPerShard = newLimit;
+
+        emit MaxPlayersPerShardUpdated(oldLimit, newLimit);
     }
 
     /**

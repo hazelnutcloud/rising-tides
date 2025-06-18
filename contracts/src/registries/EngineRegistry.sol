@@ -86,8 +86,11 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
      */
     function getEngineStats(uint256 engineId) external view validEngineId(engineId) returns (EngineStats memory) {
         Engine memory engine = engines[engineId];
-        return
-            EngineStats({enginePowerPerCell: engine.enginePowerPerCell, fuelConsumptionRatePerCell: engine.fuelConsumptionRatePerCell, weight: engine.weight});
+        return EngineStats({
+            enginePowerPerCell: engine.enginePowerPerCell,
+            fuelConsumptionRatePerCell: engine.fuelConsumptionRatePerCell,
+            weight: engine.weight
+        });
     }
 
     /**
@@ -138,7 +141,12 @@ contract EngineRegistry is IEngineRegistry, AccessControl, Pausable {
         engine.purchasePrice = purchasePrice;
 
         emit EngineStatsUpdated(
-            engineId, EngineStats({enginePowerPerCell: enginePowerPerCell, fuelConsumptionRatePerCell: fuelConsumptionRatePerCell, weight: weight})
+            engineId,
+            EngineStats({
+                enginePowerPerCell: enginePowerPerCell,
+                fuelConsumptionRatePerCell: fuelConsumptionRatePerCell,
+                weight: weight
+            })
         );
     }
 

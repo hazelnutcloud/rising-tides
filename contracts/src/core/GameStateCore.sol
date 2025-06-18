@@ -2,6 +2,10 @@
 pragma solidity ^0.8.20;
 
 import "./managers/ResourceManager.sol";
+import "./managers/PlayerManager.sol";
+import "./managers/FishingManager.sol";
+import "./managers/InventoryManager.sol";
+import "./managers/MovementManager.sol";
 import "../interfaces/IGameState.sol";
 
 /**
@@ -9,7 +13,7 @@ import "../interfaces/IGameState.sol";
  * @dev Main game state contract that inherits from all managers
  * Provides the complete IGameState interface while keeping functionality modular
  */
-contract GameStateCore is ResourceManager {
+contract GameStateCore is ResourceManager, PlayerManager, FishingManager, InventoryManager, MovementManager {
     constructor(
         address _currency,
         address _shipRegistry,
@@ -85,22 +89,4 @@ contract GameStateCore is ResourceManager {
     function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
-
-    /**
-     * @dev Update maximum players per shard (admin only)
-     */
-    function setMaxPlayersPerShard(uint256 newLimit) external onlyRole(ADMIN_ROLE) {
-        require(newLimit > 0, "Limit must be greater than zero");
-        require(newLimit <= 10000, "Limit too high"); // Reasonable upper bound
-
-        uint256 oldLimit = maxPlayersPerShard;
-        maxPlayersPerShard = newLimit;
-
-        emit MaxPlayersPerShardUpdated(oldLimit, newLimit);
-    }
-
-    /**
-     * @dev Event emitted when max players per shard is updated
-     */
-    event MaxPlayersPerShardUpdated(uint256 oldLimit, uint256 newLimit);
 }

@@ -5,20 +5,20 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import "../../interfaces/IGameState.sol";
-import "../../interfaces/IShipRegistry.sol";
-import "../../interfaces/IMapRegistry.sol";
-import "../../tokens/RisingTidesCurrency.sol";
-import "../../registries/FishRegistry.sol";
-import "../../registries/EngineRegistry.sol";
-import "../../registries/FishingRodRegistry.sol";
-import "../../libraries/InventoryLib.sol";
+import "../interfaces/IGameState.sol";
+import "../interfaces/IShipRegistry.sol";
+import "../interfaces/IMapRegistry.sol";
+import "../tokens/RisingTidesCurrency.sol";
+import "../registries/FishRegistry.sol";
+import "../registries/EngineRegistry.sol";
+import "../registries/FishingRodRegistry.sol";
+import "../libraries/InventoryLib.sol";
 
 /**
  * @title GameStateBase
  * @dev Base contract containing shared state variables and dependencies for all game managers
  */
-abstract contract GameStateBase is AccessControl, Pausable, ReentrancyGuard, EIP712 {
+abstract contract GameStateBase is AccessControl, Pausable, ReentrancyGuard, EIP712, IGameState {
     using InventoryLib for InventoryLib.InventoryGrid;
 
     // Access control roles
@@ -42,8 +42,6 @@ abstract contract GameStateBase is AccessControl, Pausable, ReentrancyGuard, EIP
     mapping(address => IGameState.PlayerState) internal playerStates;
     mapping(address => InventoryLib.InventoryGrid) internal playerInventories;
     mapping(address => bool) internal registeredPlayers;
-    mapping(address => mapping(uint256 => IGameState.FishCatch)) internal playerFish;
-    mapping(address => uint256) internal playerFishCount;
 
     // Player bait inventory
     mapping(address => mapping(uint256 => uint256)) internal playerBait;
@@ -75,6 +73,23 @@ abstract contract GameStateBase is AccessControl, Pausable, ReentrancyGuard, EIP
     // EIP712 type hashes
     bytes32 internal constant FISHING_RESULT_TYPEHASH =
         keccak256("FishingResult(address player,uint256 nonce,uint256 species,uint16 weight,uint256 timestamp)");
+
+    function _calculatePlayerWeight(address, /* player */ uint256 shipId) internal view virtual returns (uint256);
+    function _calculateTotalEnginePower(address player, uint256 shipId)
+        internal
+        view
+        virtual
+        returns (uint256 totalPower);
+    function _calculateMovementSpeed(uint256 enginePower, uint256 totalWeight)
+        internal
+        pure
+        virtual
+        returns (uint256);
+    function _initializeInventory(address player, uint256 shipId) internal virtual;
+    function _placeFishInInventory(address player, uint256 species, uint8 x, uint8 y, uint8 rotation)
+        internal
+        virtual
+        returns (bool);
 
     // Modifiers
     modifier onlyRegisteredPlayer() {

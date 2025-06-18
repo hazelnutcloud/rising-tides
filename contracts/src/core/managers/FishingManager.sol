@@ -2,14 +2,14 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "./MovementManager.sol";
 import {SlotType, ItemType} from "../../types/InventoryTypes.sol";
+import "../GameStateBase.sol";
 
 /**
  * @title FishingManager
  * @dev Manages fishing mechanics, signature verification, and fish catching
  */
-abstract contract FishingManager is MovementManager {
+abstract contract FishingManager is GameStateBase {
     using ECDSA for bytes32;
 
     /**
@@ -55,11 +55,12 @@ abstract contract FishingManager is MovementManager {
     /**
      * @dev Fulfill fishing with server-signed result and fish placement
      */
-    function fulfillFishing(
-        FishingResult memory result,
-        bytes memory signature,
-        FishPlacement memory fishPlacement
-    ) external onlyRegisteredPlayer whenNotPaused nonReentrant {
+    function fulfillFishing(FishingResult memory result, bytes memory signature, FishPlacement memory fishPlacement)
+        external
+        onlyRegisteredPlayer
+        whenNotPaused
+        nonReentrant
+    {
         require(result.player == msg.sender, "Result not for caller");
         require(pendingFishingRequest[msg.sender] == result.nonce, "Invalid or expired fishing request");
         require(result.nonce > 0, "Invalid nonce");
@@ -95,16 +96,14 @@ abstract contract FishingManager is MovementManager {
 
             if (fishPlacement.shouldPlace) {
                 // Player wants to place the fish in inventory
-                require(_placeFishInInventory(msg.sender, result.species, fishPlacement.x, fishPlacement.y, fishPlacement.rotation), 
-                        "Failed to place fish in inventory");
+                require(
+                    _placeFishInInventory(
+                        msg.sender, result.species, fishPlacement.x, fishPlacement.y, fishPlacement.rotation
+                    ),
+                    "Failed to place fish in inventory"
+                );
 
-                // Store caught fish data
-                uint256 fishId = playerFishCount[msg.sender];
-                playerFish[msg.sender][fishId] =
-                    IGameState.FishCatch({species: result.species, weight: result.weight, caughtAt: block.timestamp});
-                playerFishCount[msg.sender]++;
-
-                emit IGameState.FishCaught(msg.sender, result.species, result.weight, fishId);
+                emit IGameState.FishCaught(msg.sender, result.species, result.weight);
             }
             // If shouldPlace is false, fish is discarded (no storage, no inventory placement)
         }
@@ -132,22 +131,19 @@ abstract contract FishingManager is MovementManager {
     }
 
     /**
-     * @dev Place fish in player's inventory at specified coordinates
-     */
-    function _placeFishInInventory(address player, uint256 species, uint8 x, uint8 y, uint8 rotation) internal virtual returns (bool);
-
-    /**
      * @dev Check if a player has a fishing rod equipped
      */
     function hasEquippedFishingRod(address player) internal view returns (bool) {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
         IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
-        
+
         // Check all equipment slots for fishing rods
         for (uint256 i = 0; i < ship.slotTypes.length; i++) {
-            if (ship.slotTypes[i] == SlotType.Equipment) { // Equipment slot
+            if (ship.slotTypes[i] == SlotType.Equipment) {
+                // Equipment slot
                 InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == ItemType.Equipment) { // Equipment type
+                if (item.isOccupied && item.itemType == ItemType.Equipment) {
+                    // Equipment type
                     if (fishingRodRegistry.isValidFishingRod(item.itemId)) {
                         return true;
                     }

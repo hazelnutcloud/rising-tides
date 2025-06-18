@@ -409,10 +409,10 @@ contract Deploy is Script {
         // O O X X
         // O O O O
         // E O O Q
-        slotTypes[2] = SlotType.Blocked;  // Block position 2 (top row)
-        slotTypes[3] = SlotType.Blocked;  // Block position 3 (top row)
-        slotTypes[6] = SlotType.Blocked;  // Block position 6 (second row)
-        slotTypes[7] = SlotType.Blocked;  // Block position 7 (second row)
+        slotTypes[2] = SlotType.Blocked; // Block position 2 (top row)
+        slotTypes[3] = SlotType.Blocked; // Block position 3 (top row)
+        slotTypes[6] = SlotType.Blocked; // Block position 6 (second row)
+        slotTypes[7] = SlotType.Blocked; // Block position 7 (second row)
 
         // Add engine and equipment slots
         slotTypes[12] = SlotType.Engine; // Engine slot (bottom-left)

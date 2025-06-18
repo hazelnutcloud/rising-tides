@@ -124,7 +124,7 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
 
         // Convert coordinates to slot index
         uint256 slotIndex = uint256(y) * uint256(ship.cargoWidth) + uint256(x);
-        
+
         if (slotIndex >= ship.slotTypes.length) {
             return false;
         }

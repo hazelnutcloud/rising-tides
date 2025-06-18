@@ -45,13 +45,12 @@ contract EngineRegistryTest is Test {
         assertTrue(engine.isActive);
     }
 
-    function testEngineStats() public {
+    function testEngineStats() public view {
         IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(1);
         assertEq(stats.enginePowerPerCell, 30);
         assertEq(stats.fuelConsumptionRatePerCell, 90);
         assertEq(stats.weight, 50);
     }
-
 
     function testInvalidEngineOperations() public {
         // Test invalid engine ID
@@ -84,7 +83,7 @@ contract EngineRegistryTest is Test {
         assertFalse(engine.isActive);
     }
 
-    function testGetAllEngines() public {
+    function testGetAllEngines() public view {
         IEngineRegistry.Engine[] memory allEngines = engineRegistry.getAllEngines();
         assertEq(allEngines.length, 3);
 
