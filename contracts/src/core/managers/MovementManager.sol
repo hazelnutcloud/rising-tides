@@ -16,7 +16,7 @@ abstract contract MovementManager is GameStateBase {
         IGameState.PlayerState storage player = playerStates[msg.sender];
         require(block.timestamp >= player.nextMoveTime, "Movement still on cooldown");
         require(directions.length > 0, "No directions provided");
-        require(directions.length <= 10, "Too many moves at once"); // Limit batch size
+        require(directions.length <= 20, "Too many moves at once"); // Limit batch size
 
         // Validate movement path and terrain collision
         (int32 finalX, int32 finalY) = _validateMovementPath(player.mapId, player.position, directions);
