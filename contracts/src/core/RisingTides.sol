@@ -6,6 +6,7 @@ import "./managers/PlayerManager.sol";
 import "./managers/FishingManager.sol";
 import "./managers/InventoryManager.sol";
 import "./managers/MovementManager.sol";
+import "./managers/FishMarketManager.sol";
 import "../interfaces/IRisingTides.sol";
 
 /**
@@ -13,7 +14,14 @@ import "../interfaces/IRisingTides.sol";
  * @dev Main game state contract that inherits from all managers
  * Provides the complete IRisingTides interface while keeping functionality modular
  */
-contract RisingTides is ResourceManager, PlayerManager, FishingManager, InventoryManager, MovementManager {
+contract RisingTides is
+    ResourceManager,
+    PlayerManager,
+    FishingManager,
+    InventoryManager,
+    MovementManager,
+    FishMarketManager
+{
     constructor(
         address _currency,
         address _shipRegistry,

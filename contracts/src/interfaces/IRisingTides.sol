@@ -63,8 +63,8 @@ interface IRisingTides {
     }
 
     struct FishMarketData {
-      uint256 price;
-      uint256 lastSoldTimestamp;
+        uint256 value;
+        uint256 lastSoldTimestamp;
     }
 
     // Events
@@ -80,6 +80,8 @@ interface IRisingTides {
     event MapChanged(address indexed player, uint256 oldMapId, uint256 newMapId, uint256 cost);
     event BaitPurchased(address indexed player, uint256 baitType, uint256 amount, uint256 cost);
     event MaxPlayersPerShardUpdated(uint256 oldLimit, uint256 newLimit);
+    event FishSold(uint256 indexed species, uint256 weight, uint256 freshness, uint256 salePrice);
+    event FishMarketUpdated(uint256 indexed species, uint256 value, uint256 timestamp);
 
     // Player Management
     function registerPlayer(uint8 shard, uint256 mapId) external;
@@ -97,7 +99,9 @@ interface IRisingTides {
     // Fishing
     function initiateFishing(uint256 baitType) external returns (uint256 fishingNonce);
     function fulfillFishing(FishingResult memory result, bytes memory signature, FishPlacement memory fishPlacement)
-        external;
+        external
+        returns (uint256 instanceId);
+    function sellFish(uint256 instanceId) external returns (uint256 salePrice);
 
     // Bait Management
     function purchaseBait(uint256 baitType, uint256 amount) external;
