@@ -4,18 +4,19 @@
 
 ## Project Status: **NEAR PRODUCTION-READY CONTRACTS**
 
-**All smart contract tests now passing (62/62)!** The project features advanced game mechanics with a clean, warning-free codebase. 4 remaining contract tasks identified for full production readiness.
+**All smart contract tests now passing (71/71)!** The project features advanced game mechanics with a clean, warning-free codebase. 4 remaining contract tasks identified for full production readiness.
 
 ## Active Tasks
 
 ### High Priority - Contract Completion
-- [ ] **Update FishMarket to remove fish in inventory when selling**
+- [x] **Update FishMarket to remove fish in inventory when selling** (Recently completed)
 - [ ] **Add harbor location mark in mapRegistry**
 - [ ] **Update resourceManager to allow buying fuel and bait only at harbor locations**
 - [ ] **Implement ship changing, engine changing, and fishing rod changing functions**
+- [ ] **Implement player permanent storage**
 
 ### High Priority - Previously Completed
-- [x] **Complete Smart Contract System**: All 62/62 tests now passing! ✅ (Improved from 57/57)
+- [x] **Complete Smart Contract System**: All 71/71 tests now passing! ✅ (Improved from 57/57 to 62/62 to 71/71)
   - [x] Fixed FishMarket freshness calculation test
   - [x] Resolved currency minting permissions for fish selling
   - [x] Fixed batch fish selling currency issues
@@ -64,7 +65,7 @@
 - [x] **Token System**: ERC20 currency and NFT season passes
 - [x] **Shard System**: Configurable limits, admin management, load balancing
 
-### Test Coverage (62/62 tests passing) ✅
+### Test Coverage (71/71 tests passing) ✅
 - [x] Player registration with default equipment assignment
 - [x] Hex-grid movement with collision detection
 - [x] Fuel purchasing and consumption
@@ -111,8 +112,8 @@
 - **Default Equipment Setup**: New players immediately functional with Engine ID 1 + Fishing Rod ID 1
 
 ## Notes
-- **Smart contracts are near production-ready** with 100% test coverage (62/62) and clean codebase
-- **4 remaining tasks** identified for full production readiness (see todos.md)
+- **Smart contracts are near production-ready** with 100% test coverage (71/71) and clean codebase
+- **5 remaining tasks** identified for full production readiness (see todos.md)
 - **Modular architecture** makes future development and maintenance much easier
 - **Server-driven mechanics** provide flexibility while maintaining security
 - **Primary focus is frontend development** - contracts are complete and tested

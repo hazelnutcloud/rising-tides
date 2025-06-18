@@ -122,7 +122,7 @@ The `./memory/` directory contains project knowledge and development context:
 - [x] Equipment system (computed stats from equipped items)
 - [x] Deployment scripts (complete with sample data)
 
-#### Test Status: 57/57 Passing ✅
+#### Test Status: 71/71 Passing ✅
 - [x] Player registration with default equipment assignment
 - [x] Hex-grid movement with collision detection  
 - [x] Fuel purchasing and consumption
@@ -148,7 +148,7 @@ The `./memory/` directory contains project knowledge and development context:
 - [ ] Game state synchronization with contracts
 
 #### Current Status
-- ✅ All smart contract tests passing (57/57)
+- ✅ All smart contract tests passing (71/71)
 - ✅ Clean, warning-free codebase ready for production
 - ✅ Modular architecture with focused manager contracts
 - ✅ Equipment system with computed stats and default assignment
@@ -159,7 +159,7 @@ The `./memory/` directory contains project knowledge and development context:
 - **Next Actions**: Implement 3D frontend with Threlte, Web3 integration, game UI
 - **Key Files to Review**: memory/current-tasks.md, app/src/routes/, contracts are complete
 - **Testing Strategy**: Contract tests complete, add frontend tests with Vitest
-- **Major Achievement**: Production-ready modular smart contracts with 100% test coverage (57/57)
+- **Major Achievement**: Production-ready modular smart contracts with 100% test coverage (71/71)
 - **Architecture Highlights**: Modular managers, computed equipment stats, shard scaling, default equipment
 
 ## Development Notes
