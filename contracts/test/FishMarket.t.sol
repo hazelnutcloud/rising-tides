@@ -10,9 +10,12 @@ import "../src/registries/FishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
 import "../src/core/RisingTides.sol";
 import "../src/core/RisingTidesInventory.sol";
+import "../src/core/RisingTidesFishing.sol";
 import "../src/interfaces/IRisingTides.sol";
+import "../src/interfaces/IRisingTidesFishing.sol";
 import {SlotType, ItemType} from "../src/types/InventoryTypes.sol";
 import "../src/libraries/InventoryLib.sol";
+import "../src/utils/Errors.sol";
 
 contract FishMarketTest is Test {
     RisingTidesCurrency public currency;
@@ -22,6 +25,7 @@ contract FishMarketTest is Test {
     FishingRodRegistry public fishingRodRegistry;
     MapRegistry public mapRegistry;
     RisingTidesInventory public inventoryContract;
+    RisingTidesFishing public fishingContract;
     RisingTides public risingTides;
 
     address public player1 = address(0x1);
@@ -57,6 +61,16 @@ contract FishMarketTest is Test {
             address(shipRegistry)
         );
 
+        // Deploy fishing contract with admin address as temporary game contract
+        fishingContract = new RisingTidesFishing(
+            address(this), // temporary game contract address
+            address(fishRegistry),
+            address(inventoryContract),
+            address(mapRegistry),
+            address(currency),
+            testServerSigner
+        );
+
         risingTides = new RisingTides(
             address(currency),
             address(shipRegistry),
@@ -65,15 +79,19 @@ contract FishMarketTest is Test {
             address(fishingRodRegistry),
             address(mapRegistry),
             address(inventoryContract),
+            address(fishingContract),
             testServerSigner
         );
 
-        // Set the game contract address in inventory
+        // Set the game contract address in inventory and fishing
         inventoryContract.setGameContract(address(risingTides));
+        inventoryContract.setFishingContract(address(fishingContract));
+        fishingContract.setGameContract(address(risingTides));
 
-        // Grant minter and burner roles to game state
+        // Grant minter and burner roles to game state and fishing contract
         currency.grantRole(currency.MINTER_ROLE(), address(risingTides));
         currency.grantRole(currency.BURNER_ROLE(), address(risingTides));
+        currency.grantRole(currency.BURNER_ROLE(), address(fishingContract));
 
         // Grant minter role to admin for test setup
         currency.grantRole(currency.MINTER_ROLE(), admin);
@@ -121,7 +139,7 @@ contract FishMarketTest is Test {
 
         // Verify fish was removed from player data
         vm.prank(player1);
-        vm.expectRevert("Invalid fish");
+        vm.expectRevert(abi.encodeWithSelector(InvalidSpecies.selector, 0));
         risingTides.getFishFreshness(instanceId);
     }
 
@@ -245,8 +263,10 @@ contract FishMarketTest is Test {
         FishRegistry.FishSpecies memory fish = fishRegistry.getFishSpecies(1);
         uint256 basePrice = fish.basePrice;
 
+        uint256 startTime = vm.getBlockTimestamp();
+
         // Use admin function to set market value to 0 and current timestamp
-        risingTides.setFishMarketData(1, 0, block.timestamp);
+        risingTides.setFishMarketData(1, 0, startTime);
 
         // Verify initial market price at time 0 (should be 0 since no time has passed)
         uint256 initialPrice = risingTides.getMarketPrice(1);
@@ -263,10 +283,11 @@ contract FishMarketTest is Test {
         timeIntervals[4] = 12 hours;
         timeIntervals[5] = 24 hours;
 
-        uint256 startTime = block.timestamp;
+        console.log("Start time: ", startTime);
 
-        for (uint256 i = 0; i < timeIntervals.length; i++) {
+        for (uint256 i = 0; i < 6; i++) {
             vm.warp(startTime + timeIntervals[i]);
+            console.log("Block time: ", block.timestamp);
             uint256 currentPrice = risingTides.getMarketPrice(1);
 
             // Calculate expected recovery from 0: (basePrice * PRICE_RECOVERY_RATE * secondsElapsed / 1e7)
@@ -309,19 +330,19 @@ contract FishMarketTest is Test {
         assertEq(freshness, 100, "Fresh fish should have 100% freshness");
 
         // Advance time by 15 minutes (one decay period)
-        vm.warp(block.timestamp + 15 minutes);
+        vm.warp(vm.getBlockTimestamp() + 15 minutes);
         vm.prank(player1);
         freshness = risingTides.getFishFreshness(instanceId);
         assertEq(freshness, 75, "Freshness should decay by 25% per period");
 
         // Advance time by another 15 minutes
-        vm.warp(block.timestamp + 15 minutes);
+        vm.warp(vm.getBlockTimestamp() + 15 minutes);
         vm.prank(player1);
         freshness = risingTides.getFishFreshness(instanceId);
         assertEq(freshness, 50, "Freshness should continue decaying");
 
         // Advance time to make fish completely spoiled
-        vm.warp(block.timestamp + 2 hours);
+        vm.warp(vm.getBlockTimestamp() + 2 hours);
         vm.prank(player1);
         freshness = risingTides.getFishFreshness(instanceId);
         assertEq(freshness, 0, "Very old fish should have 0% freshness");
@@ -402,13 +423,13 @@ contract FishMarketTest is Test {
 
     function testCannotGetFreshnessInvalidFish() public {
         vm.prank(player1);
-        vm.expectRevert("Invalid fish");
+        vm.expectRevert(abi.encodeWithSelector(InvalidSpecies.selector, 0));
         risingTides.getFishFreshness(999);
     }
 
     function testCannotEstimatePriceInvalidFish() public {
         vm.prank(player1);
-        vm.expectRevert("Invalid fish");
+        vm.expectRevert(abi.encodeWithSelector(InvalidSpecies.selector, 0));
         risingTides.estimateSalePrice(999);
     }
 
@@ -529,10 +550,10 @@ contract FishMarketTest is Test {
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256("RisingTides"),
+                keccak256("RisingTidesFishing"),
                 keccak256("1"),
                 block.chainid,
-                address(risingTides)
+                address(fishingContract)
             )
         );
 

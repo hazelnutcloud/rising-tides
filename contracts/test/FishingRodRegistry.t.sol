@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {Test, console} from "forge-std/Test.sol";
 import "../src/registries/FishingRodRegistry.sol";
 import "../src/interfaces/IFishingRodRegistry.sol";
+import "../src/utils/Errors.sol";
 
 contract FishingRodRegistryTest is Test {
     FishingRodRegistry public fishingRodRegistry;
@@ -98,11 +99,11 @@ contract FishingRodRegistryTest is Test {
 
     function testInvalidFishingRodOperations() public {
         // Test invalid fishing rod ID
-        vm.expectRevert("Invalid fishing rod ID");
+        vm.expectRevert(abi.encodeWithSelector(InvalidFishingRod.selector, 999));
         fishingRodRegistry.getFishingRod(999);
 
         // Test updating invalid fishing rod
-        vm.expectRevert("Invalid fishing rod ID");
+        vm.expectRevert(abi.encodeWithSelector(InvalidFishingRod.selector, 999));
         fishingRodRegistry.updateFishingRod(999, 100, 10);
     }
 
@@ -124,7 +125,7 @@ contract FishingRodRegistryTest is Test {
         bytes memory shape = new bytes(1);
         shape[0] = 0x01;
 
-        vm.expectRevert("Fishing rod already exists");
+        vm.expectRevert(abi.encodeWithSelector(AlreadyExists.selector, "FishingRod", 1));
         fishingRodRegistry.registerFishingRod(1, "Duplicate", 1, 1, shape, 100, 10);
     }
 
@@ -133,19 +134,19 @@ contract FishingRodRegistryTest is Test {
         shape[0] = 0x01;
 
         // Test invalid ID
-        vm.expectRevert("Invalid ID");
+        vm.expectRevert(abi.encodeWithSelector(InvalidId.selector, 0));
         fishingRodRegistry.registerFishingRod(0, "Invalid", 1, 1, shape, 100, 10);
 
         // Test empty name
-        vm.expectRevert("Name cannot be empty");
+        vm.expectRevert(abi.encodeWithSelector(EmptyString.selector));
         fishingRodRegistry.registerFishingRod(10, "", 1, 1, shape, 100, 10);
 
         // Test invalid dimensions
-        vm.expectRevert("Invalid dimensions");
+        vm.expectRevert(abi.encodeWithSelector(InvalidDimensions.selector, 0, 1));
         fishingRodRegistry.registerFishingRod(10, "Invalid", 0, 1, shape, 100, 10);
 
         // Test empty shape data
-        vm.expectRevert("Shape data cannot be empty");
+        vm.expectRevert(abi.encodeWithSelector(ShapeDataTooSmall.selector, 1, 0));
         fishingRodRegistry.registerFishingRod(10, "Invalid", 1, 1, new bytes(0), 100, 10);
     }
 

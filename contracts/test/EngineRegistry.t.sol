@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {Test, console} from "forge-std/Test.sol";
 import "../src/registries/EngineRegistry.sol";
 import "../src/interfaces/IEngineRegistry.sol";
+import "../src/utils/Errors.sol";
 
 contract EngineRegistryTest is Test {
     EngineRegistry public engineRegistry;
@@ -54,11 +55,11 @@ contract EngineRegistryTest is Test {
 
     function testInvalidEngineOperations() public {
         // Test invalid engine ID
-        vm.expectRevert("Invalid engine ID");
+        vm.expectRevert(abi.encodeWithSelector(InvalidEngine.selector, 999));
         engineRegistry.getEngine(999);
 
         // Test getting stats for invalid engine
-        vm.expectRevert("Invalid engine ID");
+        vm.expectRevert(abi.encodeWithSelector(InvalidEngine.selector, 999));
         engineRegistry.getEngineStats(999);
     }
 

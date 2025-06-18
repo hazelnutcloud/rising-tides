@@ -11,6 +11,7 @@ import "../src/interfaces/IFishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
 import "../src/core/RisingTides.sol";
 import "../src/core/RisingTidesInventory.sol";
+import "../src/core/RisingTidesFishing.sol";
 import "../src/core/SeasonPass.sol";
 import {SlotType} from "../src/types/InventoryTypes.sol";
 
@@ -70,7 +71,20 @@ contract Deploy is Script {
         );
         console.log("RisingTidesInventory deployed to:", address(inventoryContract));
 
-        // 8. Deploy Game State
+        // 8. Deploy Fishing Contract
+        console.log("\n=== Deploying RisingTidesFishing ===");
+        // Deploy fishing contract with deployer address as temporary game contract
+        RisingTidesFishing fishingContract = new RisingTidesFishing(
+            deployerAddress, // temporary game contract address
+            address(fishRegistry),
+            address(inventoryContract),
+            address(mapRegistry),
+            address(currency),
+            deployerAddress // server signer
+        );
+        console.log("RisingTidesFishing deployed to:", address(fishingContract));
+
+        // 9. Deploy Game State
         console.log("\n=== Deploying RisingTides ===");
         // Note: Using deployer address as initial server signer (should be changed after deployment)
         RisingTides gameState = new RisingTides(
@@ -81,6 +95,7 @@ contract Deploy is Script {
             address(fishingRodRegistry),
             address(mapRegistry),
             address(inventoryContract),
+            address(fishingContract),
             deployerAddress
         );
         console.log("RisingTides deployed to:", address(gameState));
@@ -95,14 +110,20 @@ contract Deploy is Script {
         
         // Set the game contract address in the inventory contract
         inventoryContract.setGameContract(address(gameState));
+        inventoryContract.setFishingContract(address(fishingContract));
         console.log("Set game contract address in inventory contract");
+        
+        // Set the game contract address in the fishing contract
+        fishingContract.setGameContract(address(gameState));
+        console.log("Set game contract address in fishing contract");
 
         // 11. Setup Roles and Permissions
         console.log("\n=== Setting up roles and permissions ===");
 
-        // Grant BURNER_ROLE to GameState for fuel/bait purchases
+        // Grant BURNER_ROLE to GameState and FishingContract for fuel/bait purchases
         currency.grantRole(currency.BURNER_ROLE(), address(gameState));
-        console.log("Granted BURNER_ROLE to RisingTides");
+        currency.grantRole(currency.BURNER_ROLE(), address(fishingContract));
+        console.log("Granted BURNER_ROLE to RisingTides and RisingTidesFishing");
 
         // Grant MINTER_ROLE to GameState for fish sales
         currency.grantRole(currency.MINTER_ROLE(), address(gameState));

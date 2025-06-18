@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "../interfaces/IRisingTides.sol";
 import "../interfaces/IRisingTidesInventory.sol";
+import "../interfaces/IRisingTidesFishing.sol";
 import "../interfaces/IShipRegistry.sol";
 import "../interfaces/IMapRegistry.sol";
 import "../tokens/RisingTidesCurrency.sol";
@@ -34,22 +35,11 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
     FishingRodRegistry public fishingRodRegistry;
     IMapRegistry public mapRegistry;
     IRisingTidesInventory public inventoryContract;
-
-    // Signature verification
-    address public serverSigner;
-    mapping(bytes32 => bool) internal usedSignatures;
+    IRisingTidesFishing public fishingContract;
 
     // Game state mappings
     mapping(address => IRisingTides.PlayerState) internal playerStates;
     mapping(address => bool) internal registeredPlayers;
-
-    // Player bait inventory
-    mapping(address => mapping(uint256 => uint256)) internal playerBait;
-
-    // Fishing system
-    mapping(address => uint256) internal playerFishingNonce;
-    mapping(address => uint256) internal pendingFishingRequest;
-    mapping(address => uint256) internal pendingBaitType;
 
     // Fish market
     mapping(uint256 species => FishMarketData) internal fishMarketData;
@@ -63,7 +53,6 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
     uint256 public constant MAX_SHARDS = 100;
     uint256 public constant HEX_MOVE_COST = 1e18; // Base fuel cost per hex
     uint256 public constant BASE_MOVEMENT_SPEED = 1000; // Base movement speed (lower = faster)
-    uint256 public constant SIGNATURE_TIMEOUT = 300; // 5 minutes
     uint256 public constant PRICE_DECAY_RATE = 5; // 5% decrease per fish sale
     uint256 public constant PRICE_RECOVERY_RATE = 463; // ~100% in 6 hours
     uint256 public constant FRESHNESS_DECAY_PERIOD = 15 minutes;
@@ -77,9 +66,6 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
     int32[6] internal hexDirectionsX = [int32(1), int32(1), int32(0), int32(-1), int32(-1), int32(0)];
     int32[6] internal hexDirectionsY = [int32(0), int32(-1), int32(-1), int32(0), int32(1), int32(1)];
 
-    // EIP712 type hashes
-    bytes32 internal constant FISHING_RESULT_TYPEHASH =
-        keccak256("FishingResult(address player,uint256 nonce,uint256 species,uint16 weight,uint256 timestamp)");
 
     function _calculatePlayerWeight(address, /* player */ uint256 shipId) internal view virtual returns (uint256);
     function _calculateTotalEnginePower(address player, uint256 shipId)

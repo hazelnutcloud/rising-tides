@@ -10,8 +10,10 @@ import "../src/registries/FishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
 import "../src/core/RisingTides.sol";
 import "../src/core/RisingTidesInventory.sol";
+import "../src/core/RisingTidesFishing.sol";
 import "../src/interfaces/IRisingTides.sol";
 import {SlotType, ItemType} from "../src/types/InventoryTypes.sol";
+import "../src/utils/Errors.sol";
 
 contract GameStateTest is Test {
     RisingTidesCurrency public currency;
@@ -21,6 +23,7 @@ contract GameStateTest is Test {
     FishingRodRegistry public fishingRodRegistry;
     MapRegistry public mapRegistry;
     RisingTidesInventory public inventoryContract;
+    RisingTidesFishing public fishingContract;
     RisingTides public gameState;
 
     address public player1 = address(0x1);
@@ -52,6 +55,16 @@ contract GameStateTest is Test {
             address(shipRegistry)
         );
 
+        // Deploy fishing contract with admin address as temporary game contract
+        fishingContract = new RisingTidesFishing(
+            address(this), // temporary game contract address
+            address(fishRegistry),
+            address(inventoryContract),
+            address(mapRegistry),
+            address(currency),
+            testServerSigner
+        );
+
         gameState = new RisingTides(
             address(currency),
             address(shipRegistry),
@@ -60,15 +73,19 @@ contract GameStateTest is Test {
             address(fishingRodRegistry),
             address(mapRegistry),
             address(inventoryContract),
+            address(fishingContract),
             testServerSigner
         );
 
-        // Set the real game contract address in inventory
+        // Set the real game contract address in inventory and fishing contracts
         inventoryContract.setGameContract(address(gameState));
+        inventoryContract.setFishingContract(address(fishingContract));
+        fishingContract.setGameContract(address(gameState));
 
         // Setup roles
         currency.grantRole(currency.MINTER_ROLE(), address(this));
         currency.grantRole(currency.BURNER_ROLE(), address(gameState));
+        currency.grantRole(currency.BURNER_ROLE(), address(fishingContract));
 
         // Add test ship, map, fish and bait
         _addTestShip();
@@ -203,7 +220,7 @@ contract GameStateTest is Test {
 
         // Second fishing attempt should fail due to pending request
         vm.prank(player1);
-        vm.expectRevert("Already have pending fishing request");
+        vm.expectRevert(abi.encodeWithSelector(PendingFishingRequest.selector, player1, 1));
         gameState.initiateFishing(baitType);
 
         // Complete the first fishing request with no catch
@@ -243,7 +260,7 @@ contract GameStateTest is Test {
         }
 
         vm.prank(player1);
-        vm.expectRevert("Too many moves at once");
+        vm.expectRevert(abi.encodeWithSelector(TooManyMoves.selector, 25, 20));
         gameState.move(tooManyDirections);
 
         // Test movement out of map bounds
@@ -270,15 +287,15 @@ contract GameStateTest is Test {
         directions[0] = 1;
 
         vm.prank(player1);
-        vm.expectRevert("Player not registered");
+        vm.expectRevert(abi.encodeWithSelector(PlayerNotRegistered.selector, player1));
         gameState.move(directions);
 
         vm.prank(player1);
-        vm.expectRevert("Player not registered");
+        vm.expectRevert(abi.encodeWithSelector(PlayerNotRegistered.selector, player1));
         gameState.purchaseFuel(10);
 
         vm.prank(player1);
-        vm.expectRevert("Player not registered");
+        vm.expectRevert(abi.encodeWithSelector(PlayerNotRegistered.selector, player1));
         gameState.initiateFishing(1);
     }
 
@@ -403,7 +420,7 @@ contract GameStateTest is Test {
 
         // Try to buy bait when not at shop
         vm.prank(player1);
-        vm.expectRevert("No bait shop at current position");
+        vm.expectRevert(abi.encodeWithSelector(ShopDoesNotExist.selector, 1, type(uint256).max));
         gameState.purchaseBait(1, 1);
     }
 
@@ -413,7 +430,7 @@ contract GameStateTest is Test {
 
         // Try to fish without bait
         vm.prank(player1);
-        vm.expectRevert("Insufficient bait");
+        vm.expectRevert(abi.encodeWithSelector(InsufficientBait.selector, 1, 1, 0));
         gameState.initiateFishing(1);
     }
 
@@ -520,10 +537,10 @@ contract GameStateTest is Test {
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256("RisingTides"),
+                keccak256("RisingTidesFishing"),
                 keccak256("1"),
                 block.chainid,
-                address(gameState)
+                address(fishingContract)
             )
         );
 
@@ -598,7 +615,7 @@ contract GameStateTest is Test {
 
         // Try to register player2 to shard 0 (should fail)
         vm.prank(player2);
-        vm.expectRevert("Shard is full");
+        vm.expectRevert(abi.encodeWithSelector(ShardFull.selector, 0, 1, 1));
         gameState.registerPlayer(0, 1);
 
         // But player2 can register to shard 1
@@ -622,7 +639,7 @@ contract GameStateTest is Test {
 
         // Try to move player2 to shard 0 (should fail)
         vm.prank(player2);
-        vm.expectRevert("Target shard is full");
+        vm.expectRevert(abi.encodeWithSelector(ShardFull.selector, 0, 1, 1));
         gameState.changeShard(0);
 
         // Verify no changes
@@ -636,11 +653,11 @@ contract GameStateTest is Test {
         assertEq(gameState.getMaxPlayersPerShard(), 500);
 
         // Test zero limit should fail
-        vm.expectRevert("Limit must be greater than zero");
+        vm.expectRevert(abi.encodeWithSelector(LimitOutOfBounds.selector, 0, 1, 10000));
         gameState.setMaxPlayersPerShard(0);
 
         // Test very high limit should fail
-        vm.expectRevert("Limit too high");
+        vm.expectRevert(abi.encodeWithSelector(LimitOutOfBounds.selector, 20000, 1, 10000));
         gameState.setMaxPlayersPerShard(20000);
     }
 
@@ -743,7 +760,7 @@ contract GameStateTest is Test {
         gameState.registerPlayer(1, 1);
 
         // Admin tries to move player2 to full shard 0 without bypass (should fail)
-        vm.expectRevert("Target shard is full");
+        vm.expectRevert(abi.encodeWithSelector(ShardFull.selector, 0, 1, 1));
         gameState.adminChangePlayerShard(player2, 0, false);
 
         // Verify no changes
@@ -757,15 +774,15 @@ contract GameStateTest is Test {
         gameState.registerPlayer(0, 1);
 
         // Test moving to same shard fails
-        vm.expectRevert("Player already in target shard");
+        vm.expectRevert(abi.encodeWithSelector(AlreadyInShard.selector, player1, 0));
         gameState.adminChangePlayerShard(player1, 0, false);
 
         // Test moving unregistered player fails
-        vm.expectRevert("Player not registered");
+        vm.expectRevert(abi.encodeWithSelector(PlayerNotRegistered.selector, player2));
         gameState.adminChangePlayerShard(player2, 1, false);
 
         // Test invalid shard fails
-        vm.expectRevert("Invalid shard ID");
+        vm.expectRevert(abi.encodeWithSelector(InvalidShardId.selector, 200, 100));
         gameState.adminChangePlayerShard(player1, 200, false);
     }
 
@@ -846,7 +863,7 @@ contract GameStateTest is Test {
 
         // Trying to fish without equipped rod should fail
         vm.prank(player1);
-        vm.expectRevert("No fishing rod equipped");
+        vm.expectRevert(abi.encodeWithSelector(NoFishingRodEquipped.selector, player1));
         gameState.initiateFishing(baitType);
     }
 
@@ -925,7 +942,7 @@ contract GameStateTest is Test {
 
         // Fulfill fishing should fail due to invalid placement
         vm.prank(player1);
-        vm.expectRevert("Failed to place fish in inventory");
+        vm.expectRevert(abi.encodeWithSelector(CannotPlaceItem.selector, "Failed to place fish in inventory"));
         gameState.fulfillFishing(result, signature, fishPlacement);
     }
 
@@ -1030,7 +1047,7 @@ contract GameStateTest is Test {
 
         // Fulfill fishing should fail due to blocked slot
         vm.prank(player1);
-        vm.expectRevert("Failed to place fish in inventory");
+        vm.expectRevert(abi.encodeWithSelector(CannotPlaceItem.selector, "Failed to place fish in inventory"));
         gameState.fulfillFishing(result, signature, fishPlacement);
     }
 
@@ -1050,7 +1067,7 @@ contract GameStateTest is Test {
 
         // Try to move the fish to a blocked slot
         vm.prank(player1);
-        vm.expectRevert("Failed to place item at new position");
+        vm.expectRevert(abi.encodeWithSelector(CannotPlaceItem.selector, "Failed to place item at new position"));
         gameState.updateInventoryItem(0, 0, 1, 0, 0); // Try to move to position (1,0) which is blocked
     }
 

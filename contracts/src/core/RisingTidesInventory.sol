@@ -29,6 +29,7 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable,
 
     // Contract dependencies
     address public gameContract;
+    address public fishingContract;
     FishRegistry public fishRegistry;
     EngineRegistry public engineRegistry;
     FishingRodRegistry public fishingRodRegistry;
@@ -41,6 +42,11 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable,
     // Modifiers
     modifier onlyGame() {
         if (msg.sender != gameContract) revert Unauthorized(msg.sender);
+        _;
+    }
+
+    modifier onlyGameOrFishing() {
+        if (msg.sender != gameContract && msg.sender != fishingContract) revert Unauthorized(msg.sender);
         _;
     }
 
@@ -245,7 +251,7 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable,
         uint8 x,
         uint8 y,
         uint8 rotation
-    ) external onlyGame returns (uint256 instanceId) {
+    ) external onlyGameOrFishing returns (uint256 instanceId) {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
 
         // Get fish shape from registry
@@ -269,7 +275,7 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable,
     /**
      * @dev Remove fish from inventory and return fish data
      */
-    function removeFishFromInventory(address player, uint256 instanceId) external onlyGame returns (IRisingTides.FishCatch memory fishData) {
+    function removeFishFromInventory(address player, uint256 instanceId) external onlyGameOrFishing returns (IRisingTides.FishCatch memory fishData) {
         // Get fish data first
         fishData = playerFish[player][instanceId];
         if (fishData.species == 0) revert ItemNotFound(0, 0); // Fish not found
@@ -405,6 +411,11 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable,
         if (_gameContract == address(0)) revert InvalidAddress(_gameContract);
         gameContract = _gameContract;
         _grantRole(GAME_ROLE, _gameContract);
+    }
+
+    function setFishingContract(address _fishingContract) external onlyRole(ADMIN_ROLE) {
+        if (_fishingContract == address(0)) revert InvalidAddress(_fishingContract);
+        fishingContract = _fishingContract;
     }
 
     function updateRegistries(
