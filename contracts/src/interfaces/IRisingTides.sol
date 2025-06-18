@@ -37,7 +37,7 @@ struct InventoryAction {
     uint256 itemId; // Item being manipulated
 }
 
-interface IGameState {
+interface IRisingTides {
     struct Position {
         int32 x;
         int32 y;
@@ -60,6 +60,11 @@ interface IGameState {
         uint256 species;
         uint16 weight;
         uint256 caughtAt;
+    }
+
+    struct FishMarketData {
+      uint256 price;
+      uint256 lastSoldTimestamp;
     }
 
     // Events

@@ -9,7 +9,7 @@ import "../src/registries/EngineRegistry.sol";
 import "../src/registries/FishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
 import "../src/core/RisingTides.sol";
-import "../src/interfaces/IGameState.sol";
+import "../src/interfaces/IRisingTides.sol";
 import {SlotType, ItemType} from "../src/types/InventoryTypes.sol";
 
 contract GameStateTest is Test {
@@ -74,7 +74,7 @@ contract GameStateTest is Test {
 
         assertTrue(gameState.isPlayerRegistered(player1));
 
-        IGameState.PlayerState memory state = gameState.getPlayerState(player1);
+        IRisingTides.PlayerState memory state = gameState.getPlayerState(player1);
         assertEq(state.position.x, 0);
         assertEq(state.position.y, 0);
         assertEq(state.shard, 0);
@@ -96,7 +96,7 @@ contract GameStateTest is Test {
         vm.prank(player1);
         gameState.move(directions);
 
-        IGameState.PlayerState memory state = gameState.getPlayerState(player1);
+        IRisingTides.PlayerState memory state = gameState.getPlayerState(player1);
         // After E then SE: (0,0) -> (1,-1) -> (1,-2)
         assertEq(state.position.x, 1);
         assertEq(state.position.y, -2);
@@ -274,7 +274,7 @@ contract GameStateTest is Test {
         vm.prank(player1);
         gameState.changeShard(5);
 
-        IGameState.PlayerState memory state = gameState.getPlayerState(player1);
+        IRisingTides.PlayerState memory state = gameState.getPlayerState(player1);
         assertEq(state.shard, 5);
     }
 
@@ -675,7 +675,7 @@ contract GameStateTest is Test {
         assertEq(gameState.getShardPlayerCount(0), 1);
         assertEq(gameState.getShardPlayerCount(1), 0);
 
-        IGameState.PlayerState memory state = gameState.getPlayerState(player1);
+        IRisingTides.PlayerState memory state = gameState.getPlayerState(player1);
         assertEq(state.shard, 0);
 
         // Admin moves player1 from shard 0 to shard 1
@@ -712,7 +712,7 @@ contract GameStateTest is Test {
         assertEq(gameState.getShardPlayerCount(0), 2); // Over the limit!
         assertEq(gameState.getShardPlayerCount(1), 0);
 
-        IGameState.PlayerState memory state = gameState.getPlayerState(player2);
+        IRisingTides.PlayerState memory state = gameState.getPlayerState(player2);
         assertEq(state.shard, 0);
     }
 
@@ -777,14 +777,14 @@ contract GameStateTest is Test {
 
         // Expect both events to be emitted
         vm.expectEmit(true, true, true, true);
-        emit IGameState.ShardChanged(player1, 0, 1);
+        emit IRisingTides.ShardChanged(player1, 0, 1);
 
         // The admin event is internal to PlayerManager, so we can't test it directly
         // but we can verify the functionality works
         gameState.adminChangePlayerShard(player1, 1, false);
 
         // Verify the change took effect
-        IGameState.PlayerState memory state = gameState.getPlayerState(player1);
+        IRisingTides.PlayerState memory state = gameState.getPlayerState(player1);
         assertEq(state.shard, 1);
     }
 

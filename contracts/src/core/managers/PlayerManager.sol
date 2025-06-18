@@ -31,8 +31,8 @@ abstract contract PlayerManager is RisingTidesBase {
         // Calculate initial engine power from equipped engines
         uint256 enginePower = _calculateTotalEnginePower(msg.sender, 1);
 
-        playerStates[msg.sender] = IGameState.PlayerState({
-            position: IGameState.Position(0, 0),
+        playerStates[msg.sender] = IRisingTides.PlayerState({
+            position: IRisingTides.Position(0, 0),
             shard: shard,
             mapId: mapId,
             shipId: 1,
@@ -47,13 +47,13 @@ abstract contract PlayerManager is RisingTidesBase {
         registeredPlayers[msg.sender] = true;
         playersPerShard[shard]++;
 
-        emit IGameState.PlayerRegistered(msg.sender, shard);
+        emit IRisingTides.PlayerRegistered(msg.sender, shard);
     }
 
     /**
      * @dev Get player state
      */
-    function getPlayerState(address player) external view returns (IGameState.PlayerState memory) {
+    function getPlayerState(address player) external view returns (IRisingTides.PlayerState memory) {
         return playerStates[player];
     }
 
@@ -68,7 +68,7 @@ abstract contract PlayerManager is RisingTidesBase {
      * @dev Change player's shard
      */
     function changeShard(uint8 newShard) external onlyRegisteredPlayer validShard(newShard) whenNotPaused {
-        IGameState.PlayerState storage player = playerStates[msg.sender];
+        IRisingTides.PlayerState storage player = playerStates[msg.sender];
         uint8 oldShard = player.shard;
 
         require(newShard != oldShard, "Already in this shard");
@@ -80,7 +80,7 @@ abstract contract PlayerManager is RisingTidesBase {
 
         player.shard = newShard;
 
-        emit IGameState.ShardChanged(msg.sender, oldShard, newShard);
+        emit IRisingTides.ShardChanged(msg.sender, oldShard, newShard);
     }
 
     /**
@@ -88,7 +88,7 @@ abstract contract PlayerManager is RisingTidesBase {
      */
     function updatePlayerWeight(address player) external onlyRegisteredPlayer {
         require(player == msg.sender, "Can only update own weight");
-        IGameState.PlayerState storage playerState = playerStates[player];
+        IRisingTides.PlayerState storage playerState = playerStates[player];
 
         uint256 newWeight = _calculatePlayerWeight(player, playerState.shipId);
         playerState.totalWeight = newWeight;
@@ -290,7 +290,7 @@ abstract contract PlayerManager is RisingTidesBase {
     {
         require(registeredPlayers[player], "Player not registered");
 
-        IGameState.PlayerState storage playerState = playerStates[player];
+        IRisingTides.PlayerState storage playerState = playerStates[player];
         uint8 oldShard = playerState.shard;
 
         require(newShard != oldShard, "Player already in target shard");
@@ -307,7 +307,7 @@ abstract contract PlayerManager is RisingTidesBase {
         // Update player's shard
         playerState.shard = newShard;
 
-        emit IGameState.ShardChanged(player, oldShard, newShard);
+        emit IRisingTides.ShardChanged(player, oldShard, newShard);
         emit AdminShardChangeExecuted(msg.sender, player, oldShard, newShard, bypassLimit);
     }
 

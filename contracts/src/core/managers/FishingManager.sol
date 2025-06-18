@@ -44,8 +44,8 @@ abstract contract FishingManager is RisingTidesBase {
         pendingBaitType[msg.sender] = baitType;
 
         // Emit event for server to process
-        IGameState.PlayerState memory player = playerStates[msg.sender];
-        emit IGameState.FishingInitiated(
+        IRisingTides.PlayerState memory player = playerStates[msg.sender];
+        emit IRisingTides.FishingInitiated(
             msg.sender, player.shard, player.mapId, player.position.x, player.position.y, baitType, fishingNonce
         );
 
@@ -103,7 +103,7 @@ abstract contract FishingManager is RisingTidesBase {
                     "Failed to place fish in inventory"
                 );
 
-                emit IGameState.FishCaught(msg.sender, result.species, result.weight);
+                emit IRisingTides.FishCaught(msg.sender, result.species, result.weight);
             }
             // If shouldPlace is false, fish is discarded (no storage, no inventory placement)
         }

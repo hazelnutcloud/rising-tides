@@ -13,7 +13,7 @@ abstract contract MovementManager is RisingTidesBase {
      * @dev Move player using array of directions (0=NE, 1=E, 2=SE, 3=SW, 4=W, 5=NW)
      */
     function move(uint8[] calldata directions) external onlyRegisteredPlayer whenNotPaused {
-        IGameState.PlayerState storage player = playerStates[msg.sender];
+        IRisingTides.PlayerState storage player = playerStates[msg.sender];
         require(block.timestamp >= player.nextMoveTime, "Movement still on cooldown");
         require(directions.length > 0, "No directions provided");
         require(directions.length <= 20, "Too many moves at once"); // Limit batch size
@@ -26,14 +26,14 @@ abstract contract MovementManager is RisingTidesBase {
         require(player.currentFuel >= fuelCost, "Insufficient fuel");
 
         // Update position and fuel
-        player.position = IGameState.Position(finalX, finalY);
+        player.position = IRisingTides.Position(finalX, finalY);
         player.currentFuel -= fuelCost;
         player.lastMoveTimestamp = block.timestamp;
 
         // Set next move time based on movement speed
         player.nextMoveTime = block.timestamp + (player.movementSpeed * directions.length);
 
-        emit IGameState.PlayerMoved(msg.sender, player.shard, player.mapId, finalX, finalY, fuelCost);
+        emit IRisingTides.PlayerMoved(msg.sender, player.shard, player.mapId, finalX, finalY, fuelCost);
     }
 
     /**
@@ -63,7 +63,7 @@ abstract contract MovementManager is RisingTidesBase {
         currency.burn(msg.sender, totalCost, "Fuel purchase");
         playerStates[msg.sender].currentFuel += amount * 1e18;
 
-        emit IGameState.FuelPurchased(msg.sender, amount, totalCost);
+        emit IRisingTides.FuelPurchased(msg.sender, amount, totalCost);
     }
 
     /**
@@ -111,7 +111,7 @@ abstract contract MovementManager is RisingTidesBase {
     /**
      * @dev Validate movement path and check terrain collisions
      */
-    function _validateMovementPath(uint256 mapId, IGameState.Position memory startPos, uint8[] calldata directions)
+    function _validateMovementPath(uint256 mapId, IRisingTides.Position memory startPos, uint8[] calldata directions)
         private
         view
         returns (int32 finalX, int32 finalY)

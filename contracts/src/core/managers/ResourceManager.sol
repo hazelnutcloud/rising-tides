@@ -13,7 +13,7 @@ abstract contract ResourceManager is RisingTidesBase {
      */
     function purchaseBait(uint256 baitType, uint256 amount) external onlyRegisteredPlayer whenNotPaused nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
-        IGameState.PlayerState memory player = playerStates[msg.sender];
+        IRisingTides.PlayerState memory player = playerStates[msg.sender];
 
         // Check if player is at a bait shop on current map
         uint256 shopId = _findBaitShopAtPosition(player.mapId, player.position);
@@ -41,7 +41,7 @@ abstract contract ResourceManager is RisingTidesBase {
         currency.burn(msg.sender, totalCost, "Bait purchase");
         playerBait[msg.sender][baitType] += amount;
 
-        emit IGameState.BaitPurchased(msg.sender, baitType, amount, totalCost);
+        emit IRisingTides.BaitPurchased(msg.sender, baitType, amount, totalCost);
     }
 
     /**
@@ -93,7 +93,7 @@ abstract contract ResourceManager is RisingTidesBase {
      * @dev Travel to a different map
      */
     function travelToMap(uint256 newMapId) external onlyRegisteredPlayer whenNotPaused nonReentrant {
-        IGameState.PlayerState storage player = playerStates[msg.sender];
+        IRisingTides.PlayerState storage player = playerStates[msg.sender];
         require(newMapId != player.mapId, "Already on this map");
         require(mapRegistry.isValidMap(newMapId), "Invalid map ID");
 
@@ -111,9 +111,9 @@ abstract contract ResourceManager is RisingTidesBase {
         player.mapId = newMapId;
 
         // Reset position to map origin (0, 0) - could be customized per map
-        player.position = IGameState.Position(0, 0);
+        player.position = IRisingTides.Position(0, 0);
 
-        emit IGameState.MapChanged(msg.sender, oldMapId, newMapId, travelCost);
+        emit IRisingTides.MapChanged(msg.sender, oldMapId, newMapId, travelCost);
     }
 
     /**
@@ -122,7 +122,7 @@ abstract contract ResourceManager is RisingTidesBase {
     function changeShip(uint256 newShipId) external onlyRegisteredPlayer whenNotPaused {
         require(shipRegistry.isValidShip(newShipId), "Invalid ship ID");
 
-        IGameState.PlayerState storage player = playerStates[msg.sender];
+        IRisingTides.PlayerState storage player = playerStates[msg.sender];
 
         // TODO: Add ship ownership/purchase logic
         // For now, allow free ship changes
@@ -140,13 +140,13 @@ abstract contract ResourceManager is RisingTidesBase {
         // Reinitialize inventory for new ship
         _initializeInventory(msg.sender, newShipId);
 
-        emit IGameState.ShipChanged(msg.sender, newShipId);
+        emit IRisingTides.ShipChanged(msg.sender, newShipId);
     }
 
     /**
      * @dev Find bait shop at specific position on a map
      */
-    function _findBaitShopAtPosition(uint256 mapId, IGameState.Position memory position)
+    function _findBaitShopAtPosition(uint256 mapId, IRisingTides.Position memory position)
         private
         view
         returns (uint256)

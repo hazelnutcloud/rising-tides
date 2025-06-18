@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import "../interfaces/IGameState.sol";
+import "../interfaces/IRisingTides.sol";
 import "../interfaces/IShipRegistry.sol";
 import "../interfaces/IMapRegistry.sol";
 import "../tokens/RisingTidesCurrency.sol";
@@ -18,7 +18,7 @@ import "../libraries/InventoryLib.sol";
  * @title RisingTidesBase
  * @dev Base contract containing shared state variables and dependencies for all game managers
  */
-abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, EIP712, IGameState {
+abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, EIP712, IRisingTides {
     // Access control roles
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -37,7 +37,7 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
     mapping(bytes32 => bool) internal usedSignatures;
 
     // Game state mappings
-    mapping(address => IGameState.PlayerState) internal playerStates;
+    mapping(address => IRisingTides.PlayerState) internal playerStates;
     mapping(address => InventoryLib.InventoryGrid) internal playerInventories;
     mapping(address => bool) internal registeredPlayers;
 
@@ -48,6 +48,10 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
     mapping(address => uint256) internal playerFishingNonce;
     mapping(address => uint256) internal pendingFishingRequest;
     mapping(address => uint256) internal pendingBaitType;
+    mapping(address player => mapping(uint256 gridIndex => FishCatch)) internal playerFish;
+
+    // Fish market
+    mapping(uint256 species => FishMarketData) internal fishMarketData;
 
     // Shard management
     mapping(uint8 => uint256) internal playersPerShard;
