@@ -82,12 +82,14 @@ abstract contract MovementManager is GameStateBase {
         totalConsumptionRate = 0;
         uint256 engineCount = 0;
 
+        uint256 inventoryArea = inventory.width * inventory.height;
+
         // Iterate through inventory slots looking for engines in engine slots
-        for (uint256 i = 0; i < inventory.slotTypes.length; i++) {
+        for (uint256 i = 0; i < inventoryArea; i++) {
             if (inventory.slotTypes[i] == SlotType.Engine) {
                 // Engine slot
                 InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == ItemType.Engine) {
+                if (item.itemType == ItemType.Engine) {
                     // Engine item type
                     if (engineRegistry.isValidEngine(item.itemId)) {
                         IEngineRegistry.EngineStats memory stats = engineRegistry.getEngineStats(item.itemId);

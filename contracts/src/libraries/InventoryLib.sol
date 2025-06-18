@@ -12,7 +12,8 @@ library InventoryLib {
     struct GridItem {
         ItemType itemType;
         uint256 itemId;
-        bool isOccupied;
+        uint256 instanceId;
+        uint8 rotation;
     }
 
     struct ItemShape {
@@ -22,6 +23,7 @@ library InventoryLib {
     }
 
     struct InventoryGrid {
+        uint256 nextInstanceId; // Counter for generating unique instance IDs
         uint8 width;
         uint8 height;
         mapping(uint256 => GridItem) grid; // position => GridItem
@@ -52,141 +54,6 @@ library InventoryLib {
     }
 
     /**
-     * @dev Check if coordinates are within grid bounds
-     * @param x X coordinate
-     * @param y Y coordinate
-     * @param width Grid width
-     * @param height Grid height
-     * @return True if coordinates are valid
-     */
-    function isValidPosition(uint8 x, uint8 y, uint8 width, uint8 height) internal pure returns (bool) {
-        return x < width && y < height;
-    }
-
-    /**
-     * @dev Check if an item shape can fit at a given position
-     * @param grid The inventory grid
-     * @param shape Item shape to place
-     * @param startX Starting X position
-     * @param startY Starting Y position
-     * @return True if the item can fit
-     */
-    function canPlaceItem(InventoryGrid storage grid, ItemShape memory shape, uint8 startX, uint8 startY)
-        internal
-        view
-        returns (bool)
-    {
-        // Check if shape extends beyond grid boundaries
-        if (startX + shape.width > grid.width || startY + shape.height > grid.height) {
-            return false;
-        }
-
-        // Check each cell of the shape
-        for (uint8 y = 0; y < shape.height; y++) {
-            for (uint8 x = 0; x < shape.width; x++) {
-                // Check if this part of the shape is occupied
-                if (isShapeOccupied(shape, x, y)) {
-                    uint256 gridIndex = coordsToIndex(startX + x, startY + y, grid.width);
-
-                    // Check if grid cell is already occupied
-                    if (grid.grid[gridIndex].isOccupied) {
-                        return false;
-                    }
-
-                    // Check if this slot is blocked
-                    if (gridIndex < grid.slotTypes.length && grid.slotTypes[gridIndex] == SlotType.Blocked) {
-                        return false;
-                    }
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * @dev Place an item in the inventory grid
-     * @param grid The inventory grid
-     * @param shape Item shape to place
-     * @param startX Starting X position
-     * @param startY Starting Y position
-     * @param itemType Type of item (fish, engine, equipment)
-     * @param itemId ID of the item
-     * @return True if placement was successful
-     */
-    function placeItem(
-        InventoryGrid storage grid,
-        ItemShape memory shape,
-        uint8 startX,
-        uint8 startY,
-        ItemType itemType,
-        uint256 itemId
-    ) internal returns (bool) {
-        if (!canPlaceItem(grid, shape, startX, startY)) {
-            return false;
-        }
-
-        // Place the item in all required cells
-        for (uint8 y = 0; y < shape.height; y++) {
-            for (uint8 x = 0; x < shape.width; x++) {
-                if (isShapeOccupied(shape, x, y)) {
-                    uint256 gridIndex = coordsToIndex(startX + x, startY + y, grid.width);
-
-                    grid.grid[gridIndex] = GridItem({itemType: itemType, itemId: itemId, isOccupied: true});
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * @dev Remove an item from the inventory grid
-     * @param grid The inventory grid
-     * @param shape Item shape to remove
-     * @param startX Starting X position
-     * @param startY Starting Y position
-     * @return True if removal was successful
-     */
-    function removeItem(InventoryGrid storage grid, ItemShape memory shape, uint8 startX, uint8 startY)
-        internal
-        returns (bool)
-    {
-        // Verify the item exists at this position
-        for (uint8 y = 0; y < shape.height; y++) {
-            for (uint8 x = 0; x < shape.width; x++) {
-                if (isShapeOccupied(shape, x, y)) {
-                    uint8 gridX = startX + x;
-                    uint8 gridY = startY + y;
-
-                    if (!isValidPosition(gridX, gridY, grid.width, grid.height)) {
-                        return false;
-                    }
-
-                    uint256 gridIndex = coordsToIndex(gridX, gridY, grid.width);
-
-                    if (!grid.grid[gridIndex].isOccupied) {
-                        return false;
-                    }
-                }
-            }
-        }
-
-        // Remove the item from all cells
-        for (uint8 y = 0; y < shape.height; y++) {
-            for (uint8 x = 0; x < shape.width; x++) {
-                if (isShapeOccupied(shape, x, y)) {
-                    uint256 gridIndex = coordsToIndex(startX + x, startY + y, grid.width);
-
-                    delete grid.grid[gridIndex];
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /**
      * @dev Check if a specific cell in an item shape is occupied
      * @param shape Item shape
      * @param x X coordinate within the shape
@@ -211,15 +78,121 @@ library InventoryLib {
     }
 
     /**
+     * @dev Place an item with rotation and specific instance ID (used for rotating items in place)
+     * @param grid The inventory grid
+     * @param shape Item shape to place
+     * @param startX Starting X position
+     * @param startY Starting Y position
+     * @param rotation Rotation value (0=up, 1=right, 2=down, 3=left)
+     * @param itemType Type of item
+     * @param itemId ID of the item
+     * @param instanceId Specific instance ID to use
+     * @return True if placement was successful
+     */
+    function placeItem(
+        InventoryGrid storage grid,
+        ItemShape memory shape,
+        uint8 startX,
+        uint8 startY,
+        uint8 rotation,
+        ItemType itemType,
+        uint256 itemId,
+        uint256 instanceId
+    ) internal returns (bool) {
+        ItemShape memory rotatedShape = rotateItemShape(shape, rotation);
+
+        uint256 newInstanceId = instanceId;
+        if (instanceId == 0) {
+            grid.nextInstanceId++;
+            newInstanceId = grid.nextInstanceId;
+        }
+
+        uint256 gridArea = grid.width * grid.height;
+
+        // Place the item in all required cells with the specified instance ID and rotation
+        for (uint8 y = 0; y < rotatedShape.height; y++) {
+            for (uint8 x = 0; x < rotatedShape.width; x++) {
+                if (isShapeOccupied(rotatedShape, x, y)) {
+                    uint256 gridIndex = coordsToIndex(startX + x, startY + y, grid.width);
+
+                    if (gridIndex >= gridArea) {
+                      return false;
+                    }
+
+                    GridItem storage gridItem = grid.grid[gridIndex];
+
+                    if (gridItem.itemType != ItemType.Empty || grid.slotTypes[gridIndex] == SlotType.Blocked) {
+                        return false;
+                    }
+
+                    grid.grid[gridIndex] =
+                        GridItem({itemType: itemType, itemId: itemId, instanceId: newInstanceId, rotation: rotation});
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @dev Remove an item from the inventory grid
+     * @param grid The inventory grid
+     * @param shape Item shape to remove (unrotated)
+     * @param startX Starting X position
+     * @param startY Starting Y position
+     * @param instanceId The instance ID of the item to remove
+     * @return True if removal was successful
+     */
+    function removeItem(
+        InventoryGrid storage grid,
+        ItemShape memory shape,
+        uint8 startX,
+        uint8 startY,
+        uint8 rotation,
+        uint256 instanceId
+    ) internal returns (bool) {
+        ItemShape memory rotatedShape = rotateItemShape(shape, rotation);
+
+        for (uint8 y = 0; y < rotatedShape.height; y++) {
+            for (uint8 x = 0; x < rotatedShape.width; x++) {
+                if (isShapeOccupied(rotatedShape, x, y)) {
+                    uint8 gridX = startX + x;
+                    uint8 gridY = startY + y;
+
+                    uint256 gridIndex = coordsToIndex(gridX, gridY, grid.width);
+
+                    if (grid.grid[gridIndex].itemType == ItemType.Empty) {
+                        return false;
+                    }
+
+                    if (grid.grid[gridIndex].instanceId != instanceId) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // Remove the item from all cells
+        for (uint8 y = 0; y < rotatedShape.height; y++) {
+            for (uint8 x = 0; x < rotatedShape.width; x++) {
+                if (isShapeOccupied(rotatedShape, x, y)) {
+                    uint256 gridIndex = coordsToIndex(startX + x, startY + y, grid.width);
+
+                    delete grid.grid[gridIndex];
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * @dev Check if a position is designated for engines
      * @param grid The inventory grid
      * @param position Grid position (1D index)
      * @return True if position is an engine slot
      */
     function isEngineSlot(InventoryGrid storage grid, uint8 position) internal view returns (bool) {
-        if (position >= grid.slotTypes.length) {
-            return false;
-        }
         return grid.slotTypes[position] == SlotType.Engine;
     }
 
@@ -230,10 +203,7 @@ library InventoryLib {
      * @return True if position is an equipment slot
      */
     function isEquipmentSlot(InventoryGrid storage grid, uint8 position) internal view returns (bool) {
-        if (position >= grid.slotTypes.length) {
-            return false;
-        }
-        return grid.slotTypes[position] == SlotType.Equipment;
+        return grid.slotTypes[position] == SlotType.FishingRod;
     }
 
     /**
@@ -243,25 +213,7 @@ library InventoryLib {
      * @return True if position is a blocked slot
      */
     function isBlockedSlot(InventoryGrid storage grid, uint8 position) internal view returns (bool) {
-        if (position >= grid.slotTypes.length) {
-            return false;
-        }
         return grid.slotTypes[position] == SlotType.Blocked;
-    }
-
-    /**
-     * @dev Check if a position is blocked using coordinates
-     * @param grid The inventory grid
-     * @param x X coordinate
-     * @param y Y coordinate
-     * @return True if position is a blocked slot
-     */
-    function isBlockedSlot(InventoryGrid storage grid, uint8 x, uint8 y) internal view returns (bool) {
-        if (!isValidPosition(x, y, grid.width, grid.height)) {
-            return false;
-        }
-        uint256 position = coordsToIndex(x, y, grid.width);
-        return isBlockedSlot(grid, uint8(position));
     }
 
     /**
@@ -272,30 +224,8 @@ library InventoryLib {
      * @return GridItem at the position
      */
     function getItemAt(InventoryGrid storage grid, uint8 x, uint8 y) internal view returns (GridItem memory) {
-        if (!isValidPosition(x, y, grid.width, grid.height)) {
-            return GridItem(ItemType.Empty, 0, false);
-        }
-
         uint256 index = coordsToIndex(x, y, grid.width);
         return grid.grid[index];
-    }
-
-    /**
-     * @dev Get the total number of occupied slots in the grid
-     * @param grid The inventory grid
-     * @return Number of occupied slots
-     */
-    function getOccupiedSlots(InventoryGrid storage grid) internal view returns (uint256) {
-        uint256 occupied = 0;
-        uint256 totalSlots = uint256(grid.width) * uint256(grid.height);
-
-        for (uint256 i = 0; i < totalSlots; i++) {
-            if (grid.grid[i].isOccupied) {
-                occupied++;
-            }
-        }
-
-        return occupied;
     }
 
     /**
@@ -327,93 +257,6 @@ library InventoryLib {
         rotated.data = _rotateShapeData(shape, rotation);
 
         return rotated;
-    }
-
-    /**
-     * @dev Check if an item shape can fit at a given position with rotation
-     * @param grid The inventory grid
-     * @param shape Item shape to place
-     * @param startX Starting X position
-     * @param startY Starting Y position
-     * @param rotation Rotation value (0=up, 1=right, 2=down, 3=left)
-     * @return True if the item can fit
-     */
-    function canPlaceItemWithRotation(
-        InventoryGrid storage grid,
-        ItemShape memory shape,
-        uint8 startX,
-        uint8 startY,
-        uint8 rotation
-    ) internal view returns (bool) {
-        ItemShape memory rotatedShape = rotateItemShape(shape, rotation);
-        return canPlaceItem(grid, rotatedShape, startX, startY);
-    }
-
-    /**
-     * @dev Place an item in the inventory grid with rotation
-     * @param grid The inventory grid
-     * @param shape Item shape to place
-     * @param startX Starting X position
-     * @param startY Starting Y position
-     * @param rotation Rotation value (0=up, 1=right, 2=down, 3=left)
-     * @param itemType Type of item (fish, engine, equipment)
-     * @param itemId ID of the item
-     * @return True if placement was successful
-     */
-    function placeItemWithRotation(
-        InventoryGrid storage grid,
-        ItemShape memory shape,
-        uint8 startX,
-        uint8 startY,
-        uint8 rotation,
-        ItemType itemType,
-        uint256 itemId
-    ) internal returns (bool) {
-        ItemShape memory rotatedShape = rotateItemShape(shape, rotation);
-        return placeItem(grid, rotatedShape, startX, startY, itemType, itemId);
-    }
-
-    /**
-     * @dev Get rotated dimensions for an item shape
-     * @param shape Original item shape
-     * @param rotation Rotation value (0=up, 1=right, 2=down, 3=left)
-     * @return width Rotated width
-     * @return height Rotated height
-     */
-    function getRotatedDimensions(ItemShape memory shape, uint8 rotation)
-        internal
-        pure
-        returns (uint8 width, uint8 height)
-    {
-        require(rotation < 4, "Invalid rotation value");
-
-        if (rotation == 1 || rotation == 3) {
-            // 90° or 270° rotation - swap dimensions
-            return (shape.height, shape.width);
-        } else {
-            // 0° or 180° rotation - keep same dimensions
-            return (shape.width, shape.height);
-        }
-    }
-
-    /**
-     * @dev Remove an item from the inventory grid with rotation
-     * @param grid The inventory grid
-     * @param shape Item shape to remove
-     * @param startX Starting X position
-     * @param startY Starting Y position
-     * @param rotation Rotation value that was used when placing
-     * @return True if removal was successful
-     */
-    function removeItemWithRotation(
-        InventoryGrid storage grid,
-        ItemShape memory shape,
-        uint8 startX,
-        uint8 startY,
-        uint8 rotation
-    ) internal returns (bool) {
-        ItemShape memory rotatedShape = rotateItemShape(shape, rotation);
-        return removeItem(grid, rotatedShape, startX, startY);
     }
 
     /**

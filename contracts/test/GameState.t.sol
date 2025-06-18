@@ -165,7 +165,7 @@ contract GameStateTest is Test {
         gameState.fulfillFishing(result, signature, fishPlacement);
 
         InventoryLib.GridItem memory item = gameState.getInventoryItem(player1, 2, 2);
-        assertTrue(item.isOccupied);
+        assertTrue(item.itemType != ItemType.Empty);
         assertEq(uint8(item.itemType), uint8(ItemType.Fish));
         assertEq(item.itemId, 1);
     }
@@ -288,7 +288,7 @@ contract GameStateTest is Test {
         // Set engine slot
         slotTypes[0] = SlotType.Engine; // Top-left corner
         // Set equipment slot
-        slotTypes[15] = SlotType.Equipment; // Bottom-right corner
+        slotTypes[15] = SlotType.FishingRod; // Bottom-right corner
 
         shipRegistry.registerShip(1, "Test Ship", 100, 100, 4, 4, slotTypes, 0, 10 * 10 ** 18);
     }
@@ -434,37 +434,19 @@ contract GameStateTest is Test {
 
         // Check that initial inventory has default equipment
         // Slot 0 should have default engine (ID 1)
-        assertTrue(items[0].isOccupied);
+        assertTrue(items[0].itemType != ItemType.Empty);
         assertEq(uint8(items[0].itemType), uint8(ItemType.Engine)); // Engine item type
         assertEq(items[0].itemId, 1); // Default engine ID
 
         // Slot 15 should have default fishing rod (ID 1)
-        assertTrue(items[15].isOccupied);
-        assertEq(uint8(items[15].itemType), uint8(ItemType.Equipment)); // Equipment item type
+        assertTrue(items[15].itemType != ItemType.Empty);
+        assertEq(uint8(items[15].itemType), uint8(ItemType.FishingRod)); // Equipment item type
         assertEq(items[15].itemId, 1); // Default fishing rod ID
 
         // All other slots should be empty
         for (uint256 i = 1; i < 15; i++) {
-            assertFalse(items[i].isOccupied);
+            assertFalse(items[i].itemType != ItemType.Empty);
         }
-    }
-
-    function testInventoryRotation() public {
-        vm.prank(player1);
-        gameState.registerPlayer(0, 1); // shard 0, map 1
-
-        // Test getting available space for different item sizes
-        (uint8[] memory validX, uint8[] memory validY) = gameState.getAvailableInventorySpace(player1, 1, 1);
-
-        // Should have 14 valid positions for 1x1 items (16 - 2 occupied by default equipment)
-        assertEq(validX.length, 14);
-        assertEq(validY.length, 14);
-
-        // Test with 2x2 item
-        (validX, validY) = gameState.getAvailableInventorySpace(player1, 2, 2);
-        // Should have 7 valid positions for 2x2 items (9 - 2 blocked by default equipment)
-        assertEq(validX.length, 7);
-        assertEq(validY.length, 7);
     }
 
     function testFulfillFishingWithInventoryActions() public {
@@ -508,7 +490,7 @@ contract GameStateTest is Test {
 
         // Check inventory item was placed
         InventoryLib.GridItem memory item = gameState.getInventoryItem(player1, 1, 1);
-        assertTrue(item.isOccupied);
+        assertTrue(item.itemType != ItemType.Empty);
         assertEq(uint8(item.itemType), uint8(ItemType.Fish));
         assertEq(item.itemId, 1);
     }
@@ -806,31 +788,6 @@ contract GameStateTest is Test {
         assertEq(state.shard, 1);
     }
 
-    function testEquipmentValidation() public {
-        // Register player - should have default equipment assigned
-        vm.prank(player1);
-        gameState.registerPlayer(0, 1);
-
-        // Player should have fishing rod equipped by default
-        assertTrue(gameState.hasEquippedItemType(player1, ItemType.Equipment)); // Equipment type (fishing rod)
-
-        // Player should be able to fish with equipped rod
-        uint256 baitType = 1;
-        uint256 baitAmount = 1;
-
-        vm.prank(player1);
-        gameState.purchaseBait(baitType, baitAmount);
-
-        vm.prank(player1);
-        uint256 fishingNonce = gameState.initiateFishing(baitType);
-        assertEq(fishingNonce, 1);
-
-        // Get equipped fishing rods
-        uint256[] memory equippedRods = gameState.getEquippedFishingRods(player1);
-        assertEq(equippedRods.length, 1);
-        assertEq(equippedRods[0], 1); // Should be default fishing rod ID 1
-    }
-
     function testFishingWithoutEquippedRod() public {
         // Register player
         vm.prank(player1);
@@ -848,7 +805,7 @@ contract GameStateTest is Test {
         // Find equipment slot with fishing rod
         bool foundEquipmentSlot = false;
         for (uint256 i = 0; i < slotTypes.length; i++) {
-            if (slotTypes[i] == SlotType.Equipment && items[i].isOccupied && items[i].itemType == ItemType.Equipment) {
+            if (slotTypes[i] == SlotType.FishingRod && items[i].itemType == ItemType.FishingRod) {
                 equipmentSlotX = uint8(i % width);
                 equipmentSlotY = uint8(i / width);
                 foundEquipmentSlot = true;
@@ -863,7 +820,7 @@ contract GameStateTest is Test {
         gameState.discardInventoryItem(equipmentSlotX, equipmentSlotY);
 
         // Player should no longer have fishing rod equipped
-        assertFalse(gameState.hasEquippedItemType(player1, ItemType.Equipment)); // Equipment type (fishing rod)
+        assertFalse(gameState.hasEquippedItemType(player1, ItemType.FishingRod)); // Equipment type (fishing rod)
 
         // Give player some bait
         uint256 baitType = 1;
@@ -915,9 +872,9 @@ contract GameStateTest is Test {
         // Check that the inventory remains unchanged (no fish placed)
         InventoryLib.GridItem memory item = gameState.getInventoryItem(player1, 0, 0);
         // Equipment should still be there, but no fish
-        if (item.isOccupied) {
+        if (item.itemType != ItemType.Empty) {
             // If occupied, it should be equipment (itemType 2 or 3), not fish (itemType 1)
-            assertTrue(item.itemType == ItemType.Engine || item.itemType == ItemType.Equipment);
+            assertTrue(item.itemType == ItemType.Engine || item.itemType == ItemType.FishingRod);
         }
     }
 
@@ -1018,24 +975,6 @@ contract GameStateTest is Test {
         assertEq(finalFuel, initialFuel - expectedCost, "Fuel should decrease by calculated amount");
     }
 
-    function testBlockedSlotValidation() public {
-        // First register a ship with some blocked slots for testing
-        _addShipWithBlockedSlots();
-
-        vm.prank(player1);
-        gameState.registerPlayer(0, 1); // Use map ID 1
-
-        // Change to ship with blocked slots
-        vm.prank(player1);
-        gameState.changeShip(2);
-
-        // Test that ship registry correctly identifies blocked slots
-        assertTrue(gameState.isBlockedSlot(2, 1), "Position 1 should be blocked");
-        assertTrue(gameState.isBlockedSlot(2, 2), "Position 2 should be blocked");
-        assertFalse(gameState.isBlockedSlot(2, 0), "Position 0 should not be blocked");
-        assertFalse(gameState.isBlockedSlot(2, 4), "Position 4 should not be blocked");
-    }
-
     function testBlockedSlotPreventsFishPlacement() public {
         // Register ship with blocked slots
         _addShipWithBlockedSlots();
@@ -1097,7 +1036,7 @@ contract GameStateTest is Test {
         // Try to move the fish to a blocked slot
         vm.prank(player1);
         vm.expectRevert("Failed to place item at new position");
-        gameState.moveInventoryItem(0, 0, 1, 0); // Try to move to position (1,0) which is blocked
+        gameState.updateInventoryItem(0, 0, 1, 0, 0); // Try to move to position (1,0) which is blocked
     }
 
     function testInventoryShapeWithBlockedSlots() public {
@@ -1133,7 +1072,7 @@ contract GameStateTest is Test {
         slotTypes[2] = SlotType.Blocked; // Block position 2
 
         // Add equipment slots for fishing rods
-        slotTypes[15] = SlotType.Equipment; // Bottom-right corner as equipment slot
+        slotTypes[15] = SlotType.FishingRod; // Bottom-right corner as equipment slot
 
         shipRegistry.registerShip(
             2, // id

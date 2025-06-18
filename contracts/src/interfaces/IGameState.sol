@@ -124,13 +124,8 @@ interface IGameState {
         view
         returns (uint8 width, uint8 height, SlotType[] memory slotTypes, InventoryLib.GridItem[] memory items);
     function getInventoryItem(address player, uint8 x, uint8 y) external view returns (InventoryLib.GridItem memory);
-    function moveInventoryItem(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) external;
-    function rotateInventoryItem(uint8 x, uint8 y, uint8 newRotation) external;
+    function updateInventoryItem(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint8 rotation) external;
     function discardInventoryItem(uint8 x, uint8 y) external;
-    function getAvailableInventorySpace(address player, uint8 itemWidth, uint8 itemHeight)
-        external
-        view
-        returns (uint8[] memory validX, uint8[] memory validY);
 
     // Shard Management
     function getShardPlayerCount(uint8 shard) external view returns (uint256);

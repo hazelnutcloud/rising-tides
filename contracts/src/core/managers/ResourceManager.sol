@@ -144,13 +144,6 @@ abstract contract ResourceManager is GameStateBase {
     }
 
     /**
-     * @dev Check if a slot is blocked for a specific ship
-     */
-    function isBlockedSlot(uint256 shipId, uint8 position) external view returns (bool) {
-        return shipRegistry.isBlockedSlot(shipId, position);
-    }
-
-    /**
      * @dev Find bait shop at specific position on a map
      */
     function _findBaitShopAtPosition(uint256 mapId, IGameState.Position memory position)

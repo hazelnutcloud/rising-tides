@@ -9,6 +9,8 @@ import "../GameStateBase.sol";
  * @dev Manages all inventory operations, item placement, movement, and validation
  */
 abstract contract InventoryManager is GameStateBase {
+    using InventoryLib for InventoryLib.InventoryGrid;
+
     /**
      * @dev Get player's full inventory grid
      */
@@ -38,51 +40,37 @@ abstract contract InventoryManager is GameStateBase {
     }
 
     /**
-     * @dev Move inventory item to new position
+     * @dev Update inventory item position and/or rotation
+     * @param fromX Source X position
+     * @param fromY Source Y position
+     * @param toX Target X position (use fromX if only rotating)
+     * @param toY Target Y position (use fromY if only rotating)
+     * @param rotation New rotation (0=up, 1=right, 2=down, 3=left)
      */
-    function moveInventoryItem(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY)
+    function updateInventoryItem(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint8 rotation)
         external
         onlyRegisteredPlayer
         whenNotPaused
     {
+        require(rotation < 4, "Invalid rotation value");
+
         InventoryLib.InventoryGrid storage inventory = playerInventories[msg.sender];
 
         // Get item at source position
         InventoryLib.GridItem memory item = InventoryLib.getItemAt(inventory, fromX, fromY);
-        require(item.isOccupied, "No item at source position");
+        require(item.itemType != ItemType.Empty, "No item at source position");
 
         // Get item shape from registry
         InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
 
         // Remove from old position
-        require(InventoryLib.removeItem(inventory, shape, fromX, fromY), "Failed to remove item");
+        require(InventoryLib.removeItem(inventory, shape, fromX, fromY, item.rotation, item.instanceId), "Failed to remove item");
 
-        // Place at new position (simplified - rotation not supported yet)
-        require(
-            InventoryLib.placeItem(inventory, shape, toX, toY, item.itemType, item.itemId),
-            "Failed to place item at new position"
-        );
-    }
-
-    /**
-     * @dev Rotate inventory item in place
-     */
-    function rotateInventoryItem(uint8 x, uint8 y, uint8 newRotation) external onlyRegisteredPlayer whenNotPaused {
-        require(newRotation < 4, "Invalid rotation value");
-
-        InventoryLib.InventoryGrid storage inventory = playerInventories[msg.sender];
-        InventoryLib.GridItem memory item = InventoryLib.getItemAt(inventory, x, y);
-        require(item.isOccupied, "No item at position");
-
-        // Get item shape from registry
-        InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
-
-        // Remove and replace with new rotation
-        require(InventoryLib.removeItem(inventory, shape, x, y), "Failed to remove item");
-        require(
-            InventoryLib.placeItemWithRotation(inventory, shape, x, y, newRotation, item.itemType, item.itemId),
-            "Failed to place rotated item"
-        );
+        // Place at new position with rotation if specified
+            require(
+                inventory.placeItem(shape, toX, toY, rotation, item.itemType, item.itemId, item.instanceId),
+                "Failed to place item at new position"
+            );
     }
 
     /**
@@ -91,183 +79,15 @@ abstract contract InventoryManager is GameStateBase {
     function discardInventoryItem(uint8 x, uint8 y) external onlyRegisteredPlayer whenNotPaused {
         InventoryLib.InventoryGrid storage inventory = playerInventories[msg.sender];
         InventoryLib.GridItem memory item = InventoryLib.getItemAt(inventory, x, y);
-        require(item.isOccupied, "No item at position");
+        require(item.itemType != ItemType.Empty, "No item at position");
 
         // Get item shape from registry
         InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
 
-        require(InventoryLib.removeItem(inventory, shape, x, y), "Failed to remove item");
+        require(inventory.removeItem(shape, x, y, item.rotation, item.instanceId), "Failed to remove item");
 
         // Could emit event for discarded item
         // emit ItemDiscarded(msg.sender, item.itemType, item.itemId);
-    }
-
-    /**
-     * @dev Get available inventory space for placement
-     */
-    function getAvailableInventorySpace(address player, uint8 itemWidth, uint8 itemHeight)
-        external
-        view
-        returns (uint8[] memory validX, uint8[] memory validY)
-    {
-        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-
-        // Simple shape for testing placement
-        InventoryLib.ItemShape memory shape = InventoryLib.ItemShape({
-            width: itemWidth,
-            height: itemHeight,
-            data: new bytes((itemWidth * itemHeight + 7) / 8)
-        });
-
-        // Fill shape data (all bits set)
-        for (uint256 i = 0; i < shape.data.length; i++) {
-            shape.data[i] = bytes1(uint8(255));
-        }
-
-        // Count valid positions
-        uint256 validCount = 0;
-        for (uint8 y = 0; y <= inventory.height - itemHeight; y++) {
-            for (uint8 x = 0; x <= inventory.width - itemWidth; x++) {
-                if (InventoryLib.canPlaceItem(inventory, shape, x, y)) {
-                    validCount++;
-                }
-            }
-        }
-
-        // Populate arrays
-        validX = new uint8[](validCount);
-        validY = new uint8[](validCount);
-        uint256 index = 0;
-
-        for (uint8 y = 0; y <= inventory.height - itemHeight; y++) {
-            for (uint8 x = 0; x <= inventory.width - itemWidth; x++) {
-                if (InventoryLib.canPlaceItem(inventory, shape, x, y)) {
-                    validX[index] = x;
-                    validY[index] = y;
-                    index++;
-                }
-            }
-        }
-    }
-
-    /**
-     * @dev Validate engine placement in engine slots
-     */
-    function validateEngineEquipment(address player, uint256 engineId, uint8 x, uint8 y) external view returns (bool) {
-        require(engineRegistry.isValidEngine(engineId), "Invalid engine ID");
-
-        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
-
-        // Check if position is within bounds
-        if (x >= ship.cargoWidth || y >= ship.cargoHeight) {
-            return false;
-        }
-
-        // Convert 2D coordinates to 1D index
-        uint256 index = uint256(y) * uint256(ship.cargoWidth) + uint256(x);
-
-        // Check if position is an engine slot
-        if (index >= ship.slotTypes.length || ship.slotTypes[index] != SlotType.Engine) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @dev Validate fishing rod placement in equipment slots
-     */
-    function validateFishingRodPlacement(address player, uint256 fishingRodId, uint8 x, uint8 y)
-        external
-        view
-        returns (bool)
-    {
-        require(fishingRodRegistry.isValidFishingRod(fishingRodId), "Invalid fishing rod ID");
-
-        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
-
-        // Check if position is within bounds
-        if (x >= ship.cargoWidth || y >= ship.cargoHeight) {
-            return false;
-        }
-
-        // Convert 2D coordinates to 1D index
-        uint256 index = uint256(y) * uint256(ship.cargoWidth) + uint256(x);
-
-        // Check if position is an equipment slot
-        if (index >= ship.slotTypes.length || ship.slotTypes[index] != SlotType.Equipment) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * @dev Check if a player has any equipment of a specific type equipped
-     */
-    function hasEquippedItemType(address player, ItemType itemType) external view returns (bool) {
-        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
-
-        SlotType requiredSlotType = itemType == ItemType.Engine ? SlotType.Engine : SlotType.Equipment;
-
-        // Check all appropriate slots for the item type
-        for (uint256 i = 0; i < ship.slotTypes.length; i++) {
-            if (ship.slotTypes[i] == requiredSlotType) {
-                InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == itemType) {
-                    // Additional validation for engines and fishing rods
-                    if (itemType == ItemType.Engine && engineRegistry.isValidEngine(item.itemId)) {
-                        return true;
-                    } else if (itemType == ItemType.Equipment && fishingRodRegistry.isValidFishingRod(item.itemId)) {
-                        return true;
-                    } else if (itemType != ItemType.Engine && itemType != ItemType.Equipment) {
-                        return true; // For other item types, just check presence
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * @dev Get all equipped fishing rods for a player
-     */
-    function getEquippedFishingRods(address player) external view returns (uint256[] memory fishingRodIds) {
-        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
-        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
-
-        // Count equipped fishing rods first
-        uint256 equippedCount = 0;
-        for (uint256 i = 0; i < ship.slotTypes.length; i++) {
-            if (ship.slotTypes[i] == SlotType.Equipment) {
-                // Equipment slot
-                InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == ItemType.Equipment) {
-                    // Equipment type
-                    if (fishingRodRegistry.isValidFishingRod(item.itemId)) {
-                        equippedCount++;
-                    }
-                }
-            }
-        }
-
-        // Populate the array
-        fishingRodIds = new uint256[](equippedCount);
-        uint256 index = 0;
-        for (uint256 i = 0; i < ship.slotTypes.length && index < equippedCount; i++) {
-            if (ship.slotTypes[i] == SlotType.Equipment) {
-                // Equipment slot
-                InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == ItemType.Equipment) {
-                    // Equipment type
-                    if (fishingRodRegistry.isValidFishingRod(item.itemId)) {
-                        fishingRodIds[index] = item.itemId;
-                        index++;
-                    }
-                }
-            }
-        }
     }
 
     /**
@@ -283,18 +103,8 @@ abstract contract InventoryManager is GameStateBase {
         // Get fish shape from registry
         InventoryLib.ItemShape memory fishShape = _getItemShape(ItemType.Fish, species);
 
-        // Validate that the position is within inventory bounds
-        if (x >= inventory.width || y >= inventory.height) {
-            return false;
-        }
-
-        // Check if the fish can be placed at the specified position
-        if (!InventoryLib.canPlaceItem(inventory, fishShape, x, y)) {
-            return false;
-        }
-
         // Place the fish in inventory
-        return InventoryLib.placeItemWithRotation(inventory, fishShape, x, y, rotation, ItemType.Fish, species);
+        return inventory.placeItem(fishShape, x, y, rotation, ItemType.Fish, species, 0);
     }
 
     /**
@@ -316,7 +126,7 @@ abstract contract InventoryManager is GameStateBase {
             IEngineRegistry.Engine memory engine = engineRegistry.getEngine(itemId);
             return
                 InventoryLib.ItemShape({width: engine.shapeWidth, height: engine.shapeHeight, data: engine.shapeData});
-        } else if (itemType == ItemType.Equipment) {
+        } else if (itemType == ItemType.FishingRod) {
             // Equipment item (fishing rod) - get shape from fishing rod registry
             require(fishingRodRegistry.isValidFishingRod(itemId), "Invalid fishing rod ID");
             IFishingRodRegistry.FishingRod memory rod = fishingRodRegistry.getFishingRod(itemId);
@@ -324,5 +134,35 @@ abstract contract InventoryManager is GameStateBase {
         } else {
             revert("Invalid item type");
         }
+    }
+
+        /**
+     * @dev Check if a player has any equipment of a specific type equipped
+     */
+    function hasEquippedItemType(address player, ItemType itemType) external view returns (bool) {
+        InventoryLib.InventoryGrid storage inventory = playerInventories[player];
+        IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
+
+        SlotType requiredSlotType = itemType == ItemType.Engine ? SlotType.Engine : SlotType.FishingRod;
+
+        uint256 shipArea = ship.cargoHeight * ship.cargoHeight;
+
+        // Check all appropriate slots for the item type
+        for (uint256 i = 0; i < shipArea; i++) {
+            if (ship.slotTypes[i] == requiredSlotType) {
+                InventoryLib.GridItem memory item = inventory.grid[i];
+                if (item.itemType == itemType) {
+                    // Additional validation for engines and fishing rods
+                    if (itemType == ItemType.Engine && engineRegistry.isValidEngine(item.itemId)) {
+                        return true;
+                    } else if (itemType == ItemType.FishingRod && fishingRodRegistry.isValidFishingRod(item.itemId)) {
+                        return true;
+                    } else if (itemType != ItemType.Engine && itemType != ItemType.FishingRod) {
+                        return true; // For other item types, just check presence
+                    }
+                }
+            }
+        }
+        return false;
     }
 }

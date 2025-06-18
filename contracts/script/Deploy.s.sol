@@ -153,10 +153,10 @@ contract Deploy is Script {
         slotTypes[0] = SlotType.Engine; // Top-left corner
         slotTypes[3] = SlotType.Engine; // Top-right corner
         // Set equipment slots
-        slotTypes[12] = SlotType.Equipment; // Bottom-left
-        slotTypes[13] = SlotType.Equipment; // Bottom-middle-left
-        slotTypes[14] = SlotType.Equipment; // Bottom-middle-right
-        slotTypes[15] = SlotType.Equipment; // Bottom-right
+        slotTypes[12] = SlotType.FishingRod; // Bottom-left
+        slotTypes[13] = SlotType.FishingRod; // Bottom-middle-left
+        slotTypes[14] = SlotType.FishingRod; // Bottom-middle-right
+        slotTypes[15] = SlotType.FishingRod; // Bottom-right
 
         shipRegistry.registerShip(
             1, // id
@@ -416,7 +416,7 @@ contract Deploy is Script {
 
         // Add engine and equipment slots
         slotTypes[12] = SlotType.Engine; // Engine slot (bottom-left)
-        slotTypes[15] = SlotType.Equipment; // Equipment slot (bottom-right)
+        slotTypes[15] = SlotType.FishingRod; // Equipment slot (bottom-right)
 
         shipRegistry.registerShip(
             2, // id

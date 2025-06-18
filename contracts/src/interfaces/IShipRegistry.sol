@@ -45,10 +45,4 @@ interface IShipRegistry {
     function isValidShip(uint256 shipId) external view returns (bool);
     function getShipCount() external view returns (uint256);
     function getAllShips() external view returns (Ship[] memory);
-
-    // Validation
-    function isValidCargoPosition(uint256 shipId, uint8 x, uint8 y) external view returns (bool);
-    function isEngineSlot(uint256 shipId, uint8 position) external view returns (bool);
-    function isEquipmentSlot(uint256 shipId, uint8 position) external view returns (bool);
-    function isBlockedSlot(uint256 shipId, uint8 position) external view returns (bool);
 }

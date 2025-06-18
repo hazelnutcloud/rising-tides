@@ -136,13 +136,14 @@ abstract contract FishingManager is GameStateBase {
     function hasEquippedFishingRod(address player) internal view returns (bool) {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
         IShipRegistry.Ship memory ship = shipRegistry.getShip(playerStates[player].shipId);
+        uint256 shipArea = ship.cargoHeight * ship.cargoWidth;
 
         // Check all equipment slots for fishing rods
-        for (uint256 i = 0; i < ship.slotTypes.length; i++) {
-            if (ship.slotTypes[i] == SlotType.Equipment) {
+        for (uint256 i = 0; i < shipArea; i++) {
+            if (ship.slotTypes[i] == SlotType.FishingRod) {
                 // Equipment slot
                 InventoryLib.GridItem memory item = inventory.grid[i];
-                if (item.isOccupied && item.itemType == ItemType.Equipment) {
+                if (item.itemType == ItemType.FishingRod) {
                     // Equipment type
                     if (fishingRodRegistry.isValidFishingRod(item.itemId)) {
                         return true;

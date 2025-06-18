@@ -113,66 +113,6 @@ contract ShipRegistry is IShipRegistry, AccessControl, Pausable {
     }
 
     /**
-     * @dev Check if a cargo position is valid for a ship (not blocked)
-     */
-    function isValidCargoPosition(uint256 shipId, uint8 x, uint8 y) external view validShipId(shipId) returns (bool) {
-        Ship memory ship = ships[shipId];
-
-        if (x >= ship.cargoWidth || y >= ship.cargoHeight) {
-            return false;
-        }
-
-        // Convert coordinates to slot index
-        uint256 slotIndex = uint256(y) * uint256(ship.cargoWidth) + uint256(x);
-
-        if (slotIndex >= ship.slotTypes.length) {
-            return false;
-        }
-
-        // Position is valid if it's not blocked
-        return ship.slotTypes[slotIndex] != SlotType.Blocked;
-    }
-
-    /**
-     * @dev Check if a position is an engine slot
-     */
-    function isEngineSlot(uint256 shipId, uint8 position) external view validShipId(shipId) returns (bool) {
-        Ship memory ship = ships[shipId];
-
-        if (position >= ship.slotTypes.length) {
-            return false;
-        }
-
-        return ship.slotTypes[position] == SlotType.Engine;
-    }
-
-    /**
-     * @dev Check if a position is an equipment slot
-     */
-    function isEquipmentSlot(uint256 shipId, uint8 position) external view validShipId(shipId) returns (bool) {
-        Ship memory ship = ships[shipId];
-
-        if (position >= ship.slotTypes.length) {
-            return false;
-        }
-
-        return ship.slotTypes[position] == SlotType.Equipment;
-    }
-
-    /**
-     * @dev Check if a position is a blocked slot (no items can be placed)
-     */
-    function isBlockedSlot(uint256 shipId, uint8 position) external view validShipId(shipId) returns (bool) {
-        Ship memory ship = ships[shipId];
-
-        if (position >= ship.slotTypes.length) {
-            return false;
-        }
-
-        return ship.slotTypes[position] == SlotType.Blocked;
-    }
-
-    /**
      * @dev Update ship stats (admin only)
      */
     function updateShipStats(
