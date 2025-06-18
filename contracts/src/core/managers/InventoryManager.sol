@@ -64,13 +64,16 @@ abstract contract InventoryManager is RisingTidesBase {
         InventoryLib.ItemShape memory shape = _getItemShape(item.itemType, item.itemId);
 
         // Remove from old position
-        require(InventoryLib.removeItem(inventory, shape, fromX, fromY, item.rotation, item.instanceId), "Failed to remove item");
+        require(
+            InventoryLib.removeItem(inventory, shape, fromX, fromY, item.rotation, item.instanceId),
+            "Failed to remove item"
+        );
 
         // Place at new position with rotation if specified
-            require(
-                inventory.placeItem(shape, toX, toY, rotation, item.itemType, item.itemId, item.instanceId),
-                "Failed to place item at new position"
-            );
+        require(
+            inventory.placeItem(shape, toX, toY, rotation, item.itemType, item.itemId, item.instanceId) > 0,
+            "Failed to place item at new position"
+        );
     }
 
     /**
@@ -96,7 +99,7 @@ abstract contract InventoryManager is RisingTidesBase {
     function _placeFishInInventory(address player, uint256 species, uint8 x, uint8 y, uint8 rotation)
         internal
         override
-        returns (bool)
+        returns (uint256)
     {
         InventoryLib.InventoryGrid storage inventory = playerInventories[player];
 
@@ -110,7 +113,12 @@ abstract contract InventoryManager is RisingTidesBase {
     /**
      * @dev Get proper item shape from registry based on item type and ID
      */
-    function _getItemShape(ItemType itemType, uint256 itemId) internal view returns (InventoryLib.ItemShape memory) {
+    function _getItemShape(ItemType itemType, uint256 itemId)
+        internal
+        view
+        override
+        returns (InventoryLib.ItemShape memory)
+    {
         if (itemType == ItemType.Fish) {
             // Fish item - get shape from fish registry
             require(fishRegistry.isValidSpecies(itemId), "Invalid fish species");
@@ -136,7 +144,7 @@ abstract contract InventoryManager is RisingTidesBase {
         }
     }
 
-        /**
+    /**
      * @dev Check if a player has any equipment of a specific type equipped
      */
     function hasEquippedItemType(address player, ItemType itemType) external view returns (bool) {

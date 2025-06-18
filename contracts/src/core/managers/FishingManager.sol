@@ -60,6 +60,7 @@ abstract contract FishingManager is RisingTidesBase {
         onlyRegisteredPlayer
         whenNotPaused
         nonReentrant
+        returns (uint256 instanceId)
     {
         require(result.player == msg.sender, "Result not for caller");
         require(pendingFishingRequest[msg.sender] == result.nonce, "Invalid or expired fishing request");
@@ -96,12 +97,14 @@ abstract contract FishingManager is RisingTidesBase {
 
             if (fishPlacement.shouldPlace) {
                 // Player wants to place the fish in inventory
-                require(
-                    _placeFishInInventory(
-                        msg.sender, result.species, fishPlacement.x, fishPlacement.y, fishPlacement.rotation
-                    ),
-                    "Failed to place fish in inventory"
+                instanceId = _placeFishInInventory(
+                    msg.sender, result.species, fishPlacement.x, fishPlacement.y, fishPlacement.rotation
                 );
+
+                require(instanceId > 0, "Failed to place fish in inventory");
+
+                playerFish[msg.sender][instanceId] =
+                    FishCatch({species: result.species, weight: result.weight, caughtAt: result.timestamp});
 
                 emit IRisingTides.FishCaught(msg.sender, result.species, result.weight);
             }

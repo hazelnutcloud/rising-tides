@@ -16,11 +16,9 @@ contract FishRegistry is AccessControl, Pausable {
     struct FishSpecies {
         uint256 id;
         uint256 basePrice; // Base market price
-        uint8 rarity; // 1-10 scale (1 = common, 10 = legendary)
         uint8 shapeWidth; // Item shape width
         uint8 shapeHeight; // Item shape height
         bytes shapeData; // Packed bitmap of item shape
-        uint256 freshnessDecayRate; // How fast freshness decreases (per hour)
     }
 
     struct BaitType {
@@ -36,10 +34,6 @@ contract FishRegistry is AccessControl, Pausable {
     uint256 private baitTypeCount;
     uint256[] private speciesIds;
     uint256[] private baitIds;
-
-    // Freshness decay constants
-    uint256 public constant FRESHNESS_DECAY_PERIOD = 1 hours;
-    uint256 public constant MAX_FRESHNESS = 100;
 
     // Events
     event FishSpeciesRegistered(uint256 indexed speciesId, uint256 basePrice);
@@ -69,16 +63,13 @@ contract FishRegistry is AccessControl, Pausable {
     function registerFishSpecies(
         uint256 id,
         uint256 basePrice,
-        uint8 rarity,
         uint8 shapeWidth,
         uint8 shapeHeight,
-        bytes calldata shapeData,
-        uint256 freshnessDecayRate
+        bytes calldata shapeData
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         require(id > 0, "Species ID must be greater than 0");
         require(!isValidSpecies(id), "Species ID already exists");
         require(basePrice > 0, "Base price must be greater than 0");
-        require(rarity >= 1 && rarity <= 10, "Rarity must be between 1 and 10");
         require(shapeWidth > 0 && shapeHeight > 0, "Shape dimensions must be greater than 0");
 
         // Validate shape data size
@@ -88,11 +79,9 @@ contract FishRegistry is AccessControl, Pausable {
         fishSpecies[id] = FishSpecies({
             id: id,
             basePrice: basePrice,
-            rarity: rarity,
             shapeWidth: shapeWidth,
             shapeHeight: shapeHeight,
-            shapeData: shapeData,
-            freshnessDecayRate: freshnessDecayRate
+            shapeData: shapeData
         });
 
         speciesIds.push(id);
@@ -174,32 +163,6 @@ contract FishRegistry is AccessControl, Pausable {
         }
 
         return allBaits;
-    }
-
-    /**
-     * @dev Calculate freshness based on time elapsed
-     */
-    function calculateFreshness(uint256 speciesId, uint256 caughtAt)
-        external
-        view
-        validSpeciesId(speciesId)
-        returns (uint8)
-    {
-        if (caughtAt > block.timestamp) {
-            return uint8(MAX_FRESHNESS);
-        }
-
-        FishSpecies memory species = fishSpecies[speciesId];
-        uint256 timeElapsed = block.timestamp - caughtAt;
-        uint256 hoursElapsed = timeElapsed / FRESHNESS_DECAY_PERIOD;
-
-        uint256 freshnessLoss = hoursElapsed * species.freshnessDecayRate;
-
-        if (freshnessLoss >= MAX_FRESHNESS) {
-            return 0;
-        }
-
-        return uint8(MAX_FRESHNESS - freshnessLoss);
     }
 
     /**

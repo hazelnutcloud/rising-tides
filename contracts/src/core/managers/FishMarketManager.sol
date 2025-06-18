@@ -52,7 +52,7 @@ abstract contract FishMarketManager is RisingTidesBase {
             uint256 secondsElapsed = block.timestamp - marketData.lastSoldTimestamp;
             uint256 marketValue = marketData.value + (fish.basePrice * PRICE_RECOVERY_RATE * secondsElapsed / 1e7);
             if (marketValue > fish.basePrice) {
-              marketValue = fish.basePrice;
+                marketValue = fish.basePrice;
             }
             salePrice = marketValue * weight * freshness / 100;
             marketData.value = marketValue - (marketValue * PRICE_DECAY_RATE / 100);
@@ -87,7 +87,7 @@ abstract contract FishMarketManager is RisingTidesBase {
 
         uint256 secondsElapsed = block.timestamp - marketData.lastSoldTimestamp;
         uint256 marketValue = marketData.value + (fish.basePrice * PRICE_RECOVERY_RATE * secondsElapsed / 1e7);
-        
+
         if (marketValue > fish.basePrice) {
             marketValue = fish.basePrice;
         }
@@ -98,39 +98,35 @@ abstract contract FishMarketManager is RisingTidesBase {
     function estimateSalePrice(uint256 instanceId) external view returns (uint256 estimatedPrice) {
         address player = msg.sender;
         FishCatch storage fishData = playerFish[player][instanceId];
-        
+
         require(fishData.species > 0, "Invalid fish");
 
         uint256 freshness = _calculateFishFreshness(fishData.caughtAt);
         uint256 currentMarketPrice = _getMarketPrice(fishData.species);
-        
+
         return currentMarketPrice * fishData.weight * freshness / 100;
     }
 
     function getFishFreshness(uint256 instanceId) external view returns (uint256 freshness) {
         address player = msg.sender;
         FishCatch storage fishData = playerFish[player][instanceId];
-        
+
         require(fishData.species > 0, "Invalid fish");
-        
+
         return _calculateFishFreshness(fishData.caughtAt);
     }
 
     /**
      * @dev Admin function to set fish market data for testing
      */
-    function setFishMarketData(uint256 species, uint256 marketValue, uint256 lastSoldTimestamp) 
-        external 
-        onlyRole(ADMIN_ROLE) 
+    function setFishMarketData(uint256 species, uint256 marketValue, uint256 lastSoldTimestamp)
+        external
+        onlyRole(ADMIN_ROLE)
     {
         require(fishRegistry.isValidSpecies(species), "Invalid species");
-        
-        fishMarketData[species] = FishMarketData({
-            value: marketValue,
-            lastSoldTimestamp: lastSoldTimestamp
-        });
-        
+
+        fishMarketData[species] = FishMarketData({value: marketValue, lastSoldTimestamp: lastSoldTimestamp});
+
         emit FishMarketUpdated(species, marketValue, lastSoldTimestamp);
     }
-
 }

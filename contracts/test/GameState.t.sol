@@ -222,8 +222,8 @@ contract GameStateTest is Test {
         gameState.registerPlayer(0, 1); // shard 0, map 1
 
         // Test movement with too many directions first
-        uint8[] memory tooManyDirections = new uint8[](15); // More than limit of 10
-        for (uint256 i = 0; i < 15; i++) {
+        uint8[] memory tooManyDirections = new uint8[](25); // More than limit of 10
+        for (uint256 i = 0; i < 25; i++) {
             tooManyDirections[i] = 1; // East
         }
 
@@ -297,7 +297,7 @@ contract GameStateTest is Test {
         bytes memory shape = new bytes(1);
         shape[0] = 0x01;
 
-        fishRegistry.registerFishSpecies(1, 100 * 10 ** 18, 1, 1, 1, shape, 5);
+        fishRegistry.registerFishSpecies(1, 100 * 10 ** 18, 1, 1, shape);
     }
 
     function _addTestBait() private {

@@ -83,6 +83,10 @@ contract Deploy is Script {
         currency.grantRole(currency.BURNER_ROLE(), address(gameState));
         console.log("Granted BURNER_ROLE to RisingTides");
 
+        // Grant MINTER_ROLE to GameState for fish sales
+        currency.grantRole(currency.MINTER_ROLE(), address(gameState));
+        console.log("Granted MINTER_ROLE to RisingTides");
+
         // Grant ADMIN_ROLE to SeasonPass for updating player stats
         seasonPass.grantRole(seasonPass.ADMIN_ROLE(), address(gameState));
         console.log("Granted ADMIN_ROLE to SeasonPass for RisingTides");
@@ -171,11 +175,9 @@ contract Deploy is Script {
         fishRegistry.registerFishSpecies(
             1, // id
             100 * 10 ** 18, // basePrice (100 RTC)
-            1, // rarity (common)
             1, // shapeWidth
             1, // shapeHeight
-            sardineShape,
-            5 // freshnessDecayRate (5% per hour)
+            sardineShape
         );
 
         // 2. Cod (uncommon, medium)
@@ -185,11 +187,9 @@ contract Deploy is Script {
         fishRegistry.registerFishSpecies(
             2, // id
             250 * 10 ** 18, // basePrice (250 RTC)
-            3, // rarity (uncommon)
             2, // shapeWidth
             1, // shapeHeight
-            codShape,
-            3 // freshnessDecayRate (3% per hour)
+            codShape
         );
 
         // 3. Tuna (rare, large)
@@ -199,11 +199,9 @@ contract Deploy is Script {
         fishRegistry.registerFishSpecies(
             3, // id
             500 * 10 ** 18, // basePrice (500 RTC)
-            6, // rarity (rare)
             2, // shapeWidth
             2, // shapeHeight
-            tunaShape,
-            2 // freshnessDecayRate (2% per hour)
+            tunaShape
         );
 
         console.log("Added basic fish species");

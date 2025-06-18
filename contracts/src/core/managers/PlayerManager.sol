@@ -206,14 +206,14 @@ abstract contract PlayerManager is RisingTidesBase {
             if (inventory.slotTypes[i] == SlotType.Engine && !enginePlaced) {
                 // Engine slot
                 (uint8 x, uint8 y) = InventoryLib.indexToCoords(i, inventory.width);
-                if (inventory.placeItem(engineShape, x, y, 0, ItemType.Engine,1,0)) {
+                if (inventory.placeItem(engineShape, x, y, 0, ItemType.Engine, 1, 0) > 0) {
                     enginePlaced = true;
                 }
             }
             if (inventory.slotTypes[i] == SlotType.FishingRod && !rodPlaced) {
                 // Equipment slot
                 (uint8 x, uint8 y) = InventoryLib.indexToCoords(i, inventory.width);
-                if (inventory.placeItem(rodShape, x, y, 0, ItemType.FishingRod,1,0)) {
+                if (inventory.placeItem(rodShape, x, y, 0, ItemType.FishingRod, 1, 0) > 0) {
                     rodPlaced = true;
                 }
             }

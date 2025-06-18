@@ -98,7 +98,7 @@ library InventoryLib {
         ItemType itemType,
         uint256 itemId,
         uint256 instanceId
-    ) internal returns (bool) {
+    ) internal returns (uint256) {
         ItemShape memory rotatedShape = rotateItemShape(shape, rotation);
 
         uint256 newInstanceId = instanceId;
@@ -116,13 +116,13 @@ library InventoryLib {
                     uint256 gridIndex = coordsToIndex(startX + x, startY + y, grid.width);
 
                     if (gridIndex >= gridArea) {
-                      return false;
+                        return 0;
                     }
 
                     GridItem storage gridItem = grid.grid[gridIndex];
 
                     if (gridItem.itemType != ItemType.Empty || grid.slotTypes[gridIndex] == SlotType.Blocked) {
-                        return false;
+                        return 0;
                     }
 
                     grid.grid[gridIndex] =
@@ -131,7 +131,7 @@ library InventoryLib {
             }
         }
 
-        return true;
+        return newInstanceId;
     }
 
     /**
@@ -226,6 +226,24 @@ library InventoryLib {
     function getItemAt(InventoryGrid storage grid, uint8 x, uint8 y) internal view returns (GridItem memory) {
         uint256 index = coordsToIndex(x, y, grid.width);
         return grid.grid[index];
+    }
+
+    function getItemByInstanceId(InventoryGrid storage grid, uint256 instanceId)
+        internal
+        view
+        returns (GridItem memory, uint8 x, uint8 y)
+    {
+        uint256 gridArea = grid.width * grid.height;
+
+        for (uint256 i = 0; i < gridArea; i++) {
+            if (grid.grid[i].instanceId == instanceId) {
+                (uint8 _x, uint8 _y) = indexToCoords(i, grid.width);
+
+                return (grid.grid[i], _x, _y);
+            }
+        }
+
+        return (GridItem({itemType: ItemType.Empty, itemId: 0, instanceId: 0, rotation: 0}), 0, 0);
     }
 
     /**

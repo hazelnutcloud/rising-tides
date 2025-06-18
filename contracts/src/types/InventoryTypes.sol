@@ -14,6 +14,7 @@ enum SlotType {
     Engine, // 1 - Engine slot, can only hold engines
     FishingRod, // 2 - Equipment slot, can hold fishing rods and other equipment
     Blocked // 3 - Blocked slot, cannot hold any items
+
 }
 
 /**

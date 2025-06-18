@@ -48,7 +48,7 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
     mapping(address => uint256) internal playerFishingNonce;
     mapping(address => uint256) internal pendingFishingRequest;
     mapping(address => uint256) internal pendingBaitType;
-    mapping(address player => mapping(uint256 gridIndex => FishCatch)) internal playerFish;
+    mapping(address player => mapping(uint256 instanceId => FishCatch)) internal playerFish;
 
     // Fish market
     mapping(uint256 species => FishMarketData) internal fishMarketData;
@@ -63,6 +63,10 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
     uint256 public constant HEX_MOVE_COST = 1e18; // Base fuel cost per hex
     uint256 public constant BASE_MOVEMENT_SPEED = 1000; // Base movement speed (lower = faster)
     uint256 public constant SIGNATURE_TIMEOUT = 300; // 5 minutes
+    uint256 public constant PRICE_DECAY_RATE = 5; // 5% decrease per fish sale
+    uint256 public constant PRICE_RECOVERY_RATE = 463; // ~100% in 6 hours
+    uint256 public constant FRESHNESS_DECAY_PERIOD = 15 minutes;
+    uint256 public constant FRESHNESS_DECAY_RATE = 25; // 25%
 
     // Movement constraints
     int32 public constant MAX_COORDINATE = 1000;
@@ -91,7 +95,12 @@ abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, E
     function _placeFishInInventory(address player, uint256 species, uint8 x, uint8 y, uint8 rotation)
         internal
         virtual
-        returns (bool);
+        returns (uint256);
+    function _getItemShape(ItemType itemType, uint256 itemId)
+        internal
+        view
+        virtual
+        returns (InventoryLib.ItemShape memory);
 
     // Modifiers
     modifier onlyRegisteredPlayer() {
