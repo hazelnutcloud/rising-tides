@@ -1,6 +1,6 @@
 - [x] Update FishMarket to remove fish in inventory when selling
-- [ ] Implement player ship roster
+- [x] Add harbor location mark in mapRegistry
+- [x] Update resourceManager to allow buying fuel and bait only at harbor locations
 - [ ] Implement player permanent storage
-- [ ] Add harbor location mark in mapRegistry
-- [ ] Update resourceManager to allow buying fuel and bait only at harbor locations
+- [ ] Implement player ship roster
 - [ ] Implement ship changing, engine changing, and fishing rod changing functions
