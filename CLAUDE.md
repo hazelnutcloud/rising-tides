@@ -109,7 +109,7 @@ The `./memory/` directory contains project knowledge and development context:
 
 #### Smart Contracts Status (PRODUCTION-READY: Complete Modular Implementation)
 - [x] Modular architecture (GameState broken into 7 focused manager contracts)
-- [x] Core game state management (GameStateCore with all managers)
+- [x] Core game state management (RisingTides with all managers)
 - [x] Player registration with default equipment assignment
 - [x] Shard management system with configurable limits and admin controls
 - [x] Movement and fuel system (hex-grid with 6 directions, fuel economy)

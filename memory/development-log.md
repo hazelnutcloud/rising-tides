@@ -28,13 +28,13 @@
 
 #### Latest Major Refactoring Completed (December 2024)
 - **Modular Architecture**: Broke GameState.sol (1024 lines) into 7 focused manager contracts:
-  - `GameStateBase.sol`: Shared state and dependencies
+  - `RisingTidesBase.sol`: Shared state and dependencies
   - `PlayerManager.sol`: Player registration, state, shard management  
   - `MovementManager.sol`: Hex-grid movement, fuel consumption
   - `FishingManager.sol`: Server-driven fishing with EIP712 signatures
   - `InventoryManager.sol`: 2D Tetris-like inventory with equipment validation
   - `ResourceManager.sol`: Ship changing, bait purchasing, travel
-  - `GameStateCore.sol`: Main contract inheriting from all managers
+  - `RisingTides.sol`: Main contract inheriting from all managers
 
 #### Equipment System Simplification
 - **EquipmentRegistry → FishingRodRegistry**: Removed complex equipment type system

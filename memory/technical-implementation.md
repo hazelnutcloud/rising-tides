@@ -3,8 +3,8 @@
 ## Smart Contract Architecture (Modular Design)
 
 ### Core Contract Hierarchy
-- **GameStateCore**: Main deployed contract inheriting all manager functionality
-- **GameStateBase**: Shared state, dependencies, modifiers, and constants
+- **RisingTides**: Main deployed contract inheriting all manager functionality
+- **RisingTidesBase**: Shared state, dependencies, modifiers, and constants
 - **PlayerManager**: Player registration, shard management, default equipment
 - **MovementManager**: Hex-grid movement, fuel consumption, engine power calculation
 - **FishingManager**: Server-driven fishing with EIP712 signature verification

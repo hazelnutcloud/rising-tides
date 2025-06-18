@@ -9,8 +9,7 @@ import "../src/registries/EngineRegistry.sol";
 import "../src/registries/FishingRodRegistry.sol";
 import "../src/interfaces/IFishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
-import "../src/core/GameStateCore.sol";
-import "../src/core/FishMarket.sol";
+import "../src/core/RisingTides.sol";
 import "../src/core/SeasonPass.sol";
 import {SlotType} from "../src/types/InventoryTypes.sol";
 
@@ -59,9 +58,9 @@ contract Deploy is Script {
         console.log("MapRegistry deployed to:", address(mapRegistry));
 
         // 7. Deploy Game State
-        console.log("\n=== Deploying GameStateCore ===");
+        console.log("\n=== Deploying RisingTides ===");
         // Note: Using deployer address as initial server signer (should be changed after deployment)
-        GameStateCore gameState = new GameStateCore(
+        RisingTides gameState = new RisingTides(
             address(currency),
             address(shipRegistry),
             address(fishRegistry),
@@ -70,16 +69,7 @@ contract Deploy is Script {
             address(mapRegistry),
             deployerAddress
         );
-        console.log("GameStateCore deployed to:", address(gameState));
-
-        // 8. Deploy Fish Market
-        console.log("\n=== Deploying FishMarket ===");
-        FishMarket fishMarket = new FishMarket(
-            address(currency),
-            address(fishRegistry),
-            deployerAddress // Fee collector
-        );
-        console.log("FishMarket deployed to:", address(fishMarket));
+        console.log("RisingTides deployed to:", address(gameState));
 
         // 9. Deploy Season Pass
         console.log("\n=== Deploying SeasonPass ===");
@@ -89,17 +79,13 @@ contract Deploy is Script {
         // 10. Setup Roles and Permissions
         console.log("\n=== Setting up roles and permissions ===");
 
-        // Grant MINTER_ROLE to FishMarket for currency rewards
-        currency.grantRole(currency.MINTER_ROLE(), address(fishMarket));
-        console.log("Granted MINTER_ROLE to FishMarket");
-
         // Grant BURNER_ROLE to GameState for fuel/bait purchases
         currency.grantRole(currency.BURNER_ROLE(), address(gameState));
-        console.log("Granted BURNER_ROLE to GameStateCore");
+        console.log("Granted BURNER_ROLE to RisingTides");
 
         // Grant ADMIN_ROLE to SeasonPass for updating player stats
         seasonPass.grantRole(seasonPass.ADMIN_ROLE(), address(gameState));
-        console.log("Granted ADMIN_ROLE to SeasonPass for GameStateCore");
+        console.log("Granted ADMIN_ROLE to SeasonPass for RisingTides");
 
         // 11. Initialize with sample data
         console.log("\n=== Initializing sample data ===");
@@ -132,8 +118,7 @@ contract Deploy is Script {
         console.log("EngineRegistry:", address(engineRegistry));
         console.log("FishingRodRegistry:", address(fishingRodRegistry));
         console.log("MapRegistry:", address(mapRegistry));
-        console.log("GameStateCore:", address(gameState));
-        console.log("FishMarket:", address(fishMarket));
+        console.log("RisingTides:", address(gameState));
         console.log("SeasonPass:", address(seasonPass));
         console.log("\n=== NEXT STEPS ===");
         console.log("1. Verify contracts on block explorer");

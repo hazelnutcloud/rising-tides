@@ -3,13 +3,13 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {SlotType, ItemType} from "../../types/InventoryTypes.sol";
-import "../GameStateBase.sol";
+import "../RisingTidesBase.sol";
 
 /**
  * @title FishingManager
  * @dev Manages fishing mechanics, signature verification, and fish catching
  */
-abstract contract FishingManager is GameStateBase {
+abstract contract FishingManager is RisingTidesBase {
     using ECDSA for bytes32;
 
     /**

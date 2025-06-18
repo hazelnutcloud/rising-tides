@@ -53,7 +53,7 @@
 ## ✅ **Already Implemented & Working**
 
 ### Smart Contracts (Complete Modular Architecture)
-- [x] **GameStateCore**: Main contract inheriting from all managers
+- [x] **RisingTides**: Main contract inheriting from all managers
 - [x] **PlayerManager**: Registration, state management, shard controls
 - [x] **MovementManager**: Hex-grid movement, fuel consumption
 - [x] **FishingManager**: Server-driven fishing with EIP712 signatures

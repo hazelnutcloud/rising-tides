@@ -8,7 +8,7 @@ import "../src/registries/FishRegistry.sol";
 import "../src/registries/EngineRegistry.sol";
 import "../src/registries/FishingRodRegistry.sol";
 import "../src/registries/MapRegistry.sol";
-import "../src/core/GameStateCore.sol";
+import "../src/core/RisingTides.sol";
 import "../src/interfaces/IGameState.sol";
 import {SlotType, ItemType} from "../src/types/InventoryTypes.sol";
 
@@ -19,7 +19,7 @@ contract GameStateTest is Test {
     EngineRegistry public engineRegistry;
     FishingRodRegistry public fishingRodRegistry;
     MapRegistry public mapRegistry;
-    GameStateCore public gameState;
+    RisingTides public gameState;
 
     address public player1 = address(0x1);
     address public player2 = address(0x2);
@@ -41,7 +41,7 @@ contract GameStateTest is Test {
         // Set up test server signer
         testServerSigner = vm.addr(TEST_SERVER_PRIVATE_KEY);
 
-        gameState = new GameStateCore(
+        gameState = new RisingTides(
             address(currency),
             address(shipRegistry),
             address(fishRegistry),

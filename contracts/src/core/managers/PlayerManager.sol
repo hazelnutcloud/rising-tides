@@ -2,13 +2,13 @@
 pragma solidity ^0.8.20;
 
 import {SlotType, ItemType} from "../../types/InventoryTypes.sol";
-import "../GameStateBase.sol";
+import "../RisingTidesBase.sol";
 
 /**
  * @title PlayerManager
  * @dev Manages player registration, state, and weight calculations
  */
-abstract contract PlayerManager is GameStateBase {
+abstract contract PlayerManager is RisingTidesBase {
     using InventoryLib for InventoryLib.InventoryGrid;
 
     /**

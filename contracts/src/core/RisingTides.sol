@@ -9,11 +9,11 @@ import "./managers/MovementManager.sol";
 import "../interfaces/IGameState.sol";
 
 /**
- * @title GameStateCore
+ * @title RisingTides
  * @dev Main game state contract that inherits from all managers
  * Provides the complete IGameState interface while keeping functionality modular
  */
-contract GameStateCore is ResourceManager, PlayerManager, FishingManager, InventoryManager, MovementManager {
+contract RisingTides is ResourceManager, PlayerManager, FishingManager, InventoryManager, MovementManager {
     constructor(
         address _currency,
         address _shipRegistry,

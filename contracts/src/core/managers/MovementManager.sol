@@ -2,13 +2,13 @@
 pragma solidity ^0.8.20;
 
 import {SlotType, ItemType} from "../../types/InventoryTypes.sol";
-import "../GameStateBase.sol";
+import "../RisingTidesBase.sol";
 
 /**
  * @title MovementManager
  * @dev Manages player movement, fuel consumption, and navigation
  */
-abstract contract MovementManager is GameStateBase {
+abstract contract MovementManager is RisingTidesBase {
     /**
      * @dev Move player using array of directions (0=NE, 1=E, 2=SE, 3=SW, 4=W, 5=NW)
      */

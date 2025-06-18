@@ -15,10 +15,10 @@ import "../registries/FishingRodRegistry.sol";
 import "../libraries/InventoryLib.sol";
 
 /**
- * @title GameStateBase
+ * @title RisingTidesBase
  * @dev Base contract containing shared state variables and dependencies for all game managers
  */
-abstract contract GameStateBase is AccessControl, Pausable, ReentrancyGuard, EIP712, IGameState {
+abstract contract RisingTidesBase is AccessControl, Pausable, ReentrancyGuard, EIP712, IGameState {
     // Access control roles
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");

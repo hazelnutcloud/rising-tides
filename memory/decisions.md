@@ -24,7 +24,7 @@
 
 **Implementation Architecture**:
 ```
-GameStateBase (shared state and dependencies)
+RisingTidesBase (shared state and dependencies)
   ↑
 PlayerManager (registration, shard management)
   ↑
@@ -36,11 +36,11 @@ InventoryManager (2D Tetris-like inventory)
   ↑
 ResourceManager (ship changing, bait, travel)
   ↑
-GameStateCore (final contract with all functionality)
+RisingTides (final contract with all functionality)
 ```
 
 **Key Benefits**:
-- Single contract interface maintained (GameStateCore)
+- Single contract interface maintained (RisingTides)
 - Each manager is focused and testable
 - Deployment flexibility (can optimize individual managers)
 - Clear inheritance hierarchy
