@@ -1,131 +1,254 @@
-## Intro
+# Rising Tides
 
-Rising Tides is an onchain multiplayer fishing game built on the RISE L2 network. Players travel the open sea to catch and trade fish, manage and upgrade their boats and fishing equipments, and compete to climb a global leaderboard.
+Rising Tides is an onchain multiplayer fishing game built on the RISE L2 network. Players travel the open sea to catch and trade fish, manage and upgrade their boats and fishing equipment, and compete to climb a global leaderboard.
+
+## Table of Contents
+- [Core Gameplay](#core-gameplay)
+- [Game Mechanics](#game-mechanics)
+  - [Movement & Fuel Economy](#movement--fuel-economy)
+  - [Inventory Management](#inventory-management)
+  - [Fishing Mechanics](#fishing-mechanics)
+  - [Market Economy](#market-economy)
+- [World Structure](#world-structure)
+  - [Maps & Regions](#maps--regions)
+  - [Shards](#shards)
+- [Tokenomics](#tokenomics)
+- [Technical Implementation](#technical-implementation)
+  - [Smart Contracts](#smart-contracts)
+  - [Data Structures](#data-structures)
 
 ## Core Gameplay
 
-The core gameplay of Rising Tides revolves around managing your ship, equipments, inventory, and consumable resources to earn as much in-game currency as possible by catching fish.
+The core gameplay of Rising Tides revolves around managing your ship, equipment, inventory, and consumable resources to earn as much in-game currency (Doubloons - $DBL) as possible by catching and trading fish.
 
 ### Game Loop
-1. **Preparation**: Buy fuel, bait, and repair equipment
-2. **Exploration**: Navigate the hex-grid ocean to find fishing spots
-3. **Fishing**: Use bait to catch fish of various species and sizes
-4. **Inventory Management**: Organize caught fish in your cargo hold
-5. **Trading**: Return to port to sell fish at market prices
-6. **Progression**: Upgrade ships and equipment with earned currency
+1. **Registration**: New players register, receive starter equipment, and spawn at a port
+2. **Preparation**: Buy fuel, bait, and repair equipment using Doubloons
+3. **Exploration**: Navigate the hex-grid ocean to find fishing spots
+4. **Fishing**: Use bait to catch fish of various species and sizes
+5. **Inventory Management**: Organize caught fish in your cargo hold (weight-based)
+6. **Trading**: Return to port to sell fish at dynamic market prices
+7. **Progression**: Upgrade ships and equipment with earned currency
 
-## Movement & Fuel Economy
+## Game Mechanics
 
-Players are able to move freely in the open sea based on a hex-grid system. Moving costs a certain amount of fuel. Your fuel consumption is primarily determined by your engine power. You need to spend in-game currency in order to top-up your fuel.
+### Movement & Fuel Economy
 
-### Movement Mechanics
-- **Continous coodinates**: Grid System: Hexagonal tiles allow for 6-directional movement
+Players navigate freely in the open sea using a hexagonal grid coordinate system. Movement consumes fuel based on ship engine power and distance traveled.
+
+#### Movement Mechanics
+- **Hex Grid System**: Hexagonal tiles with axial coordinates (q, r) allow for 6-directional movement
 - **Fuel Consumption**: `fuelCost = enginePower * distanceMoved * fuelEfficiencyModifier`
-- **Movement Speed**: `speed = enginePower / totalWeight`
+- **Distance Calculation**: Uses standard hex distance formula
+- **Movement Validation**: Players must have equipped ship with sufficient fuel
 - **Range**: Limited by fuel capacity and consumption rate
 
-## Cargo Management
+### Inventory Management
 
-The game utilizes a weight-based inventory management system to manage your ship's cargo. You can only carry as much fish as your ship's maximum weight capacity.
+The game uses a weight-based inventory system managed through ERC1155 tokens:
 
-## Power, Fuel, Speed, Weight
+#### Inventory Items
+- **Ships**: NFTs with unique stats (engine power, weight capacity, fuel capacity)
+- **Fishing Rods**: Equipment with durability that depletes with use
+- **Fuel**: Consumable ERC1155 tokens required for movement
+- **Bait**: Consumable tokens that determine fish catch probabilities
+- **Fish**: Caught fish with weight and freshness attributes
 
-Power and therefore fuel consumption is determined by the ship. Speed is directly proportional to power and inversely proportional to weight. Players must carefully balance between these different variables to optimize their fishing output.
+#### Ship Management
+- Players can own multiple ships but only equip one at a time
+- Ship stats affect movement speed, fuel consumption, and cargo capacity
 
-## Durability
+### Fishing Mechanics
 
-Ships and fishing equipment have a durability value. As they get used, their durability reduces until it reaches zero. At which point, that item is no longer usable and must be repaired using in-game currency.
+#### Bait System
+- Different bait types affect which fish species can be caught
+- Bait-region combinations determine probability distributions
+- Bait is consumed when fishing
 
-## Bait
+#### Fishing Process
+1. Player must be at a valid fishing location
+2. Fishing rod durability is checked
+3. Bait is consumed
+4. Fish is sampled using O(1) alias method with VRF randomness
+5. Fish weight is randomly determined
+6. Rod durability decreases based on fish size
+7. Fish is added to inventory with timestamp for freshness tracking
 
-In order to catch fish, users must spend in-game currency to buy bait. Bait will determine the types/species of fish you are able to catch and the probabilities of catching them.
+#### Durability System
+- Fishing rods have durability that depletes with each catch
+- Larger fish cause more durability damage
+- Broken equipment (0 durability) must be repaired with Doubloons
 
-## Fishing period
+### Market Economy
 
-Your fishing rod contains a durability meter. Once depleted, your fishing rod is considered broken and must be repaired in order to use it again. This durability meter depletes every time you catch a fish. The amount of durability depleted depends on the size of the fish caught.
+The game features a dynamic market system with supply and demand mechanics:
 
-## Open Market
-
-In order to earn in-game currency, players may sell their caught fish in the game's open market. To simulate supply-and-demand, the value of fish follow a bonding curve. As players sell more of a certain species of fish in a span of time, the value of it decreases. This value increases over time (up to a limit) as less players sell it. Fish also have two different attributes that affect its final price: weight and freshness. Weight is determined at the time the player catches the fish. The freshness of the fish decreases over time as the player holds on to it. This means that the final value of a fish is determined by this formula: marketValue * weight * freshness.
-
-### Market Dynamics
-- **Bonding Curve**: Price decreases with volume sold, recovers over time
-- **Fish Attributes**:
-  - **Weight**: Randomly determined when caught (affects value)
-  - **Freshness**: Decreases over time (100% → 0% over time period)
+#### Fish Trading
+- **Bonding Curve**: Fish prices decrease as more are sold, recover over time
+- **Price Factors**:
+  - Base market value (per species)
+  - Fish weight (randomly determined when caught)
+  - Freshness (decreases from 100% to 0% over time)
 - **Price Formula**: `finalPrice = marketValue * weight * freshness`
-- **Species Variety**: Different fish species have different base values and demand curves
+- **Market Recovery**: Prices gradually increase when fish aren't being sold
 
-## Maps
-
-The world of Rising Tides is divided into different spaces called Maps. You are able to pay in-game currency to fast-travel between different maps. Maps with higher tiers of loot will cost more to fast-travel to.
-
-## Shards
-
-To optimize the multiplayer experience, players are divided into logical units called Shards. Shards are mostly used in EVM indexed logs so users may only subscribe to logs from players from their shard, i.e, If a player is in Shard 1, they will only listen to movement events from logs coming from Shard 1
-
-## Tokenomics
-
-The in-game currency is emitted primarily when the user sells fish. It is burnt by various in-game actions such as purchasing fuel, purchasing bait, repairing/buying/upgrading new ships and fishing equipment, and more.
-
-### Currency Flow
-- **Emission (Currency Created)**:
-  - Selling fish at market
-
-- **Burning (Currency Destroyed)**:
+#### Currency Flow
+- **Doubloons ($DBL)**: ERC20 token used as in-game currency
+- **Emission**: Created when players sell fish to the market
+- **Burning**: Destroyed through various game actions:
   - Fuel purchases
   - Bait purchases
-  - Fishing rod repairs
+  - Equipment repairs
   - Ship upgrades
   - Map travel fees
 
-## Leaderboard
+## World Structure
 
-Players compete to climb a global seasonal leaderboard. Their position on the leaderboard is determined by their total currency earned. At the end of a season, top-ranked players will earn various valuable in-game items as rewards.
+### Maps & Regions
+
+The game world consists of multiple maps, each divided into hexagonal regions:
+
+#### Map Properties
+- **Boundaries**: Min/max coordinates defining map size
+- **Travel Cost**: Doubloon fee to travel between maps
+- **Level Requirement**: Minimum player level to access
+- **Port Regions**: Safe zones for spawning, trading, and map travel
+
+#### Region System
+- Each hex coordinate can be assigned a region ID
+- Region types determine available actions (currently only ports)
+- Regions store fish probability distributions for that area
+- Region data is packed efficiently using coordinate hashing
+
+#### Map Travel
+- Players must be at a port to travel between maps
+- Travel requires payment in Doubloons
+- Players must meet level requirements for destination map
+- Travel destination must be a port region
+
+### Shards
+
+To optimize multiplayer performance, players are distributed across shards:
+
+#### Shard Mechanics
+- Players are automatically assigned to shards on registration
+- Assignment uses load balancing (least populated shard)
+- Each shard has a maximum player capacity
+- Movement events include shard ID for client filtering
+
+#### Client Optimization
+- Clients only subscribe to events from their shard
+- Reduces network traffic and improves performance
+- Admin can manually reassign players for balancing
 
 ## Technical Implementation
 
-### Fish Probability Distribution
-
-The probability distribution of fish is stored onchain using the alias method. This distribution is grouped by areas within a map and bait type into alias tables. Each alias table contains a probabilities array and an aliases array. When sampling a fish from this distribution, the x and y coordinates of the player is taken along with the bait id used to fetch the appropriate alias table. This alias table is then finally used to sample the fish with O(1) complexity.
-
 ### Smart Contracts
 
-There are mainly two smart contracts which power Rising Tides.
+The game consists of three main smart contracts:
 
-1. **RisingTidesWorld**
-  - Controls player movement and coordinates
-  - Store data for all the different maps
-  - Store alias tables for fish catching probability distributions
-  - Contains functions and logic for catching and sampling fish, integrating with an external VRF provider
+#### 1. RisingTidesWorld
+Manages the game world and player movement:
+- **Player Management**: Registration, position tracking, level progression
+- **Movement System**: Hex-based movement with fuel consumption
+- **Map Management**: Multiple maps with boundaries and travel costs
+- **Region System**: Efficient coordinate-to-region mapping
+- **Shard System**: Player distribution for multiplayer optimization
+- **Access Control**: Admin and GameMaster roles
 
-2. **RisingTidesInventory**
-  - Inherits from ERC1155
-  - Stores information about the player's inventory, i.e. Fuel, bait, ships, fishing rods, fish.
-  - Also contains fish market data and functions for selling fish
+Key Functions:
+- `registerPlayer()`: Join game with starting position
+- `move()`: Move to new hex coordinate
+- `travelToMap()`: Travel between maps at ports
+- `setHexRegion()`: Assign regions to coordinates
 
-If required due to size constraints, we can split the fish catching and selling mechanics into a separate contract.
+#### 2. RisingTidesFish
+Handles fishing mechanics and fish trading:
+- **Fish Storage**: Tracks caught fish with attributes
+- **Probability Tables**: Alias method implementation for O(1) sampling
+- **Market System**: Dynamic pricing with bonding curves
+- **VRF Integration**: Fair random number generation
+- **Trading Functions**: Sell fish with freshness calculation
 
-### Region Metadata Storage
+Key Functions:
+- `fish()`: Catch fish using bait and VRF
+- `sellFish()`: Trade fish for Doubloons
+- `setFishingTable()`: Configure probability distributions
 
-Information about a region is stored using packed coordinates:
+#### 3. RisingTidesInventory
+Manages player items as ERC1155 tokens:
+- **Token Management**: Ships, rods, fuel, bait as NFTs/tokens
+- **Equipment System**: Track equipped items per player
+- **Durability Tracking**: Monitor equipment condition
+- **Starter Kits**: Initial equipment for new players
+- **Fuel System**: Purchase and consumption mechanics
 
+Key Functions:
+- `equipShip()`: Select active ship
+- `purchaseFuel()`: Buy fuel with Doubloons
+- `consumeFuel()`: Deduct fuel for movement
+- `repairEquipment()`: Fix broken items
+
+### Data Structures
+
+#### Coordinate Packing
 ```solidity
-contract HexRegionLookup {
-    mapping(uint256 => uint256) public hexToRegion;
-
-    function packCoordinates(int32 q, int32 r) public pure returns (uint256) {
-        return (uint256(uint32(q)) << 32) | uint256(uint32(r));
-    }
-
-    function setHexRegion(int32 q, int32 r, uint256 regionId) external {
-        hexToRegion[packCoordinates(q, r)] = regionId;
-    }
-
-    function getRegionId(int32 q, int32 r) external view returns (uint256) {
-        return hexToRegion[packCoordinates(q, r)];
-    }
+// Pack two 32-bit coordinates into one 256-bit value
+function packCoordinates(int32 q, int32 r) returns (uint256) {
+    return (uint256(uint32(q)) << 32) | uint256(uint32(r));
 }
 ```
 
-This regionId can then be used to lookup further information such as fish probability alias tables, map safe regions, etc.
+#### Region Storage
+```solidity
+// Map + packed coordinates -> region ID
+mapping(uint256 => mapping(uint256 => uint256)) hexToRegion;
+
+// Region ID format: [type (8 bits)][custom data (248 bits)]
+// Type 1 = Port Region
+```
+
+#### Alias Method for Fish Sampling
+```solidity
+struct AliasTable {
+    uint256[] probabilities;  // Fixed-point (1e18 = 1.0)
+    uint256[] aliases;       // Fallback indices
+    uint256[] fishIds;       // Maps index to fish species
+    uint256 n;              // Table size
+}
+
+// Composite key: keccak256(baitId, regionId) -> AliasTable
+mapping(bytes32 => AliasTable) fishingTables;
+```
+
+#### Player Data
+```solidity
+struct Player {
+    int32 q, r;              // Hex coordinates
+    uint256 mapId;           // Current map
+    uint256 shardId;         // Assigned shard
+    uint256 level;           // Player level
+    uint256 lastMoveTimestamp;
+    bool isRegistered;
+}
+```
+
+## Leaderboard
+
+Players compete on a global seasonal leaderboard:
+- **Ranking Metric**: Total Doubloons earned (not current balance)
+- **Season Duration**: Fixed time periods with resets
+- **Rewards**: Top players receive valuable in-game items
+- **Competition**: Encourages efficient fishing and trading strategies
+
+## Future Enhancements
+
+Potential features for future development:
+- Additional region types (deep water, reefs, etc.)
+- Weather system affecting fishing probabilities
+- Player-to-player trading
+- Guilds and cooperative gameplay
+- Special events and tournaments
+- More equipment types and upgrades
+- Achievement system
+- Mobile client support
