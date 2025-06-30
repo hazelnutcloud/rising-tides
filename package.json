@@ -1,0 +1,8 @@
+{
+  "name": "risingtides",
+  "private": "true",
+  "workspaces": [
+    "packages/*",
+    "app"
+  ]
+}
