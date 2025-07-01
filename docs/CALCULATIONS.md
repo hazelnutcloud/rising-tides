@@ -7,7 +7,6 @@ This document details all the calculations used in the Rising Tides game mechani
 - [Movement & Navigation](#movement--navigation)
   - [Hex Distance Calculation](#hex-distance-calculation)
   - [Fuel Consumption](#fuel-consumption)
-  - [Movement Speed](#movement-speed)
   - [Movement Time](#movement-time)
 - [Fishing Mechanics](#fishing-mechanics)
   - [Durability Loss](#durability-loss)
@@ -71,29 +70,9 @@ fuelCost = (enginePower × distance × fuelEfficiencyModifier) / PRECISION
 
 **Example:**
 
-- Engine Power: 100
+- Engine Power: 100e18 (100 engine power with 1e18 precision)
 - Distance: 5 hexes
-- Fuel Cost = (100 × 5 × 1e18) / 1e18 = 500 fuel units
-
-### Movement Speed
-
-Calculates movement speed based on engine power and cargo weight.
-
-```solidity
-function calculateSpeed(uint256 enginePower, uint256 totalWeight) returns (uint256)
-```
-
-**Formula:**
-
-```
-speed = (enginePower × PRECISION) / totalWeight
-```
-
-**Example:**
-
-- Engine Power: 200
-- Total Weight: 1000
-- Speed = (200 × 1e18) / 1000 = 2e17 (0.2 units per second with precision)
+- Fuel Cost = (100e18 × 5 × 1e18) / 1e18 = 500e18 fuel units
 
 ### Movement Time
 
@@ -106,7 +85,7 @@ function calculateMovementTime(uint256 enginePower, uint256 totalWeight, uint256
 **Formula:**
 
 ```
-movementTime = (baseMovementTime × distance × totalWeight × PRECISION) / (enginePower × PRECISION)
+movementTime = (baseMovementTime × distance × totalWeight × PRECISION) / enginePower
 ```
 
 **Constants:**
@@ -118,9 +97,9 @@ movementTime = (baseMovementTime × distance × totalWeight × PRECISION) / (eng
 
 - Base Time: 10 seconds
 - Distance: 3 hexes
-- Total Weight: 500
-- Engine Power: 100
-- Movement Time = (10 × 3 × 500 × 1e18) / (100 × 1e18) = 150 seconds
+- Total Weight: 500e18 (500 weight units with 1e18 precision)
+- Engine Power: 100e18 (100 engine power with 1e18 precision)
+- Movement Time = (10 × 3 × 500e18 × 1e18) / 100e18 = 150e18 (150 seconds with 1e18 precision)
 
 ## Fishing Mechanics
 
@@ -373,14 +352,14 @@ canAccess = playerLevel >= map.requiredLevel
 
 ## Constants Reference
 
-| Constant               | Value      | Description                            |
-| ---------------------- | ---------- | -------------------------------------- |
-| PRECISION              | 1e18       | Fixed-point precision for calculations |
-| MIN_ENGINE_POWER       | 10         | Minimum engine power required to move  |
-| MAX_MOVEMENT_QUEUE     | 10         | Maximum movement steps per transaction |
-| baseMovementTime       | 10 seconds | Base time to move one hex              |
-| maxPlayersPerShard     | 100        | Maximum players per shard              |
-| fuelEfficiencyModifier | 1e18       | Fuel consumption modifier              |
+| Constant               | Value      | Description                                                 |
+| ---------------------- | ---------- | ----------------------------------------------------------- |
+| PRECISION              | 1e18       | Fixed-point precision for calculations                      |
+| MIN_ENGINE_POWER       | 10e18      | Minimum engine power required to move (with 1e18 precision) |
+| MAX_MOVEMENT_QUEUE     | 10         | Maximum movement steps per transaction                      |
+| baseMovementTime       | 10 seconds | Base time to move one hex                                   |
+| maxPlayersPerShard     | 100        | Maximum players per shard                                   |
+| fuelEfficiencyModifier | 1e18       | Fuel consumption modifier                                   |
 
 ## Notes
 

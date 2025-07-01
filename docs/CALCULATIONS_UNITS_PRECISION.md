@@ -49,38 +49,23 @@ fuelCost = (enginePower × distance × fuelEfficiencyModifier) / PRECISION
 
 **Units:**
 
-- **enginePower**: Power units (uint256)
-  - Typical range: 10-1000
-  - Precision: Whole numbers
+- **enginePower**: Power units with 1e18 precision (uint256)
+  - Typical range: 10e18 to 1000e18
+  - Precision: 1e18 (fixed-point)
+  - Example: 100e18 = 100 engine power
 - **distance**: Hex tiles (uint256)
   - Precision: Whole numbers
 - **fuelEfficiencyModifier**: Fixed-point multiplier (uint256)
   - Default: 1e18 (represents 1.0)
   - Range: 0.1e18 to 10e18 (0.1x to 10x efficiency)
-- **fuelCost**: Fuel units consumed (uint256)
-  - Precision: Whole numbers
-  - Example: 500 = 500 fuel units
-
-### Movement Speed
-
-```solidity
-speed = (enginePower × PRECISION) / totalWeight
-```
-
-**Units:**
-
-- **enginePower**: Power units (uint256)
-  - Range: 10-1000
-- **totalWeight**: Weight units (uint256)
-  - Range: 1-100,000
-- **speed**: Fixed-point speed value (uint256)
-  - Unit: Power per weight with 18 decimal precision
-  - Example: 2e17 = 0.2 speed units
+- **fuelCost**: Fuel units consumed with 1e18 precision (uint256)
+  - Precision: 1e18 (fixed-point)
+  - Example: 500e18 = 500 fuel units
 
 ### Movement Time
 
 ```solidity
-movementTime = (baseMovementTime × distance × totalWeight × PRECISION) / (enginePower × PRECISION)
+movementTime = (baseMovementTime × distance × totalWeight) / enginePower
 ```
 
 **Units:**
@@ -89,11 +74,18 @@ movementTime = (baseMovementTime × distance × totalWeight × PRECISION) / (eng
   - Default: 10 seconds
   - Range: 1-60 seconds
 - **distance**: Hex tiles (uint256)
-- **totalWeight**: Weight units (uint256)
-- **enginePower**: Power units (uint256)
-- **movementTime**: Seconds (uint256)
-  - Precision: Whole seconds
-  - Example: 150 = 150 seconds (2.5 minutes)
+  - Precision: Whole numbers
+- **totalWeight**: Weight units with 1e18 precision (uint256)
+  - Range: 1e18 to 100000e18
+  - Precision: 1e18 (fixed-point)
+  - Example: 500e18 = 500 weight units
+- **enginePower**: Power units with 1e18 precision (uint256)
+  - Range: 10e18 to 1000e18
+  - Precision: 1e18 (fixed-point)
+  - Example: 100e18 = 100 engine power
+- **movementTime**: Seconds with 1e18 precision (uint256)
+  - Precision: 1e18 (fixed-point)
+  - Example: 150e18 = 150 seconds (2.5 minutes)
 
 ## Fishing Mechanics Units
 
@@ -223,23 +215,27 @@ freshness = max(0, 100 - (timeSinceCatch / decayRate))
 
 **Units:**
 
-- **shipWeightCapacity**: Weight units (uint256)
-  - Typical range: 100-100,000
-  - Precision: Same as fish weight system
-- **cargoWeight**: Total weight units (uint256)
+- **shipWeightCapacity**: Weight units with 1e18 precision (uint256)
+  - Typical range: 100e18 to 100000e18
+  - Precision: 1e18 (fixed-point)
+  - Example: 5000e18 = 5000 weight capacity
+- **cargoWeight**: Total weight units with 1e18 precision (uint256)
   - Sum of all fish weights
-  - Precision: Same as individual fish weights
+  - Precision: 1e18 (fixed-point)
+  - Example: 2500e18 = 2500 total cargo weight
 
 ### Fuel Capacity
 
 **Units:**
 
-- **fuelCapacity**: Fuel units (uint256)
-  - Typical range: 100-10,000
-  - Precision: Whole numbers
-- **currentFuel**: Fuel units (uint256)
+- **fuelCapacity**: Fuel units with 1e18 precision (uint256)
+  - Typical range: 100e18 to 10000e18
+  - Precision: 1e18 (fixed-point)
+  - Example: 1000e18 = 1000 fuel capacity
+- **currentFuel**: Fuel units with 1e18 precision (uint256)
   - Range: 0 to fuelCapacity
-  - Precision: Whole numbers
+  - Precision: 1e18 (fixed-point)
+  - Example: 750e18 = 750 fuel units
 
 ## Time Units
 
@@ -325,11 +321,11 @@ freshness = max(0, 100 - (timeSinceCatch / decayRate))
 ### Example 1: Fuel Cost for 5 Hex Movement
 
 ```
-Engine Power: 100 power units
+Engine Power: 100e18 power units (100 with 1e18 precision)
 Distance: 5 hex tiles
 Fuel Efficiency: 1.0 (1e18)
 
-Fuel Cost = (100 × 5 × 1e18) / 1e18 = 500 fuel units
+Fuel Cost = (100e18 × 5 × 1e18) / 1e18 = 500e18 fuel units
 ```
 
 ### Example 2: Fish Sale with Freshness
@@ -345,7 +341,20 @@ Final Price = (50e18 × 350 × 75) / (100 × 100)
            = 131.25 DBL
 ```
 
-### Example 3: Durability Loss Calculation
+### Example 3: Movement Time Calculation
+
+```
+Engine Power: 150e18 (150 engine power with 1e18 precision)
+Total Weight: 3000e18 (3000 weight units with 1e18 precision)
+Distance: 4 hex tiles
+Base Movement Time: 10 seconds
+
+Movement Time = (10 × 4 × 3000e18 × 1e18) / 150e18
+              = 120000e36 / 150e18
+              = 800e18 (800 seconds with 1e18 precision)
+```
+
+### Example 4: Durability Loss Calculation
 
 ```
 Fish Weight: 8.0 weight units (800 with 2 decimal precision)

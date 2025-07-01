@@ -56,7 +56,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
     uint256 public constant REGION_TYPE_PORT = 1;
     uint256 public constant PRECISION = 1e18;
-    uint256 public constant MIN_ENGINE_POWER = 10;
+    uint256 public constant MIN_ENGINE_POWER = 10e18; // 10 engine power with 1e18 precision
     uint256 public constant MAX_MOVEMENT_QUEUE = 10;
 
     event PlayerRegistered(
@@ -72,7 +72,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         uint256 indexed mapId,
         int32 q,
         int32 r,
-        uint256 speed
+        uint256 duration
     );
     event PlayerTraveledMap(
         address indexed player,
@@ -260,13 +260,20 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
         (uint256 enginePower, uint256 weightCapacity, ) = inventory
             .getShipStats(shipId);
+        // Engine power is expected to be in 1e18 precision
         if (enginePower < MIN_ENGINE_POWER) revert ShipEngineTooWeak();
 
         // Get actual cargo weight from Fish contract
+        // Both cargoWeight and weightCapacity should be in 1e18 precision
         uint256 cargoWeight = inventory.getPlayerCargoWeight(msg.sender);
         if (cargoWeight > weightCapacity) revert CargoExceedsCapacity();
 
-        uint256 speed = calculateSpeed(enginePower, cargoWeight);
+        // Calculate time per segment
+        uint256 segmentTime = calculateMovementTime(
+            enginePower,
+            cargoWeight,
+            1 // Time for one hex
+        );
 
         // Build path and validate positions
         for (uint256 i = 0; i < directions.length; i++) {
@@ -287,7 +294,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
                 player.mapId,
                 nextQ,
                 nextR,
-                speed
+                segmentTime
             );
 
             currentQ = nextQ;
@@ -303,13 +310,6 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         if (playerFuel < totalFuelCost) revert InsufficientFuel();
 
         inventory.consumeFuel(msg.sender, totalFuelCost);
-
-        // Calculate time per segment
-        uint256 segmentTime = calculateMovementTime(
-            enginePower,
-            cargoWeight,
-            1 // Time for one hex
-        );
 
         player.segmentDuration = segmentTime;
         player.moveStartTime = block.timestamp;
@@ -334,7 +334,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
             player.mapId,
             currentQ,
             currentR,
-            0 // Speed 0 indicates stop
+            0 // duration 0 indicates stop
         );
     }
 
@@ -430,6 +430,10 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         uint256 enginePower,
         uint256 distance
     ) public view returns (uint256) {
+        // enginePower is in 1e18 precision
+        // distance is in whole hex units
+        // fuelEfficiencyModifier is in 1e18 precision
+        // Result: fuel units in 1e18 precision
         return
             (enginePower * distance * gameConfig.fuelEfficiencyModifier) /
             PRECISION;
@@ -465,19 +469,13 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         uint256 totalWeight,
         uint256 distance
     ) public view returns (uint256) {
-        // Movement time inversely proportional to engine power and directly proportional to weight
-        // time = baseTime * distance * (totalWeight / enginePower)
+        // enginePower is in 1e18 precision
+        // totalWeight is in 1e18 precision
+        // distance is in whole hex units
+        // Result: time in seconds with 1e18 precision
         return
             (gameConfig.baseMovementTime * distance * totalWeight * PRECISION) /
-            (enginePower * PRECISION);
-    }
-
-    function calculateSpeed(
-        uint256 enginePower,
-        uint256 totalWeight
-    ) public pure returns (uint256) {
-        // Speed = enginePower / totalWeight (in units per second with precision)
-        return (enginePower * PRECISION) / totalWeight;
+            enginePower;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -499,19 +497,22 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
         uint256 elapsedTime = block.timestamp - player.moveStartTime;
         uint256 totalSegments = player.path.length - 1;
+        // segmentDuration is in 1e18 precision, so totalDuration will be too
         uint256 totalDuration = player.segmentDuration * totalSegments;
 
-        if (elapsedTime >= totalDuration) {
+        // Convert elapsedTime to 1e18 precision for comparison
+        if (elapsedTime * PRECISION >= totalDuration) {
             // Movement complete, return last position
             uint256 lastIndex = player.path.length - 1;
             return (player.path[lastIndex].q, player.path[lastIndex].r);
         }
 
         // Calculate which segment we're on
-        uint256 currentSegment = elapsedTime / player.segmentDuration;
+        // Convert elapsedTime to 1e18 precision for division
+        uint256 currentSegment = (elapsedTime * PRECISION) / player.segmentDuration;
 
         // Check if we're in the middle of a segment
-        uint256 segmentProgress = elapsedTime % player.segmentDuration;
+        uint256 segmentProgress = (elapsedTime * PRECISION) % player.segmentDuration;
 
         // If we have any progress into the current segment, round up to the next position
         if (segmentProgress > 0 && currentSegment < totalSegments) {
@@ -531,10 +532,12 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         if (player.path.length <= 1) return false;
 
         uint256 elapsedTime = block.timestamp - player.moveStartTime;
+        // segmentDuration is in 1e18 precision
         uint256 totalDuration = player.segmentDuration *
             (player.path.length - 1);
 
-        return elapsedTime < totalDuration;
+        // Convert elapsedTime to 1e18 precision for comparison
+        return elapsedTime * PRECISION < totalDuration;
     }
 
     /*//////////////////////////////////////////////////////////////
