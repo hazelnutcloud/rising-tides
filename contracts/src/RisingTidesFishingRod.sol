@@ -40,6 +40,7 @@ contract RisingTidesFishingRod is
     bytes32 private constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
 
     uint256 private constant PERCENT = 100;
+    uint256 private constant BASIS_POINTS = 10000;
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -49,7 +50,7 @@ contract RisingTidesFishingRod is
     mapping(uint256 => RodInstance) private _rodInstances;
 
     mapping(uint256 => Bonus) private _enchantmentBonuses;
-    mapping(uint256 => string) public _enchantmentNames;
+    mapping(uint256 => string) private _enchantmentNames;
     uint256 private _nextEnchantmentId;
 
     mapping(uint256 => Bonus) private _titleBonuses;
@@ -58,6 +59,9 @@ contract RisingTidesFishingRod is
 
     uint256 private _nextTokenId;
     string private _baseTokenURI;
+    
+    uint256 public baseEnchantmentChance; // Basis points (10000 = 100%)
+    mapping(uint256 => uint256) public enchantmentWeights; // enchantmentId => weight
 
     address public risingTidesPort;
     address public risingTidesFishing;
@@ -73,6 +77,13 @@ contract RisingTidesFishingRod is
     );
 
     event EnchantmentAdded(uint256 indexed enchantmentId, string name);
+    
+    event EnchantmentWeightUpdated(
+        uint256 indexed enchantmentId,
+        uint256 weight
+    );
+    
+    event BaseEnchantmentChanceUpdated(uint256 chance);
 
     event TitleSystemUpdated(uint256 titleCount);
 
@@ -85,6 +96,7 @@ contract RisingTidesFishingRod is
     error RodTypeAlreadyExists();
     error InvalidEnchantmentId();
     error InvalidTitleIndex();
+    error InvalidEnchantmentChance();
 
     /*//////////////////////////////////////////////////////////////
                                 MODIFIERS
@@ -391,11 +403,52 @@ contract RisingTidesFishingRod is
     }
 
     function _generateEnchantments(
-        uint256 /* seed */
-    ) private pure returns (uint256 mask) {
-        // This will be called by the Port contract which should have enchantment chance configured
-        // For now, return 0 (no enchantments) - Port will need to implement enchantment logic
-        return 0;
+        uint256 seed
+    ) private view returns (uint256 mask) {
+        // Check if rod gets any enchantments based on base chance
+        if (baseEnchantmentChance == 0 || (seed % BASIS_POINTS) >= baseEnchantmentChance) {
+            return 0;
+        }
+        
+        // Calculate total weight of all enchantments
+        uint256 totalWeight = 0;
+        for (uint256 i = 0; i < _nextEnchantmentId; i++) {
+            totalWeight += enchantmentWeights[i];
+        }
+        
+        if (totalWeight == 0) {
+            return 0;
+        }
+        
+        // Select an enchantment based on weighted random
+        uint256 randomValue = (seed >> 32) % totalWeight;
+        uint256 cumulativeWeight = 0;
+        
+        for (uint256 i = 0; i < _nextEnchantmentId; i++) {
+            cumulativeWeight += enchantmentWeights[i];
+            if (randomValue < cumulativeWeight) {
+                // Set the bit for this enchantment
+                mask = uint256(1) << i;
+                break;
+            }
+        }
+        
+        // Small chance for a second enchantment (1% if first enchantment succeeded)
+        if ((seed >> 64) % 100 < 1) {
+            uint256 secondRandom = (seed >> 96) % totalWeight;
+            cumulativeWeight = 0;
+            
+            for (uint256 i = 0; i < _nextEnchantmentId; i++) {
+                cumulativeWeight += enchantmentWeights[i];
+                if (secondRandom < cumulativeWeight && (mask & (uint256(1) << i)) == 0) {
+                    // Add second enchantment if it's different from the first
+                    mask |= uint256(1) << i;
+                    break;
+                }
+            }
+        }
+        
+        return mask;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -446,13 +499,16 @@ contract RisingTidesFishingRod is
 
     function addEnchantment(
         string memory name,
-        Bonus memory bonus
+        Bonus memory bonus,
+        uint256 weight
     ) external onlyRole(GAME_MASTER_ROLE) returns (uint256 enchantmentId) {
         enchantmentId = _nextEnchantmentId++;
         _enchantmentNames[enchantmentId] = name;
         _enchantmentBonuses[enchantmentId] = bonus;
-
+        enchantmentWeights[enchantmentId] = weight;
+        
         emit EnchantmentAdded(enchantmentId, name);
+        emit EnchantmentWeightUpdated(enchantmentId, weight);
     }
 
     function updateEnchantment(
@@ -461,6 +517,23 @@ contract RisingTidesFishingRod is
     ) external onlyRole(GAME_MASTER_ROLE) {
         if (enchantmentId >= _nextEnchantmentId) revert InvalidEnchantmentId();
         _enchantmentBonuses[enchantmentId] = bonus;
+    }
+
+    function setEnchantmentWeight(
+        uint256 enchantmentId,
+        uint256 weight
+    ) external onlyRole(GAME_MASTER_ROLE) {
+        if (enchantmentId >= _nextEnchantmentId) revert InvalidEnchantmentId();
+        enchantmentWeights[enchantmentId] = weight;
+        emit EnchantmentWeightUpdated(enchantmentId, weight);
+    }
+
+    function setBaseEnchantmentChance(
+        uint256 chance
+    ) external onlyRole(GAME_MASTER_ROLE) {
+        if (chance > BASIS_POINTS) revert InvalidEnchantmentChance();
+        baseEnchantmentChance = chance;
+        emit BaseEnchantmentChanceUpdated(chance);
     }
 
     function initializeTitles() external onlyRole(GAME_MASTER_ROLE) {
