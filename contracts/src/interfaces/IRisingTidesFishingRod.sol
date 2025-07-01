@@ -40,6 +40,7 @@ interface IRisingTidesFishingRod {
         uint256 maxWeightBonus;
         uint256 strengthBonus;
         uint256 freshnessModifier;
+        uint256 critMultiplierBonus;  // Additional rolls on crit (0 = normal, 1 = one extra roll, etc.)
         bool hasPerfectCatch;
         bool hasTrophyQuality;
         bool hasDoubleCatch;
@@ -112,6 +113,7 @@ interface IRisingTidesFishingRod {
             uint256 effectiveMaxFishWeight,
             uint256 effectiveCritRate,
             uint256 effectiveEfficiency,
+            uint256 effectiveCritMultiplierBonus,
             uint256 compatibleBaitMask,
             bool isUsable
         );

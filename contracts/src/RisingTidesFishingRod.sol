@@ -204,6 +204,7 @@ contract RisingTidesFishingRod is
             uint256 effectiveMaxFishWeight,
             uint256 effectiveCritRate,
             uint256 effectiveEfficiency,
+            uint256 effectiveCritMultiplierBonus,
             uint256 compatibleBaitMask,
             bool isUsable
         )
@@ -222,6 +223,7 @@ contract RisingTidesFishingRod is
             ((rod.maxFishWeight * totalBonus.maxWeightBonus) / PERCENT);
         effectiveCritRate = rod.critRate + totalBonus.critRateBonus;
         effectiveEfficiency = rod.efficiency + totalBonus.efficiencyBonus;
+        effectiveCritMultiplierBonus = totalBonus.critMultiplierBonus;
 
         compatibleBaitMask = rodType.compatibleBaitMask;
     }
@@ -362,6 +364,7 @@ contract RisingTidesFishingRod is
                     totalBonus.critRateBonus += enchBonus.critRateBonus;
                     totalBonus.maxWeightBonus += enchBonus.maxWeightBonus;
                     totalBonus.strengthBonus += enchBonus.strengthBonus;
+                    totalBonus.critMultiplierBonus += enchBonus.critMultiplierBonus;
 
                     // For modifiers, take the maximum
                     if (
