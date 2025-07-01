@@ -23,6 +23,6 @@
     - *Bonus: +10% max fish weight range*
 18. **Australian** (2500 catches)
 19. **Poseidon's Own** (5000 catches)
-    - *Bonus: 5% chance for "Perfect Catch" (no durability loss)*
+    - *Bonus: 10% chance for "Perfect Catch" (no durability loss)*
 20. **Absolutely Seaworthy** (8500 catches)
     - *Bonus: Fish have 10% chance to be "Trophy Quality" (1.5x value)*

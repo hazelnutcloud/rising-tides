@@ -259,6 +259,22 @@ Total weight of all fish in inventory.
 cargoWeight = Σ(fishWeight[i]) for all fish in inventory
 ```
 
+### Total Weight Calculation
+
+Total weight used for movement calculations, including ship's empty weight.
+
+**Formula:**
+
+```
+totalWeight = ship.emptyWeight + cargoWeight
+```
+
+**Example:**
+
+- Ship Empty Weight: 30e18 (30 kilos)
+- Cargo Weight: 8e18 (8 kilos of fish)
+- Total Weight = 30e18 + 8e18 = 38e18
+
 ## Progression Systems
 
 ### Fishing Rod Titles

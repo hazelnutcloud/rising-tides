@@ -7,7 +7,7 @@ graph TD
     %% Contract nodes
     World[RisingTidesWorld<br/>- Player positions<br/>- Movement<br/>- Maps & regions<br/>- Shards]
     Fishing[RisingTidesFishing<br/>- Probability tables<br/>- Fishing logic<br/>- VRF integration]
-    Inventory[RisingTidesInventory<br/>- Item storage<br/>- Equipment tracking<br/>- Capacity management]
+    Inventory[RisingTidesInventory<br/>- Ship & resource storage<br/>- Rod NFT custody<br/>- Weight management]
     Port[RisingTidesPort<br/>- Market interface<br/>- Shop functions<br/>- Crafting station]
     Rod[RisingTidesFishingRod<br/>- ERC721 NFTs<br/>- Rod attributes<br/>- Enchantments]
 
@@ -28,7 +28,7 @@ graph TD
     Port --> Fishing
 
     Inventory --> World
-    Inventory --> Rod
+    Inventory <--> Rod
 
     World --> DBL
 
@@ -74,12 +74,14 @@ graph TD
 **Dependencies:**
 
 - `RisingTidesWorld` - Validate player registration
-- `RisingTidesFishingRod` - Store equipped rod references
+- `RisingTidesFishingRod` - Custody of equipped rod NFTs (bidirectional)
+- `IERC721` - Interface for rod NFT transfers
 
 **Used by:**
 
-- `RisingTidesFishing` - Manage bait and fish
+- `RisingTidesFishing` - Consume bait, add caught fish
 - `RisingTidesPort` - All inventory modifications
+- `RisingTidesWorld` - Check fuel and ship stats for movement
 
 ### RisingTidesPort
 

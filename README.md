@@ -61,7 +61,10 @@ The game uses a weight-based inventory system:
 #### Ship Management
 
 - Players can own multiple ships but only equip one at a time
+- Ship ownership is tracked using a bitfield (max 256 ship types, one of each type per player)
+- Ships can only be equipped while at a port region
 - Ship stats affect movement speed, fuel consumption, and cargo capacity
+- Total weight for movement = ship empty weight + cargo weight
 - **Supported Regions**: Each ship has a list of region types it can navigate
   - Basic ships may only access ports and open water
   - Advanced ships can navigate deep water and storm regions
@@ -102,7 +105,7 @@ Enchantments are configurable by the GameMaster and can provide various bonuses:
   - Level 9 (300 catches): +10% bait efficiency
   - Level 13 (675 catches): +5% crit rate
   - Level 16 (1500 catches): +10% max fish weight
-  - Level 18 (5000 catches): 5% chance for "Perfect Catch" (no durability loss)
+  - Level 18 (5000 catches): 10% chance for "Perfect Catch" (no durability loss)
   - Level 19 (8500 catches): 10% chance for "Trophy Quality" fish (1.5x value)
 
 #### Bait System
@@ -267,22 +270,25 @@ Key Functions:
 
 Manages player inventory state:
 
-- **Inventory Storage**: Track player's ships, fuel, bait, and fish
-- **Item Attributes**: Store stats for different item types
-- **Fish Management**: Track caught fish with weight and timestamps
-- **Equipment Tracking**: Monitor currently equipped items
-- **Capacity Management**: Enforce weight limits and inventory constraints
-- **Cargo Weight**: Calculate total weight of player's fish inventory
-- **Material Storage**: Crafting materials from harvested fish
+- **Ship Management**: Bitfield-based ownership tracking (max 256 ship types)
+- **Resource Storage**: Track fuel, bait, and crafting materials
+- **Fish Management**: Store caught fish with weight, timestamps, and modifiers
+- **Equipment Tracking**: Custody system for equipped fishing rod NFTs
+- **Capacity Management**: Enforce weight limits based on ship capacity
+- **Starter Kit**: Configurable initial items for new players
 
 Key Functions:
 
-- `addItem()`: Add items to player inventory
-- `removeItem()`: Remove items from inventory
-- `equipShip()`: Set active ship for player
-- `getInventory()`: Query player's full inventory
-- `transferItem()`: Move items between players
-- `getPlayerCargoWeight()`: Get total weight of player's fish
+- `equipShip()`: Equip owned ship (only at ports)
+- `grantShip()`: Grant ship ownership to player
+- `addFuel()/consumeFuel()`: Manage fuel resources
+- `addBait()/consumeBait()`: Manage bait inventory
+- `addMaterials()/consumeMaterials()`: Manage crafting materials
+- `addFish()`: Add caught fish with trophy/freshness modifiers
+- `removeFish()`: Remove fish using efficient array swap
+- `equipRod()/unequipRod()`: NFT custody for fishing rods
+- `mintStarterKit()`: Grant initial items to new players
+- `getPlayerCargoWeight()`: Calculate total fish weight
 
 #### 4. RisingTidesPort
 
@@ -403,7 +409,21 @@ struct Ship {
     uint256 enginePower;
     uint256 weightCapacity;
     uint256 fuelCapacity;
-    uint256[] supportedRegions;  // Array of region types this ship can access
+    uint256 emptyWeight;
+    uint256 supportedRegionTypes;  // Bitfield for region type support
+    bool exists;
+}
+```
+
+#### Fish Data
+
+```solidity
+struct Fish {
+    uint256 fishId;              // Species ID
+    uint256 weight;              // Individual fish weight
+    uint256 caughtAt;            // Timestamp for freshness
+    bool isTrophyQuality;        // 1.5x value when selling
+    uint256 freshnessModifier;   // Affects freshness decay rate (100 = normal)
 }
 ```
 
