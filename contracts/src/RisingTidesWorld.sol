@@ -260,6 +260,9 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
         (uint256 enginePower, uint256 weightCapacity, ) = inventory
             .getShipStats(shipId);
+        
+        // Get ship's supported region types
+        IRisingTidesInventory.Ship memory shipInfo = inventory.getShipInfo(shipId);
         // Engine power is expected to be in 1e18 precision
         if (enginePower < MIN_ENGINE_POWER) revert ShipEngineTooWeak();
 
@@ -283,6 +286,12 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
             if (!isValidPosition(player.mapId, nextQ, nextR)) {
                 revert InvalidPosition();
+            }
+
+            // Check if ship can navigate to this region type
+            uint256 regionType = getRegionType(player.mapId, nextQ, nextR);
+            if (regionType != 0 && (shipInfo.supportedRegionTypes & (uint256(1) << regionType)) == 0) {
+                revert ShipCannotNavigateRegion();
             }
 
             // Add to path
@@ -363,6 +372,16 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         }
         if (player.level < maps[newMapId].requiredLevel) {
             revert InsufficientLevel();
+        }
+
+        // Check if ship can navigate to the destination port
+        uint256 shipId = inventory.getEquippedShip(msg.sender);
+        if (shipId == 0) revert NoShipEquipped();
+        
+        IRisingTidesInventory.Ship memory shipInfo = inventory.getShipInfo(shipId);
+        uint256 destinationRegionType = getRegionType(newMapId, spawnQ, spawnR);
+        if (destinationRegionType != 0 && (shipInfo.supportedRegionTypes & (uint256(1) << destinationRegionType)) == 0) {
+            revert ShipCannotNavigateRegion();
         }
 
         uint256 travelCost = maps[newMapId].travelCost;

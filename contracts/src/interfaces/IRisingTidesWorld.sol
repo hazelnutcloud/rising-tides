@@ -27,6 +27,7 @@ interface IRisingTidesWorld {
     error MustHaveAtLeastOneShard();
     error EnginePowerTooLow();
     error MustMoveToDifferentPosition();
+    error ShipCannotNavigateRegion();
     
     enum Direction {
         EAST,        // +q, 0r
