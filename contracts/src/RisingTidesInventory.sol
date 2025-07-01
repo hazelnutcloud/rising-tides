@@ -1,6 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+/*
+                                                                               ,----,
+                                               ,--.                          ,/   .`|
+,-.----.     ,---,  .--.--.      ,---,       ,--.'|  ,----..               ,`   .'  :   ,---,    ,---,        ,---,.  .--.--.
+\    /  \ ,`--.' | /  /    '. ,`--.' |   ,--,:  : | /   /   \            ;    ;     /,`--.' |  .'  .' `\    ,'  .' | /  /    '.
+;   :    \|   :  :|  :  /`. / |   :  :,`--.'`|  ' :|   :     :         .'___,/    ,' |   :  :,---.'     \ ,---.'   ||  :  /`. /
+|   | .\ ::   |  ';  |  |--`  :   |  '|   :  :  | |.   |  ;. /         |    :     |  :   |  '|   |  .`\  ||   |   .';  |  |--`
+.   : |: ||   :  ||  :  ;_    |   :  |:   |   \ | :.   ; /--`          ;    |.';  ;  |   :  |:   : |  '  |:   :  |-,|  :  ;_
+|   |  \ :'   '  ; \  \    `. '   '  ;|   : '  '; |;   | ;  __         `----'  |  |  '   '  ;|   ' '  ;  ::   |  ;/| \  \    `.
+|   : .  /|   |  |  `----.   \|   |  |'   ' ;.    ;|   : |.' .'            '   :  ;  |   |  |'   | ;  .  ||   :   .'  `----.   \
+;   | |  \'   :  ;  __ \  \  |'   :  ;|   | | \   |.   | '_.' :            |   |  '  '   :  ;|   | :  |  '|   |  |-,  __ \  \  |
+|   | ;\  \   |  ' /  /`--'  /|   |  ''   : |  ; .''   ; : \  |            '   :  |  |   |  ''   : | /  ; '   :  ;/| /  /`--'  /
+:   ' | \.'   :  |'--'.     / '   :  ||   | '`--'  '   | '/  .'            ;   |.'   '   :  ||   | '` ,/  |   |    \'--'.     /
+:   : :-' ;   |.'   `--'---'  ;   |.' '   : |      |   :    /              '---'     ;   |.' ;   :  .'    |   :   .'  `--'---'
+|   |.'   '---'               '---'   ;   |.'       \   \ .'                         '---'   |   ,.'      |   | ,'
+`---'                                 '---'          `---`                                   '---'        `----'
+
+                                                $DBL - Doubloons of the Seven Seas
+*/
+
 import {IRisingTidesInventory} from "./interfaces/IRisingTidesInventory.sol";
 import {IRisingTidesWorld} from "./interfaces/IRisingTidesWorld.sol";
 import {IRisingTidesFishingRod} from "./interfaces/IRisingTidesFishingRod.sol";
@@ -8,7 +28,11 @@ import {IERC721} from "../lib/openzeppelin-contracts/contracts/token/ERC721/IERC
 import {AccessControl} from "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 import {Pausable} from "../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 
-contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable {
+contract RisingTidesInventory is
+    IRisingTidesInventory,
+    AccessControl,
+    Pausable
+{
     /*//////////////////////////////////////////////////////////////
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
@@ -79,13 +103,17 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
                             SHIP FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function equipShip(address player, uint256 shipId) external onlyPort whenNotPaused {
+    function equipShip(
+        address player,
+        uint256 shipId
+    ) external onlyPort whenNotPaused {
         // Verify player is at port (Port contract should check this)
         if (!shipTypes[shipId].exists) revert InvalidShipId();
-        if ((shipOwnership[player] & (uint256(1) << shipId)) == 0) revert ShipNotOwned();
+        if ((shipOwnership[player] & (uint256(1) << shipId)) == 0)
+            revert ShipNotOwned();
 
         uint256 previousShipId = inventories[player].equippedShipId;
-        
+
         // Check if changing ship would exceed cargo capacity
         if (shipId != previousShipId) {
             uint256 cargoWeight = getPlayerCargoWeight(player);
@@ -98,11 +126,15 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
         emit ShipEquipped(player, shipId, previousShipId);
     }
 
-    function getEquippedShip(address player) external view returns (uint256 shipId) {
+    function getEquippedShip(
+        address player
+    ) external view returns (uint256 shipId) {
         return inventories[player].equippedShipId;
     }
 
-    function getShipStats(uint256 shipId)
+    function getShipStats(
+        uint256 shipId
+    )
         external
         view
         returns (
@@ -115,11 +147,17 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
         return (ship.enginePower, ship.weightCapacity, ship.fuelCapacity);
     }
 
-    function hasShip(address player, uint256 shipId) external view returns (bool) {
+    function hasShip(
+        address player,
+        uint256 shipId
+    ) external view returns (bool) {
         return (shipOwnership[player] & (uint256(1) << shipId)) != 0;
     }
 
-    function grantShip(address player, uint256 shipId) external onlyPort whenNotPaused {
+    function grantShip(
+        address player,
+        uint256 shipId
+    ) external onlyPort whenNotPaused {
         if (!shipTypes[shipId].exists) revert InvalidShipId();
         shipOwnership[player] |= (uint256(1) << shipId);
         emit ShipGranted(player, shipId);
@@ -143,45 +181,95 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
         return inventories[player].fuel;
     }
 
-    function addFuel(address player, uint256 amount) external onlyPort whenNotPaused {
+    function addFuel(
+        address player,
+        uint256 amount
+    ) external onlyPort whenNotPaused {
         inventories[player].fuel += amount;
         emit FuelChanged(player, inventories[player].fuel, int256(amount));
     }
 
-    function consumeFuel(address player, uint256 amount) external onlyAuthorized whenNotPaused {
+    function consumeFuel(
+        address player,
+        uint256 amount
+    ) external onlyAuthorized whenNotPaused {
         if (inventories[player].fuel < amount) revert InsufficientFuel();
         inventories[player].fuel -= amount;
         emit FuelChanged(player, inventories[player].fuel, -int256(amount));
     }
 
-    function getBait(address player, uint256 baitId) external view returns (uint256) {
+    function getBait(
+        address player,
+        uint256 baitId
+    ) external view returns (uint256) {
         return inventories[player].bait[baitId];
     }
 
-    function addBait(address player, uint256 baitId, uint256 amount) external onlyPort whenNotPaused {
+    function addBait(
+        address player,
+        uint256 baitId,
+        uint256 amount
+    ) external onlyPort whenNotPaused {
         inventories[player].bait[baitId] += amount;
-        emit BaitChanged(player, baitId, inventories[player].bait[baitId], int256(amount));
+        emit BaitChanged(
+            player,
+            baitId,
+            inventories[player].bait[baitId],
+            int256(amount)
+        );
     }
 
-    function consumeBait(address player, uint256 baitId, uint256 amount) external onlyFishing whenNotPaused {
-        if (inventories[player].bait[baitId] < amount) revert InsufficientBait();
+    function consumeBait(
+        address player,
+        uint256 baitId,
+        uint256 amount
+    ) external onlyFishing whenNotPaused {
+        if (inventories[player].bait[baitId] < amount)
+            revert InsufficientBait();
         inventories[player].bait[baitId] -= amount;
-        emit BaitChanged(player, baitId, inventories[player].bait[baitId], -int256(amount));
+        emit BaitChanged(
+            player,
+            baitId,
+            inventories[player].bait[baitId],
+            -int256(amount)
+        );
     }
 
-    function getMaterials(address player, uint256 materialId) external view returns (uint256) {
+    function getMaterials(
+        address player,
+        uint256 materialId
+    ) external view returns (uint256) {
         return inventories[player].materials[materialId];
     }
 
-    function addMaterials(address player, uint256 materialId, uint256 amount) external onlyPort whenNotPaused {
+    function addMaterials(
+        address player,
+        uint256 materialId,
+        uint256 amount
+    ) external onlyPort whenNotPaused {
         inventories[player].materials[materialId] += amount;
-        emit MaterialsChanged(player, materialId, inventories[player].materials[materialId], int256(amount));
+        emit MaterialsChanged(
+            player,
+            materialId,
+            inventories[player].materials[materialId],
+            int256(amount)
+        );
     }
 
-    function consumeMaterials(address player, uint256 materialId, uint256 amount) external onlyPort whenNotPaused {
-        if (inventories[player].materials[materialId] < amount) revert InsufficientMaterials();
+    function consumeMaterials(
+        address player,
+        uint256 materialId,
+        uint256 amount
+    ) external onlyPort whenNotPaused {
+        if (inventories[player].materials[materialId] < amount)
+            revert InsufficientMaterials();
         inventories[player].materials[materialId] -= amount;
-        emit MaterialsChanged(player, materialId, inventories[player].materials[materialId], -int256(amount));
+        emit MaterialsChanged(
+            player,
+            materialId,
+            inventories[player].materials[materialId],
+            -int256(amount)
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -204,18 +292,30 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
             revert CargoExceedsCapacity();
         }
 
-        inventories[player].fish.push(Fish({
-            fishId: fishId,
-            weight: weight,
-            caughtAt: block.timestamp,
-            isTrophyQuality: isTrophyQuality,
-            freshnessModifier: freshnessModifier
-        }));
+        inventories[player].fish.push(
+            Fish({
+                fishId: fishId,
+                weight: weight,
+                caughtAt: block.timestamp,
+                isTrophyQuality: isTrophyQuality,
+                freshnessModifier: freshnessModifier
+            })
+        );
 
-        emit FishAdded(player, fishId, weight, isTrophyQuality, freshnessModifier, block.timestamp);
+        emit FishAdded(
+            player,
+            fishId,
+            weight,
+            isTrophyQuality,
+            freshnessModifier,
+            block.timestamp
+        );
     }
 
-    function removeFish(address player, uint256 index) external onlyPort whenNotPaused returns (Fish memory) {
+    function removeFish(
+        address player,
+        uint256 index
+    ) external onlyPort whenNotPaused returns (Fish memory) {
         Fish[] storage playerFish = inventories[player].fish;
         if (index >= playerFish.length) revert InvalidFishIndex();
 
@@ -235,7 +335,9 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
         return inventories[player].fish;
     }
 
-    function getPlayerCargoWeight(address player) public view returns (uint256) {
+    function getPlayerCargoWeight(
+        address player
+    ) public view returns (uint256) {
         Fish[] storage playerFish = inventories[player].fish;
         uint256 totalWeight = 0;
 
@@ -250,8 +352,12 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
                             ROD FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function equipRod(address player, uint256 tokenId) external onlyPort whenNotPaused {
-        if (inventories[player].equippedRodTokenId != 0) revert RodAlreadyEquipped();
+    function equipRod(
+        address player,
+        uint256 tokenId
+    ) external onlyPort whenNotPaused {
+        if (inventories[player].equippedRodTokenId != 0)
+            revert RodAlreadyEquipped();
 
         // Verify player owns the rod
         IERC721 rodContract = IERC721(risingTidesFishingRod);
@@ -284,7 +390,9 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
                             STARTER KIT
     //////////////////////////////////////////////////////////////*/
 
-    function mintStarterKit(address player) external onlyAuthorized whenNotPaused {
+    function mintStarterKit(
+        address player
+    ) external onlyAuthorized whenNotPaused {
         // Grant starter ship
         if (starterKitConfig.shipId != 0) {
             shipOwnership[player] |= (uint256(1) << starterKitConfig.shipId);
@@ -298,23 +406,33 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
 
         // Add starter bait
         for (uint256 i = 0; i < starterKitConfig.baitIds.length; i++) {
-            inventories[player].bait[starterKitConfig.baitIds[i]] = starterKitConfig.baitAmounts[i];
+            inventories[player].bait[
+                starterKitConfig.baitIds[i]
+            ] = starterKitConfig.baitAmounts[i];
         }
 
-        emit StarterKitMinted(player, starterKitConfig.shipId, starterKitConfig.fuel);
-        
+        emit StarterKitMinted(
+            player,
+            starterKitConfig.shipId,
+            starterKitConfig.fuel
+        );
+
         // Emit individual resource events for complete tracking
         if (starterKitConfig.fuel > 0) {
-            emit FuelChanged(player, starterKitConfig.fuel, int256(starterKitConfig.fuel));
+            emit FuelChanged(
+                player,
+                starterKitConfig.fuel,
+                int256(starterKitConfig.fuel)
+            );
         }
-        
+
         // Emit bait events
         for (uint256 i = 0; i < starterKitConfig.baitIds.length; i++) {
             if (starterKitConfig.baitAmounts[i] > 0) {
                 emit BaitChanged(
-                    player, 
-                    starterKitConfig.baitIds[i], 
-                    starterKitConfig.baitAmounts[i], 
+                    player,
+                    starterKitConfig.baitIds[i],
+                    starterKitConfig.baitAmounts[i],
                     int256(starterKitConfig.baitAmounts[i])
                 );
             }
@@ -358,16 +476,24 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
         authorizedContracts[_port] = true;
     }
 
-    function setShipType(uint256 shipId, Ship memory ship) external onlyRole(GAME_MASTER_ROLE) {
+    function setShipType(
+        uint256 shipId,
+        Ship memory ship
+    ) external onlyRole(GAME_MASTER_ROLE) {
         ship.exists = true;
         shipTypes[shipId] = ship;
     }
 
-    function setStarterKit(StarterKit memory kit) external onlyRole(GAME_MASTER_ROLE) {
+    function setStarterKit(
+        StarterKit memory kit
+    ) external onlyRole(GAME_MASTER_ROLE) {
         starterKitConfig = kit;
     }
 
-    function setAuthorizedContract(address contractAddress, bool authorized) external onlyRole(ADMIN_ROLE) {
+    function setAuthorizedContract(
+        address contractAddress,
+        bool authorized
+    ) external onlyRole(ADMIN_ROLE) {
         authorizedContracts[contractAddress] = authorized;
     }
 
@@ -383,15 +509,21 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
                             ROLE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    function grantAdminRole(address _admin) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function grantAdminRole(
+        address _admin
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         grantRole(ADMIN_ROLE, _admin);
     }
 
-    function grantGameMasterRole(address _gameMaster) external onlyRole(ADMIN_ROLE) {
+    function grantGameMasterRole(
+        address _gameMaster
+    ) external onlyRole(ADMIN_ROLE) {
         grantRole(GAME_MASTER_ROLE, _gameMaster);
     }
 
-    function revokeGameMasterRole(address _gameMaster) external onlyRole(ADMIN_ROLE) {
+    function revokeGameMasterRole(
+        address _gameMaster
+    ) external onlyRole(ADMIN_ROLE) {
         revokeRole(GAME_MASTER_ROLE, _gameMaster);
     }
 }
