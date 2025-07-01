@@ -59,7 +59,7 @@ contract RisingTidesFishingRod is
 
     uint256 private _nextTokenId;
     string private _baseTokenURI;
-    
+
     uint256 public baseEnchantmentChance; // Basis points (10000 = 100%)
     mapping(uint256 => uint256) public enchantmentWeights; // enchantmentId => weight
 
@@ -77,12 +77,12 @@ contract RisingTidesFishingRod is
     );
 
     event EnchantmentAdded(uint256 indexed enchantmentId, string name);
-    
+
     event EnchantmentWeightUpdated(
         uint256 indexed enchantmentId,
         uint256 weight
     );
-    
+
     event BaseEnchantmentChanceUpdated(uint256 chance);
 
     event TitleSystemUpdated(uint256 titleCount);
@@ -97,6 +97,7 @@ contract RisingTidesFishingRod is
     error InvalidEnchantmentId();
     error InvalidTitleIndex();
     error InvalidEnchantmentChance();
+    error InvalidTitleData();
 
     /*//////////////////////////////////////////////////////////////
                                 MODIFIERS
@@ -238,10 +239,10 @@ contract RisingTidesFishingRod is
 
         Bonus memory totalBonus = _calculateTotalBonus(rod, regionType);
 
-        // Check for perfect catch (5% chance at title 18+)
+        // Check for perfect catch (10% chance at title 18+)
         bool perfectCatch = false;
         if (totalBonus.hasPerfectCatch) {
-            perfectCatch = (randomSeed % 100) < 5;
+            perfectCatch = (randomSeed % 100) < 10;
         }
 
         // Calculate durability loss
@@ -265,9 +266,9 @@ contract RisingTidesFishingRod is
             modifiers.isTrophyQuality = ((randomSeed >> 8) % 100) < 10;
         }
 
-        // Check double catch (20% chance with Lucky enchantment)
+        // Check double catch (10% chance with Lucky enchantment)
         if (totalBonus.hasDoubleCatch) {
-            modifiers.doubleCatch = ((randomSeed >> 16) % 100) < 20;
+            modifiers.doubleCatch = ((randomSeed >> 16) % 100) < 10;
         }
 
         // Set freshness modifier
@@ -406,24 +407,27 @@ contract RisingTidesFishingRod is
         uint256 seed
     ) private view returns (uint256 mask) {
         // Check if rod gets any enchantments based on base chance
-        if (baseEnchantmentChance == 0 || (seed % BASIS_POINTS) >= baseEnchantmentChance) {
+        if (
+            baseEnchantmentChance == 0 ||
+            (seed % BASIS_POINTS) >= baseEnchantmentChance
+        ) {
             return 0;
         }
-        
+
         // Calculate total weight of all enchantments
         uint256 totalWeight = 0;
         for (uint256 i = 0; i < _nextEnchantmentId; i++) {
             totalWeight += enchantmentWeights[i];
         }
-        
+
         if (totalWeight == 0) {
             return 0;
         }
-        
+
         // Select an enchantment based on weighted random
         uint256 randomValue = (seed >> 32) % totalWeight;
         uint256 cumulativeWeight = 0;
-        
+
         for (uint256 i = 0; i < _nextEnchantmentId; i++) {
             cumulativeWeight += enchantmentWeights[i];
             if (randomValue < cumulativeWeight) {
@@ -432,22 +436,25 @@ contract RisingTidesFishingRod is
                 break;
             }
         }
-        
+
         // Small chance for a second enchantment (1% if first enchantment succeeded)
         if ((seed >> 64) % 100 < 1) {
             uint256 secondRandom = (seed >> 96) % totalWeight;
             cumulativeWeight = 0;
-            
+
             for (uint256 i = 0; i < _nextEnchantmentId; i++) {
                 cumulativeWeight += enchantmentWeights[i];
-                if (secondRandom < cumulativeWeight && (mask & (uint256(1) << i)) == 0) {
+                if (
+                    secondRandom < cumulativeWeight &&
+                    (mask & (uint256(1) << i)) == 0
+                ) {
                     // Add second enchantment if it's different from the first
                     mask |= uint256(1) << i;
                     break;
                 }
             }
         }
-        
+
         return mask;
     }
 
@@ -506,7 +513,7 @@ contract RisingTidesFishingRod is
         _enchantmentNames[enchantmentId] = name;
         _enchantmentBonuses[enchantmentId] = bonus;
         enchantmentWeights[enchantmentId] = weight;
-        
+
         emit EnchantmentAdded(enchantmentId, name);
         emit EnchantmentWeightUpdated(enchantmentId, weight);
     }
@@ -536,91 +543,39 @@ contract RisingTidesFishingRod is
         emit BaseEnchantmentChanceUpdated(chance);
     }
 
-    function initializeTitles() external onlyRole(GAME_MASTER_ROLE) {
-        // Set thresholds
-        _titleThresholds = [
-            0,
-            10,
-            25,
-            45,
-            70,
-            100,
-            135,
-            175,
-            230,
-            300,
-            375,
-            460,
-            560,
-            675,
-            850,
-            1000,
-            1500,
-            2500,
-            5000,
-            8500
-        ];
-
-        // Set names
-        _titleNames = [
-            "Strange",
-            "Unremarkable",
-            "Barely Wet",
-            "Mildly Effective",
-            "Somewhat Reliable",
-            "Uncharitable",
-            "Notably Capable",
-            "Sufficiently Proven",
-            "Truly Feared",
-            "Spectacularly Efficient",
-            "Scale-Covered",
-            "Wicked Nasty",
-            "Positively Merciless",
-            "Totally Ordinary",
-            "Reef-Clearing",
-            "Rage-Inducing",
-            "Server-Clearing",
-            "Australian",
-            "Poseidon's Own",
-            "Absolutely Seaworthy"
-        ];
-
-        // Initialize all title bonuses to default
-        for (uint256 i = 0; i < _titleThresholds.length; i++) {
-            _titleBonuses[i] = Bonus({
-                durabilityBonus: 0,
-                efficiencyBonus: 0,
-                critRateBonus: 0,
-                maxWeightBonus: 0,
-                strengthBonus: 0,
-                freshnessModifier: 100,
-                hasPerfectCatch: false,
-                hasTrophyQuality: false,
-                hasDoubleCatch: false,
-                regionMask: type(uint256).max
-            });
+    function setTitles(
+        uint256[] calldata thresholds,
+        string[] calldata names,
+        Bonus[] calldata bonuses
+    ) external onlyRole(GAME_MASTER_ROLE) {
+        // Validate input arrays have same length
+        if (thresholds.length != names.length || thresholds.length != bonuses.length) {
+            revert InvalidTitleData();
         }
-
-        // Set specific title bonuses
-        // Title 5: Uncharitable (100 catches) - +5% durability
-        _titleBonuses[5].durabilityBonus = 5;
-
-        // Title 9: Spectacularly Efficient (300 catches) - +10% efficiency
-        _titleBonuses[9].efficiencyBonus = 10;
-
-        // Title 13: Totally Ordinary (675 catches) - +5% crit rate
-        _titleBonuses[13].critRateBonus = 500; // 5% in basis points
-
-        // Title 16: Server-Clearing (1500 catches) - +10% max fish weight
-        _titleBonuses[16].maxWeightBonus = 10;
-
-        // Title 18: Poseidon's Own (5000 catches) - Perfect Catch
-        _titleBonuses[18].hasPerfectCatch = true;
-
-        // Title 19: Absolutely Seaworthy (8500 catches) - Trophy Quality
-        _titleBonuses[19].hasTrophyQuality = true;
-
-        emit TitleSystemUpdated(_titleThresholds.length);
+        
+        // Validate thresholds are in ascending order
+        if (thresholds.length > 0 && thresholds[0] != 0) {
+            revert InvalidTitleData(); // First threshold must be 0
+        }
+        
+        for (uint256 i = 1; i < thresholds.length; i++) {
+            if (thresholds[i] <= thresholds[i - 1]) {
+                revert InvalidTitleData(); // Thresholds must be ascending
+            }
+        }
+        
+        // Clear existing data
+        delete _titleThresholds;
+        delete _titleNames;
+        
+        // Set new data
+        for (uint256 i = 0; i < thresholds.length; i++) {
+            _titleThresholds.push(thresholds[i]);
+            _titleNames.push(names[i]);
+            _titleBonuses[i] = bonuses[i];
+        }
+        
+        emit TitleSystemUpdated(thresholds.length);
     }
 
     function updateTitleBonus(
@@ -629,6 +584,13 @@ contract RisingTidesFishingRod is
     ) external onlyRole(GAME_MASTER_ROLE) {
         if (titleIndex >= _titleThresholds.length) revert InvalidTitleIndex();
         _titleBonuses[titleIndex] = bonus;
+    }
+    
+    function clearTitles() external onlyRole(GAME_MASTER_ROLE) {
+        delete _titleThresholds;
+        delete _titleNames;
+        // Note: _titleBonuses mapping entries remain but become inaccessible
+        emit TitleSystemUpdated(0);
     }
 
     /*//////////////////////////////////////////////////////////////
