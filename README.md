@@ -213,7 +213,7 @@ To optimize multiplayer performance, players are distributed across shards:
 
 ### Smart Contracts
 
-The game consists of five main smart contracts (see [dependency graph](contract-dependency-graph.md)):
+The game consists of five main smart contracts (see [dependency graph](docs/CONTRACT_DEPENDENCY_GRAPH.md)):
 
 #### 1. RisingTidesWorld
 

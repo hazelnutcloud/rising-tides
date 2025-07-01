@@ -1,0 +1,390 @@
+# Rising Tides - Master Calculations Document
+
+This document details all the calculations used in the Rising Tides game mechanics. Refer to [CALCULATIONS_UNITS_PRECISION](docs/CALCULATIONS_UNITS_PRECISION.md) for detailed units and precision info.
+
+## Table of Contents
+
+- [Movement & Navigation](#movement--navigation)
+  - [Hex Distance Calculation](#hex-distance-calculation)
+  - [Fuel Consumption](#fuel-consumption)
+  - [Movement Speed](#movement-speed)
+  - [Movement Time](#movement-time)
+- [Fishing Mechanics](#fishing-mechanics)
+  - [Durability Loss](#durability-loss)
+  - [Fish Weight Validation](#fish-weight-validation)
+  - [Critical Hit Mechanics](#critical-hit-mechanics)
+  - [Bait Efficiency](#bait-efficiency)
+  - [Lucky Enchantment](#lucky-enchantment)
+- [Market Economy](#market-economy)
+  - [Fish Price Calculation](#fish-price-calculation)
+  - [Freshness Decay](#freshness-decay)
+  - [Market Recovery](#market-recovery)
+- [Inventory Management](#inventory-management)
+  - [Weight Capacity](#weight-capacity)
+  - [Cargo Weight Calculation](#cargo-weight-calculation)
+- [Progression Systems](#progression-systems)
+  - [Fishing Rod Titles](#fishing-rod-titles)
+  - [Title Bonuses](#title-bonuses)
+
+## Movement & Navigation
+
+### Hex Distance Calculation
+
+Calculates the distance between two hexagonal coordinates using axial coordinates (q, r).
+
+```solidity
+function calculateHexDistance(int32 q1, int32 r1, int32 q2, int32 r2) returns (uint256)
+```
+
+**Formula:**
+
+```
+dq = q2 - q1
+dr = r2 - r1
+ds = -dq - dr
+
+distance = (|dq| + |dr| + |ds|) / 2
+```
+
+**Example:**
+
+- From (0, 0) to (2, -1): distance = (|2| + |-1| + |-1|) / 2 = 2
+
+### Fuel Consumption
+
+Calculates fuel required for movement based on engine power and distance.
+
+```solidity
+function calculateFuelCost(uint256 enginePower, uint256 distance) returns (uint256)
+```
+
+**Formula:**
+
+```
+fuelCost = (enginePower × distance × fuelEfficiencyModifier) / PRECISION
+```
+
+**Constants:**
+
+- `PRECISION = 1e18`
+- `fuelEfficiencyModifier = 1e18` (default, can be adjusted)
+
+**Example:**
+
+- Engine Power: 100
+- Distance: 5 hexes
+- Fuel Cost = (100 × 5 × 1e18) / 1e18 = 500 fuel units
+
+### Movement Speed
+
+Calculates movement speed based on engine power and cargo weight.
+
+```solidity
+function calculateSpeed(uint256 enginePower, uint256 totalWeight) returns (uint256)
+```
+
+**Formula:**
+
+```
+speed = (enginePower × PRECISION) / totalWeight
+```
+
+**Example:**
+
+- Engine Power: 200
+- Total Weight: 1000
+- Speed = (200 × 1e18) / 1000 = 2e17 (0.2 units per second with precision)
+
+### Movement Time
+
+Calculates time required to move a certain distance.
+
+```solidity
+function calculateMovementTime(uint256 enginePower, uint256 totalWeight, uint256 distance) returns (uint256)
+```
+
+**Formula:**
+
+```
+movementTime = (baseMovementTime × distance × totalWeight × PRECISION) / (enginePower × PRECISION)
+```
+
+**Constants:**
+
+- `baseMovementTime = 10` seconds (default)
+- `PRECISION = 1e18`
+
+**Example:**
+
+- Base Time: 10 seconds
+- Distance: 3 hexes
+- Total Weight: 500
+- Engine Power: 100
+- Movement Time = (10 × 3 × 500 × 1e18) / (100 × 1e18) = 150 seconds
+
+## Fishing Mechanics
+
+### Durability Loss
+
+Calculates durability loss when catching a fish.
+
+**Formula:**
+
+```
+durabilityLoss = fishWeight / (1 + strength/100)
+```
+
+**Factors:**
+
+- Fish weight (randomly determined within species range)
+- Rod strength attribute (higher strength = less durability loss)
+
+**Example:**
+
+- Fish Weight: 50
+- Rod Strength: 25
+- Durability Loss = 50 / (1 + 25/100) = 50 / 1.25 = 40
+
+### Fish Weight Validation
+
+Determines if a catch succeeds based on rod's max fish weight.
+
+**Formula:**
+
+```
+if (fishWeight > rodMaxWeight) {
+    successChance = 10%  // 90% fail chance
+} else {
+    successChance = 100%
+}
+```
+
+### Critical Hit Mechanics
+
+Determines if player gets to roll twice for a rarer fish.
+
+**Formula:**
+
+```
+criticalHit = random() < (critRate / 10000)
+```
+
+**Note:** critRate is stored in basis points (10000 = 100%)
+
+### Bait Efficiency
+
+Determines if bait is consumed when fishing.
+
+**Formula:**
+
+```
+baitConsumed = random() >= (efficiency / 100)
+```
+
+### Lucky Enchantment
+
+Determines if player catches two fish in one attempt.
+
+**Formula:**
+
+```
+if (hasLuckyEnchantment) {
+    doubleCatch = random() < 0.20  // 20% chance
+}
+```
+
+## Market Economy
+
+### Fish Price Calculation
+
+Calculates the final selling price of a fish.
+
+**Formula:**
+
+```
+finalPrice = marketValue × weight × freshness
+```
+
+**Components:**
+
+- `marketValue`: Base price per species (affected by supply/demand)
+- `weight`: Individual fish weight
+- `freshness`: Percentage from 0% to 100%
+
+**Example:**
+
+- Market Value: 100 DBL
+- Fish Weight: 2.5
+- Freshness: 80%
+- Final Price = 100 × 2.5 × 0.80 = 200 DBL
+
+### Freshness Decay
+
+Calculates fish freshness based on time since catch.
+
+**Formula:**
+
+```
+freshness = max(0, 100 - (timeSinceCatch / decayRate))
+```
+
+**Factors:**
+
+- Time since catch (in seconds)
+- Decay rate (species-specific)
+- Icy enchantment: 50% slower decay
+
+**Example:**
+
+- Time Since Catch: 3600 seconds (1 hour)
+- Decay Rate: 7200 seconds (2 hours for 100% decay)
+- Freshness = 100 - (3600 / 7200) × 100 = 50%
+
+### Market Recovery
+
+Market prices recover when fish aren't being sold.
+
+**Formula:**
+
+```
+newPrice = currentPrice + (basePrice - currentPrice) × recoveryRate × timeSinceLastSale
+```
+
+**Factors:**
+
+- Recovery rate per second
+- Time since last sale
+- Base price (equilibrium price)
+
+## Inventory Management
+
+### Weight Capacity
+
+Validates if cargo weight exceeds ship capacity.
+
+**Check:**
+
+```
+if (cargoWeight > shipWeightCapacity) {
+    revert CargoExceedsCapacity()
+}
+```
+
+### Cargo Weight Calculation
+
+Total weight of all fish in inventory.
+
+**Formula:**
+
+```
+cargoWeight = Σ(fishWeight[i]) for all fish in inventory
+```
+
+## Progression Systems
+
+### Fishing Rod Titles
+
+Titles unlock at specific catch milestones with associated bonuses.
+
+| Title                   | Catches Required | Bonus                                                    |
+| ----------------------- | ---------------- | -------------------------------------------------------- |
+| Strange                 | 0                | None                                                     |
+| Unremarkable            | 10               | None                                                     |
+| Barely Wet              | 25               | None                                                     |
+| Mildly Effective        | 45               | None                                                     |
+| Somewhat Reliable       | 70               | None                                                     |
+| Uncharitable            | 100              | +5% durability                                           |
+| Notably Capable         | 135              | None                                                     |
+| Sufficiently Proven     | 175              | None                                                     |
+| Truly Feared            | 230              | None                                                     |
+| Spectacularly Efficient | 300              | +10% bait efficiency                                     |
+| Scale-Covered           | 375              | None                                                     |
+| Wicked Nasty            | 460              | None                                                     |
+| Positively Merciless    | 560              | None                                                     |
+| Totally Ordinary        | 675              | +5% crit rate                                            |
+| Reef-Clearing           | 850              | None                                                     |
+| Rage-Inducing           | 1000             | None                                                     |
+| Server-Clearing         | 1500             | +10% max fish weight range                               |
+| Australian              | 2500             | None                                                     |
+| Poseidon's Own          | 5000             | 5% chance for "Perfect Catch" (no durability loss)       |
+| Absolutely Seaworthy    | 8500             | Fish have 10% chance to be "Trophy Quality" (1.5x value) |
+
+### Title Bonuses
+
+Title bonuses are applied as modifiers to base rod stats:
+
+**Durability Bonus:**
+
+```
+effectiveDurability = baseDurability × (1 + titleDurabilityBonus/100)
+```
+
+**Efficiency Bonus:**
+
+```
+effectiveEfficiency = baseEfficiency + titleEfficiencyBonus
+```
+
+**Crit Rate Bonus:**
+
+```
+effectiveCritRate = baseCritRate + titleCritRateBonus
+```
+
+**Max Weight Range Bonus:**
+
+```
+effectiveMaxWeight = baseMaxWeight × (1 + titleWeightBonus/100)
+```
+
+## Additional Calculations
+
+### Ship Region Compatibility
+
+Ships can only navigate to regions they support:
+
+```
+canNavigate = shipSupportedRegions.includes(regionType)
+```
+
+### Shard Assignment
+
+New players are assigned to the least populated shard:
+
+```
+optimalShard = shard with min(playerCount) where playerCount < maxPlayersPerShard
+```
+
+### Map Travel Cost
+
+Traveling between maps requires payment:
+
+```
+cost = destinationMap.travelCost
+```
+
+### Level Requirements
+
+Maps have minimum level requirements:
+
+```
+canAccess = playerLevel >= map.requiredLevel
+```
+
+## Constants Reference
+
+| Constant               | Value      | Description                            |
+| ---------------------- | ---------- | -------------------------------------- |
+| PRECISION              | 1e18       | Fixed-point precision for calculations |
+| MIN_ENGINE_POWER       | 10         | Minimum engine power required to move  |
+| MAX_MOVEMENT_QUEUE     | 10         | Maximum movement steps per transaction |
+| baseMovementTime       | 10 seconds | Base time to move one hex              |
+| maxPlayersPerShard     | 100        | Maximum players per shard              |
+| fuelEfficiencyModifier | 1e18       | Fuel consumption modifier              |
+
+## Notes
+
+- All calculations use Solidity's integer math to avoid floating-point issues
+- Randomness is provided by external VRF (Verifiable Random Function) contract
+- Prices and values are denominated in Doubloons (DBL) with 18 decimal places
+- Time-based calculations use block.timestamp for on-chain verification

@@ -25,7 +25,7 @@ import {IERC20} from "../lib/forge-std/src/interfaces/IERC20.sol";
 import {AccessControl} from "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 import {Pausable} from "../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {IRisingTidesInventory} from "./interfaces/IRisingTidesInventory.sol";
-import {IRisingTidesFish} from "./interfaces/IRisingTidesFish.sol";
+import {IRisingTidesFishing} from "./interfaces/IRisingTidesFishing.sol";
 import {IRisingTidesWorld} from "./interfaces/IRisingTidesWorld.sol";
 
 contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
@@ -49,7 +49,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
     IERC20 public doubloons;
     IRisingTidesInventory public inventory;
-    IRisingTidesFish public fishContract;
+    IRisingTidesFishing public fishContract;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
@@ -263,7 +263,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         if (enginePower < MIN_ENGINE_POWER) revert ShipEngineTooWeak();
 
         // Get actual cargo weight from Fish contract
-        uint256 cargoWeight = fishContract.getPlayerCargoWeight(msg.sender);
+        uint256 cargoWeight = inventory.getPlayerCargoWeight(msg.sender);
         if (cargoWeight > weightCapacity) revert CargoExceedsCapacity();
 
         uint256 speed = calculateSpeed(enginePower, cargoWeight);
@@ -598,7 +598,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         address _fish
     ) external onlyRole(ADMIN_ROLE) {
         inventory = IRisingTidesInventory(_inventory);
-        fishContract = IRisingTidesFish(_fish);
+        fishContract = IRisingTidesFishing(_fish);
     }
 
     /*//////////////////////////////////////////////////////////////
