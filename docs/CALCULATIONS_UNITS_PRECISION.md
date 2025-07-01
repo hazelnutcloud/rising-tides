@@ -2,6 +2,17 @@
 
 This document details the units, data types, and precision used for all calculations in Rising Tides.
 
+## Real-World Units Summary
+
+The game uses real-world units to provide intuitive scale:
+
+- **Engine Power**: Horsepower (HP)
+- **Weight**: Kilograms (kg)
+- **Fuel**: Liters (L)
+- **Currency**: Doubloons (DBL)
+
+All values are stored with 1e18 precision for accurate calculations.
+
 ## Table of Contents
 
 - [General Precision Standards](#general-precision-standards)
@@ -49,18 +60,20 @@ fuelCost = (enginePower × distance × fuelEfficiencyModifier) / PRECISION
 
 **Units:**
 
-- **enginePower**: Power units with 1e18 precision (uint256)
-  - Typical range: 10e18 to 1000e18
+- **enginePower**: Horsepower (HP) with 1e18 precision (uint256)
+  - Real-world unit: Horsepower (HP)
+  - Typical range: 10e18 to 1000e18 (10 HP to 1000 HP)
   - Precision: 1e18 (fixed-point)
-  - Example: 100e18 = 100 engine power
+  - Example: 100e18 = 100 horsepower
 - **distance**: Hex tiles (uint256)
   - Precision: Whole numbers
 - **fuelEfficiencyModifier**: Fixed-point multiplier (uint256)
-  - Default: 1e18 (represents 1.0)
+  - Default: 1e17 (represents 0.1)
   - Range: 0.1e18 to 10e18 (0.1x to 10x efficiency)
-- **fuelCost**: Fuel units consumed with 1e18 precision (uint256)
+- **fuelCost**: Liters of fuel consumed with 1e18 precision (uint256)
+  - Real-world unit: Liters (L)
   - Precision: 1e18 (fixed-point)
-  - Example: 500e18 = 500 fuel units
+  - Example: 500e18 = 500 liters of fuel
 
 ### Movement Time
 
@@ -71,18 +84,20 @@ movementTime = (baseMovementTime × distance × totalWeight) / enginePower
 **Units:**
 
 - **baseMovementTime**: Seconds (uint256)
-  - Default: 10 seconds
+  - Default: 1 second
   - Range: 1-60 seconds
 - **distance**: Hex tiles (uint256)
   - Precision: Whole numbers
-- **totalWeight**: Weight units with 1e18 precision (uint256)
-  - Range: 1e18 to 100000e18
+- **totalWeight**: Kilograms (kg) with 1e18 precision (uint256)
+  - Real-world unit: Kilograms (kg)
+  - Range: 1e18 to 100000e18 (1 kg to 100,000 kg)
   - Precision: 1e18 (fixed-point)
-  - Example: 500e18 = 500 weight units
-- **enginePower**: Power units with 1e18 precision (uint256)
-  - Range: 10e18 to 1000e18
+  - Example: 500e18 = 500 kilograms
+- **enginePower**: Horsepower (HP) with 1e18 precision (uint256)
+  - Real-world unit: Horsepower (HP)
+  - Range: 10e18 to 1000e18 (10 HP to 1000 HP)
   - Precision: 1e18 (fixed-point)
-  - Example: 100e18 = 100 engine power
+  - Example: 100e18 = 100 horsepower
 - **movementTime**: Seconds with 1e18 precision (uint256)
   - Precision: 1e18 (fixed-point)
   - Example: 150e18 = 150 seconds (2.5 minutes)
@@ -97,10 +112,11 @@ durabilityLoss = fishWeight / (1 + strength/100)
 
 **Units:**
 
-- **fishWeight**: Weight units (uint256)
+- **fishWeight**: Kilograms (kg) (uint256)
+  - Real-world unit: Kilograms (kg)
   - Range: 1-10,000
   - Precision: Can include decimals (stored as fixed-point)
-  - Example: 250 = 2.5 weight units (if using 2 decimal precision)
+  - Example: 2.5e18 = 2.5 kg (using 1e18 precision)
 - **strength**: Strength points (uint256)
   - Range: 0-100
   - Precision: Whole numbers
@@ -123,11 +139,12 @@ durabilityLoss = fishWeight / (1 + strength/100)
 
 **Units:**
 
-- **maxFishWeight**: Weight units (uint256)
-  - Range: 10-50,000
-  - Precision: Depends on implementation
-  - If stored with 2 decimal places: 1000 = 10.00 weight units
-  - If stored as whole numbers: 1000 = 1000 weight units
+- **maxFishWeight**: Kilograms (kg) (uint256)
+  - Real-world unit: Kilograms (kg)
+  - Range: 10e18 to 50000e18 (10 kg to 50,000 kg)
+  - Precision: 1e18 (fixed-point)
+  - Example: 10e18 = 10 kg
+  - Example: 1000e18 = 1,000 kg
 
 ### Critical Rate
 
@@ -172,12 +189,12 @@ finalPrice = marketValue × weight × freshness
 
 **Units:**
 
-- **marketValue**: Doubloons per weight unit (uint256)
+- **marketValue**: Doubloons per kilogram (uint256)
   - Precision: 18 decimals (Wei standard)
-  - Example: 100e18 = 100 DBL per weight unit
-- **weight**: Weight units (uint256)
+  - Example: 100e18 = 100 DBL per kg
+- **weight**: Kilograms (kg) (uint256)
   - Precision: Depends on fish weight system
-  - Example: 250 = 2.5 weight units (with 2 decimal precision)
+  - Example: 2.5e18 = 2.5 kg (using 1e18 precision)
 - **freshness**: Percentage as decimal (uint256)
   - Range: 0-100 (representing 0% to 100%)
   - Applied as: freshness/100
@@ -215,27 +232,31 @@ freshness = max(0, 100 - (timeSinceCatch / decayRate))
 
 **Units:**
 
-- **shipWeightCapacity**: Weight units with 1e18 precision (uint256)
-  - Typical range: 100e18 to 100000e18
+- **shipWeightCapacity**: Kilograms (kg) with 1e18 precision (uint256)
+  - Real-world unit: Kilograms (kg)
+  - Typical range: 100e18 to 100000e18 (100 kg to 100,000 kg)
   - Precision: 1e18 (fixed-point)
-  - Example: 5000e18 = 5000 weight capacity
-- **cargoWeight**: Total weight units with 1e18 precision (uint256)
+  - Example: 5000e18 = 5,000 kg weight capacity
+- **cargoWeight**: Total kilograms (kg) with 1e18 precision (uint256)
+  - Real-world unit: Kilograms (kg)
   - Sum of all fish weights
   - Precision: 1e18 (fixed-point)
-  - Example: 2500e18 = 2500 total cargo weight
+  - Example: 2500e18 = 2,500 kg total cargo weight
 
 ### Fuel Capacity
 
 **Units:**
 
-- **fuelCapacity**: Fuel units with 1e18 precision (uint256)
-  - Typical range: 100e18 to 10000e18
+- **fuelCapacity**: Liters (L) with 1e18 precision (uint256)
+  - Real-world unit: Liters (L)
+  - Typical range: 100e18 to 10000e18 (100 L to 10,000 L)
   - Precision: 1e18 (fixed-point)
-  - Example: 1000e18 = 1000 fuel capacity
-- **currentFuel**: Fuel units with 1e18 precision (uint256)
+  - Example: 1000e18 = 1,000 liters fuel capacity
+- **currentFuel**: Liters (L) with 1e18 precision (uint256)
+  - Real-world unit: Liters (L)
   - Range: 0 to fuelCapacity
   - Precision: 1e18 (fixed-point)
-  - Example: 750e18 = 750 fuel units
+  - Example: 750e18 = 750 liters of fuel
 
 ## Time Units
 
@@ -247,7 +268,7 @@ freshness = max(0, 100 - (timeSinceCatch / decayRate))
 
 ### Duration Constants
 
-- **baseMovementTime**: Seconds (default: 10)
+- **baseMovementTime**: Seconds (default: 1)
 - **segmentDuration**: Seconds per hex movement
 - **decayRate**: Seconds for freshness decay
 
@@ -314,29 +335,29 @@ freshness = max(0, 100 - (timeSinceCatch / decayRate))
 3. **Use basis points** (0-10,000) for fine-grained percentages
 4. **Round down** for player costs, **round up** for player rewards
 5. **Validate ranges** before calculations to prevent overflows
-6. **Use consistent precision** within each system (e.g., all weights use same decimal places)
+6. **Use consistent precision** within each system (e.g., all weights use 1e18 precision)
 
 ## Example Calculations with Units
 
 ### Example 1: Fuel Cost for 5 Hex Movement
 
 ```
-Engine Power: 100e18 power units (100 with 1e18 precision)
+Engine Power: 100e18 (100 horsepower with 1e18 precision)
 Distance: 5 hex tiles
 Fuel Efficiency: 1.0 (1e18)
 
-Fuel Cost = (100e18 × 5 × 1e18) / 1e18 = 500e18 fuel units
+Fuel Cost = (100e18 × 5 × 1e18) / 1e18 = 500e18 (500 liters of fuel)
 ```
 
 ### Example 2: Fish Sale with Freshness
 
 ```
-Market Value: 50 DBL per weight unit (50e18 wei)
-Fish Weight: 3.5 weight units (350 with 2 decimal precision)
+Market Value: 50 DBL per kg (50e18 wei)
+Fish Weight: 3.5 kg (3.5e18 with 1e18 precision)
 Freshness: 75%
 
-Final Price = (50e18 × 350 × 75) / (100 × 100)
-           = 1,312,500e18 / 10,000
+Final Price = (50e18 × 3.5e18 × 75) / (1e18 × 100)
+           = 13.125e39 / 1e20
            = 131.25e18 wei
            = 131.25 DBL
 ```
@@ -344,8 +365,8 @@ Final Price = (50e18 × 350 × 75) / (100 × 100)
 ### Example 3: Movement Time Calculation
 
 ```
-Engine Power: 150e18 (150 engine power with 1e18 precision)
-Total Weight: 3000e18 (3000 weight units with 1e18 precision)
+Engine Power: 150e18 (150 horsepower with 1e18 precision)
+Total Weight: 3000e18 (3,000 kg with 1e18 precision)
 Distance: 4 hex tiles
 Base Movement Time: 10 seconds
 
@@ -357,10 +378,10 @@ Movement Time = (10 × 4 × 3000e18 × 1e18) / 150e18
 ### Example 4: Durability Loss Calculation
 
 ```
-Fish Weight: 8.0 weight units (800 with 2 decimal precision)
+Fish Weight: 8.0 kg (8e18 with 1e18 precision)
 Rod Strength: 40 strength points
 
-Durability Loss = 800 / (100 + 40) × 100
-                = 800 / 140 × 100
-                = 571 (rounded down to 5 durability points)
+Durability Loss = 8e18 / (1e18 + 40e16)
+                = 8e18 / 1.4e18
+                = 5.71e18 (rounded down to 5e18 durability points)
 ```

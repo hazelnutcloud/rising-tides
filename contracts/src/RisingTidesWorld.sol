@@ -106,9 +106,9 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
         gameConfig = GameConfig({
             maxPlayersPerShard: 100,
-            fuelEfficiencyModifier: PRECISION,
+            fuelEfficiencyModifier: 1e17, // 0.1 fuel per engine power per hex tile
             defaultStartingLevel: 1,
-            baseMovementTime: 10, // 10 seconds base movement time
+            baseMovementTime: 1, // 1 seconds base movement time
             maxStepsPerMove: 5 // Max 5 steps per transaction
         });
 
@@ -509,10 +509,12 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
         // Calculate which segment we're on
         // Convert elapsedTime to 1e18 precision for division
-        uint256 currentSegment = (elapsedTime * PRECISION) / player.segmentDuration;
+        uint256 currentSegment = (elapsedTime * PRECISION) /
+            player.segmentDuration;
 
         // Check if we're in the middle of a segment
-        uint256 segmentProgress = (elapsedTime * PRECISION) % player.segmentDuration;
+        uint256 segmentProgress = (elapsedTime * PRECISION) %
+            player.segmentDuration;
 
         // If we have any progress into the current segment, round up to the next position
         if (segmentProgress > 0 && currentSegment < totalSegments) {

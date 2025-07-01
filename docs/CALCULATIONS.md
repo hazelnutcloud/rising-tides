@@ -66,7 +66,7 @@ fuelCost = (enginePower × distance × fuelEfficiencyModifier) / PRECISION
 **Constants:**
 
 - `PRECISION = 1e18`
-- `fuelEfficiencyModifier = 1e18` (default, can be adjusted)
+- `fuelEfficiencyModifier = 1e17` (default, can be adjusted)
 
 **Example:**
 
@@ -90,16 +90,16 @@ movementTime = (baseMovementTime × distance × totalWeight × PRECISION) / engi
 
 **Constants:**
 
-- `baseMovementTime = 10` seconds (default)
+- `baseMovementTime = 1` seconds (default)
 - `PRECISION = 1e18`
 
 **Example:**
 
-- Base Time: 10 seconds
+- Base Time: 1 seconds
 - Distance: 3 hexes
 - Total Weight: 500e18 (500 weight units with 1e18 precision)
 - Engine Power: 100e18 (100 engine power with 1e18 precision)
-- Movement Time = (10 × 3 × 500e18 × 1e18) / 100e18 = 150e18 (150 seconds with 1e18 precision)
+- Movement Time = (1 × 3 × 500e18 × 1e18) / 100e18 = 150e18 (15 seconds with 1e18 precision)
 
 ## Fishing Mechanics
 
