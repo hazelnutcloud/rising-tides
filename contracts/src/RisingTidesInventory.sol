@@ -84,8 +84,10 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
         if (!shipTypes[shipId].exists) revert InvalidShipId();
         if ((shipOwnership[player] & (uint256(1) << shipId)) == 0) revert ShipNotOwned();
 
+        uint256 previousShipId = inventories[player].equippedShipId;
+        
         // Check if changing ship would exceed cargo capacity
-        if (shipId != inventories[player].equippedShipId) {
+        if (shipId != previousShipId) {
             uint256 cargoWeight = getPlayerCargoWeight(player);
             if (cargoWeight > shipTypes[shipId].weightCapacity) {
                 revert CargoExceedsCapacity();
@@ -93,7 +95,7 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
         }
 
         inventories[player].equippedShipId = shipId;
-        emit ShipEquipped(player, shipId);
+        emit ShipEquipped(player, shipId, previousShipId);
     }
 
     function getEquippedShip(address player) external view returns (uint256 shipId) {
@@ -120,6 +122,7 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
     function grantShip(address player, uint256 shipId) external onlyPort whenNotPaused {
         if (!shipTypes[shipId].exists) revert InvalidShipId();
         shipOwnership[player] |= (uint256(1) << shipId);
+        emit ShipGranted(player, shipId);
     }
 
     function getTotalWeight(address player) external view returns (uint256) {
@@ -142,13 +145,13 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
 
     function addFuel(address player, uint256 amount) external onlyPort whenNotPaused {
         inventories[player].fuel += amount;
-        emit ResourcesChanged(player);
+        emit FuelChanged(player, inventories[player].fuel, int256(amount));
     }
 
     function consumeFuel(address player, uint256 amount) external onlyAuthorized whenNotPaused {
         if (inventories[player].fuel < amount) revert InsufficientFuel();
         inventories[player].fuel -= amount;
-        emit ResourcesChanged(player);
+        emit FuelChanged(player, inventories[player].fuel, -int256(amount));
     }
 
     function getBait(address player, uint256 baitId) external view returns (uint256) {
@@ -157,13 +160,13 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
 
     function addBait(address player, uint256 baitId, uint256 amount) external onlyPort whenNotPaused {
         inventories[player].bait[baitId] += amount;
-        emit ResourcesChanged(player);
+        emit BaitChanged(player, baitId, inventories[player].bait[baitId], int256(amount));
     }
 
     function consumeBait(address player, uint256 baitId, uint256 amount) external onlyFishing whenNotPaused {
         if (inventories[player].bait[baitId] < amount) revert InsufficientBait();
         inventories[player].bait[baitId] -= amount;
-        emit ResourcesChanged(player);
+        emit BaitChanged(player, baitId, inventories[player].bait[baitId], -int256(amount));
     }
 
     function getMaterials(address player, uint256 materialId) external view returns (uint256) {
@@ -172,13 +175,13 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
 
     function addMaterials(address player, uint256 materialId, uint256 amount) external onlyPort whenNotPaused {
         inventories[player].materials[materialId] += amount;
-        emit ResourcesChanged(player);
+        emit MaterialsChanged(player, materialId, inventories[player].materials[materialId], int256(amount));
     }
 
     function consumeMaterials(address player, uint256 materialId, uint256 amount) external onlyPort whenNotPaused {
         if (inventories[player].materials[materialId] < amount) revert InsufficientMaterials();
         inventories[player].materials[materialId] -= amount;
-        emit ResourcesChanged(player);
+        emit MaterialsChanged(player, materialId, inventories[player].materials[materialId], -int256(amount));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -209,7 +212,7 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
             freshnessModifier: freshnessModifier
         }));
 
-        emit FishAdded(player, fishId, weight);
+        emit FishAdded(player, fishId, weight, isTrophyQuality, freshnessModifier, block.timestamp);
     }
 
     function removeFish(address player, uint256 index) external onlyPort whenNotPaused returns (Fish memory) {
@@ -224,7 +227,7 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
         }
         playerFish.pop();
 
-        emit FishRemoved(player, removedFish.fishId, removedFish.weight);
+        emit FishRemoved(player, removedFish.fishId, removedFish.weight, index);
         return removedFish;
     }
 
@@ -286,6 +289,8 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
         if (starterKitConfig.shipId != 0) {
             shipOwnership[player] |= (uint256(1) << starterKitConfig.shipId);
             inventories[player].equippedShipId = starterKitConfig.shipId;
+            emit ShipGranted(player, starterKitConfig.shipId);
+            emit ShipEquipped(player, starterKitConfig.shipId, 0);
         }
 
         // Add starter fuel
@@ -296,7 +301,24 @@ contract RisingTidesInventory is IRisingTidesInventory, AccessControl, Pausable 
             inventories[player].bait[starterKitConfig.baitIds[i]] = starterKitConfig.baitAmounts[i];
         }
 
-        emit StarterKitMinted(player);
+        emit StarterKitMinted(player, starterKitConfig.shipId, starterKitConfig.fuel);
+        
+        // Emit individual resource events for complete tracking
+        if (starterKitConfig.fuel > 0) {
+            emit FuelChanged(player, starterKitConfig.fuel, int256(starterKitConfig.fuel));
+        }
+        
+        // Emit bait events
+        for (uint256 i = 0; i < starterKitConfig.baitIds.length; i++) {
+            if (starterKitConfig.baitAmounts[i] > 0) {
+                emit BaitChanged(
+                    player, 
+                    starterKitConfig.baitIds[i], 
+                    starterKitConfig.baitAmounts[i], 
+                    int256(starterKitConfig.baitAmounts[i])
+                );
+            }
+        }
     }
 
     /*//////////////////////////////////////////////////////////////

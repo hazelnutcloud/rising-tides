@@ -34,13 +34,37 @@ interface IRisingTidesInventory {
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event ShipEquipped(address indexed player, uint256 shipId);
-    event RodEquipped(address indexed player, uint256 tokenId);
-    event RodUnequipped(address indexed player, uint256 tokenId);
-    event FishAdded(address indexed player, uint256 fishId, uint256 weight);
-    event FishRemoved(address indexed player, uint256 fishId, uint256 weight);
-    event ResourcesChanged(address indexed player);
-    event StarterKitMinted(address indexed player);
+    // Ship events
+    event ShipGranted(address indexed player, uint256 indexed shipId);
+    event ShipEquipped(address indexed player, uint256 indexed shipId, uint256 previousShipId);
+    
+    // Rod events
+    event RodEquipped(address indexed player, uint256 indexed tokenId);
+    event RodUnequipped(address indexed player, uint256 indexed tokenId);
+    
+    // Fish events - include all fish data for reconstruction
+    event FishAdded(
+        address indexed player,
+        uint256 indexed fishId,
+        uint256 weight,
+        bool isTrophyQuality,
+        uint256 freshnessModifier,
+        uint256 timestamp
+    );
+    event FishRemoved(
+        address indexed player,
+        uint256 indexed fishId,
+        uint256 weight,
+        uint256 fishIndex
+    );
+    
+    // Resource events - separate events for each resource type
+    event FuelChanged(address indexed player, uint256 newAmount, int256 delta);
+    event BaitChanged(address indexed player, uint256 indexed baitId, uint256 newAmount, int256 delta);
+    event MaterialsChanged(address indexed player, uint256 indexed materialId, uint256 newAmount, int256 delta);
+    
+    // Starter kit event
+    event StarterKitMinted(address indexed player, uint256 shipId, uint256 fuel);
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
