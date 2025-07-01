@@ -1,6 +1,5 @@
 # Rising Tides
 
-
 ![Rising Tides Banner](rising-tides-banner.png)
 
 Rising Tides is an onchain multiplayer fishing game built on the RISE L2 network. Players travel the open sea to catch and trade fish, manage and upgrade their boats and fishing equipment, and compete to climb a global leaderboard.
@@ -85,7 +84,7 @@ Fishing rods are ERC721 NFTs with unique attributes that affect fishing performa
 
 - **Max Durability**: Reduces with each catch based on fish weight
 - **Max Fish Weight**: Catching fish outside this range has 90% chance to fail
-- **Crit Rate**: Chance to roll twice and take the rarer item
+- **Crit Rate**: Chance to trigger critical hits for bonus rolls
 - **Strength**: Modifier to durability loss (higher strength = lower durability loss)
 - **Efficiency**: Chance to not consume bait
 - **Compatible Bait Types**: Each rod type has a bitfield defining compatible bait types
@@ -95,6 +94,7 @@ Fishing rods are ERC721 NFTs with unique attributes that affect fishing performa
 Enchantments are configurable by the GameMaster and can provide various bonuses:
 
 - Stat bonuses (durability, efficiency, crit rate, max weight, strength)
+- Crit multiplier bonus (additional rolls beyond the base 1 extra roll on critical hits)
 - Special effects (double catch chance, slower freshness decay)
 - Region-specific bonuses that only apply in certain areas
 - Title-like bonuses (perfect catch chance, trophy quality fish)
@@ -124,7 +124,7 @@ Enchantments are configurable by the GameMaster and can provide various bonuses:
 2. Fishing rod durability and bait compatibility are checked
 3. Bait is consumed (efficiency check may prevent consumption)
 4. Fish is sampled using O(1) alias method with VRF randomness
-5. Crit rate may trigger double roll for rarer fish
+5. Critical hits trigger bonus rolls (base: 1 extra roll, can be increased by critMultiplierBonus)
 6. Fish weight is randomly determined (affected by rod's max fish weight)
 7. Weight check: 90% fail chance if fish exceeds rod's max weight
 8. Rod durability decreases based on fish size and strength modifier

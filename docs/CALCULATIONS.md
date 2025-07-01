@@ -140,15 +140,34 @@ if (fishWeight > rodMaxWeight) {
 
 ### Critical Hit Mechanics
 
-Determines if player gets to roll twice for a rarer fish.
+Determines if player gets bonus rolls for rarer fish.
 
-**Formula:**
+**Critical Hit Check:**
 
 ```
 criticalHit = random() < (critRate / 10000)
 ```
 
 **Note:** critRate is stored in basis points (10000 = 100%)
+
+**Number of Rolls on Critical Hit:**
+
+```
+totalRolls = 1 + 1 + critMultiplierBonus
+```
+
+Where:
+
+- First 1 = base roll (always happens)
+- Second 1 = standard critical hit bonus
+- critMultiplierBonus = additional rolls from enchantments/titles (default 0)
+
+**Examples:**
+
+- No crit: 1 roll
+- Normal crit (no bonus): 2 rolls (1 base + 1 crit)
+- Crit with +1 multiplier bonus: 3 rolls (1 base + 1 crit + 1 bonus)
+- Crit with +2 multiplier bonus: 4 rolls (1 base + 1 crit + 2 bonus)
 
 ### Bait Efficiency
 
@@ -324,6 +343,12 @@ effectiveEfficiency = baseEfficiency + titleEfficiencyBonus
 
 ```
 effectiveCritRate = baseCritRate + titleCritRateBonus
+```
+
+**Crit Multiplier Bonus:**
+
+```
+effectiveCritMultiplierBonus = titleCritMultiplierBonus + enchantmentCritMultiplierBonus
 ```
 
 **Max Weight Range Bonus:**
