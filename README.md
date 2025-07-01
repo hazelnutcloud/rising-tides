@@ -48,14 +48,14 @@ Players navigate freely in the open sea using a hexagonal grid coordinate system
 
 ### Inventory Management
 
-The game uses a weight-based inventory system managed through ERC1155 tokens:
+The game uses a weight-based inventory system:
 
 #### Inventory Items
 
-- **Ships**: NFTs with unique stats (engine power, weight capacity, fuel capacity)
+- **Ships**: Equippable transport with unique stats (engine power, weight capacity, fuel capacity, region compatibility)
 - **Fishing Rods**: Equipment with durability that depletes with use
-- **Fuel**: Consumable ERC1155 tokens required for movement
-- **Bait**: Consumable tokens that determine fish catch probabilities
+- **Fuel**: Consumable resource required for movement
+- **Bait**: Consumable resource that determine fish catch probabilities
 - **Fish**: Caught fish with weight and freshness attributes
 
 #### Ship Management
@@ -254,7 +254,7 @@ Key Functions:
 
 #### 3. RisingTidesInventory
 
-Manages player inventory state (no longer ERC1155):
+Manages player inventory state:
 
 - **Inventory Storage**: Track player's ships, fuel, bait, and fish
 - **Item Attributes**: Store stats for different item types
