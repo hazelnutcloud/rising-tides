@@ -31,6 +31,7 @@ interface IRisingTidesFishingRod {
         uint256 efficiency;
         uint256 totalCatches;
         uint256 enchantmentMask;
+        bool isStrange;              // Whether this rod can gain titles
     }
 
     struct Bonus {

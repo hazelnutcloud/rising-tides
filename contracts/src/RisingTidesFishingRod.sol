@@ -41,6 +41,7 @@ contract RisingTidesFishingRod is
 
     uint256 private constant PERCENT = 100;
     uint256 private constant BASIS_POINTS = 10000;
+    uint256 private constant STRANGE_CHANCE = 10; // 10% chance
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -182,6 +183,9 @@ contract RisingTidesFishingRod is
 
         rod.totalCatches = 0;
 
+        // 10% chance for rod to have strange quality
+        rod.isStrange = (randomSeed >> 192) % 100 < STRANGE_CHANCE;
+
         // Apply enchantments based on random seed
         rod.enchantmentMask = _generateEnchantments(randomSeed >> 160);
 
@@ -276,8 +280,10 @@ contract RisingTidesFishingRod is
         // Set freshness modifier
         modifiers.freshnessModifier = totalBonus.freshnessModifier;
 
-        // Increment catches
-        rod.totalCatches++;
+        // Increment catches only for strange rods
+        if (rod.isStrange) {
+            rod.totalCatches++;
+        }
 
         emit CatchProcessed(
             tokenId,
@@ -345,10 +351,12 @@ contract RisingTidesFishingRod is
         RodInstance memory rod,
         uint256 regionType
     ) private view returns (Bonus memory totalBonus) {
-        // Start with title bonus
-        uint256 titleIndex = getCurrentTitleIndex(rod.totalCatches);
-        if (titleIndex < _titleThresholds.length) {
-            totalBonus = _titleBonuses[titleIndex];
+        // Apply title bonus only for strange rods
+        if (rod.isStrange) {
+            uint256 titleIndex = getCurrentTitleIndex(rod.totalCatches);
+            if (titleIndex < _titleThresholds.length) {
+                totalBonus = _titleBonuses[titleIndex];
+            }
         }
 
         // Add enchantment bonuses that apply to this region
@@ -638,10 +646,16 @@ contract RisingTidesFishingRod is
         if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
 
         rod = _rodInstances[tokenId];
-        titleIndex = getCurrentTitleIndex(rod.totalCatches);
-
-        if (titleIndex < _titleNames.length) {
-            currentTitle = _titleNames[titleIndex];
+        
+        // Only strange rods can have titles
+        if (rod.isStrange) {
+            titleIndex = getCurrentTitleIndex(rod.totalCatches);
+            if (titleIndex < _titleNames.length) {
+                currentTitle = _titleNames[titleIndex];
+            }
+        } else {
+            titleIndex = 0;
+            currentTitle = "";
         }
     }
 

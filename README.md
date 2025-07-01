@@ -101,8 +101,10 @@ Enchantments are configurable by the GameMaster and can provide various bonuses:
 
 **Rod Progression:**
 
-- Rods track total fish caught and gain titles at milestones (similar to TF2's strange items)
-- 20 title levels from "Strange" to "Absolutely Seaworthy"
+- Only rods with the \"Strange\" quality can track catches and gain titles (10% chance when crafted)
+- Strange rods track total fish caught and gain titles at milestones (similar to TF2's strange items)
+- 20 title levels from \"Strange\" to \"Absolutely Seaworthy\"
+- Non-strange rods function normally but cannot progress or gain title bonuses
 - Titles provide specific bonuses:
   - Level 5 (100 catches): +5% durability
   - Level 9 (300 catches): +10% bait efficiency
@@ -134,7 +136,11 @@ Enchantments are configurable by the GameMaster and can provide various bonuses:
 #### Crafting & Repair System
 
 - **Material Harvesting**: Fish can be harvested for crafting materials (rarer fish yield rarer materials)
-- **Rod Crafting**: Use materials to craft new fishing rods with small chance of enchantment
+- **Rod Crafting**: Use materials to craft new fishing rods with:
+  - 10% chance to receive \"Strange\" quality (enables title progression)
+  - Small chance of enchantment
+  - Random attributes within the rod type's defined ranges
+- **Strange Quality**: Rods with strange quality are more valuable as they can gain titles and bonuses through use
 - **Attributes variance**: Each type of fishing rod has a base range of different attributes. Upon crafting, a number within that range for an attribute is assigned to the rod.
 - **Repairs**: Require crafting materials and Doubloons (typically same materials used in crafting)
 
@@ -397,8 +403,9 @@ struct RodInstance {
     uint256 critRate;            // Basis points (10000 = 100%)
     uint256 strength;            // Durability loss modifier
     uint256 efficiency;          // Bait save chance (percentage)
-    uint256 totalCatches;        // For title progression
+    uint256 totalCatches;        // For title progression (only increments for strange rods)
     uint256 enchantmentMask;     // Bitfield for enchantments
+    bool isStrange;              // Whether this rod can gain titles (10% chance on craft)
 }
 
 // Enchantments are now configurable by GameMaster

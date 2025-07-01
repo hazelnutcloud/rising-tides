@@ -296,9 +296,24 @@ totalWeight = ship.emptyWeight + cargoWeight
 
 ## Progression Systems
 
+### Strange Quality Assignment
+
+Determines if a newly crafted rod receives the Strange quality.
+
+**Formula:**
+
+```
+isStrange = (randomSeed >> 192) % 100 < STRANGE_CHANCE
+```
+
+Where:
+
+- `STRANGE_CHANCE = 10` (10% probability)
+- Only Strange rods can track catches and gain titles
+
 ### Fishing Rod Titles
 
-Titles unlock at specific catch milestones with associated bonuses.
+Titles unlock at specific catch milestones with associated bonuses. **Only available for Strange quality rods.**
 
 | Title                   | Catches Required | Bonus                                                    |
 | ----------------------- | ---------------- | -------------------------------------------------------- |
@@ -325,7 +340,17 @@ Titles unlock at specific catch milestones with associated bonuses.
 
 ### Title Bonuses
 
-Title bonuses are applied as modifiers to base rod stats:
+Title bonuses are applied as modifiers to base rod stats. **Note: Title bonuses only apply to Strange quality rods.**
+
+**Title Bonus Check:**
+
+```
+if (rod.isStrange) {
+    // Apply title bonuses based on totalCatches
+} else {
+    // No title bonuses applied
+}
+```
 
 **Durability Bonus:**
 
