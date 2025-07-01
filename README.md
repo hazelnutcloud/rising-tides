@@ -1,5 +1,8 @@
 # Rising Tides
 
+
+![Rising Tides Banner](rising-tides-banner.png)
+
 Rising Tides is an onchain multiplayer fishing game built on the RISE L2 network. Players travel the open sea to catch and trade fish, manage and upgrade their boats and fishing equipment, and compete to climb a global leaderboard.
 
 ## Table of Contents
