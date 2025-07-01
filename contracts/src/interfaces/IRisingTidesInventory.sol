@@ -60,6 +60,7 @@ interface IRisingTidesInventory {
     
     // Resource events - separate events for each resource type
     event FuelChanged(address indexed player, uint256 newAmount, int256 delta);
+    event FuelReservesChanged(address indexed player, uint256 newReserves, int256 delta);
     event BaitChanged(address indexed player, uint256 indexed baitId, uint256 newAmount, int256 delta);
     event MaterialsChanged(address indexed player, uint256 indexed materialId, uint256 newAmount, int256 delta);
     
@@ -115,6 +116,8 @@ interface IRisingTidesInventory {
     //////////////////////////////////////////////////////////////*/
 
     function getFuel(address player) external view returns (uint256);
+
+    function getFuelReserves(address player) external view returns (uint256);
 
     function addFuel(address player, uint256 amount) external;
 

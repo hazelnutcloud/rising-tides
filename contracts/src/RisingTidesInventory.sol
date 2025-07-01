@@ -48,6 +48,7 @@ contract RisingTidesInventory is
         uint256 equippedShipId;
         uint256 equippedRodTokenId;
         uint256 fuel;
+        uint256 fuelReserves;
         mapping(uint256 => uint256) bait;
         mapping(uint256 => uint256) materials;
         Fish[] fish;
@@ -120,6 +121,33 @@ contract RisingTidesInventory is
             if (cargoWeight > shipTypes[shipId].weightCapacity) {
                 revert CargoExceedsCapacity();
             }
+
+            // Handle fuel capacity changes
+            PlayerInventory storage inventory = inventories[player];
+            uint256 currentFuel = inventory.fuel;
+            uint256 currentReserves = inventory.fuelReserves;
+            uint256 totalFuel = currentFuel + currentReserves;
+            uint256 newFuelCapacity = shipTypes[shipId].fuelCapacity;
+
+            if (totalFuel > newFuelCapacity) {
+                // New ship has less capacity - move excess to reserves
+                inventory.fuel = newFuelCapacity;
+                inventory.fuelReserves = totalFuel - newFuelCapacity;
+                
+                emit FuelChanged(player, newFuelCapacity, int256(newFuelCapacity) - int256(currentFuel));
+                emit FuelReservesChanged(player, totalFuel - newFuelCapacity, int256(totalFuel - newFuelCapacity) - int256(currentReserves));
+            } else {
+                // New ship has more capacity - fill from reserves
+                inventory.fuel = totalFuel;
+                inventory.fuelReserves = 0;
+                
+                if (currentFuel != totalFuel) {
+                    emit FuelChanged(player, totalFuel, int256(totalFuel) - int256(currentFuel));
+                }
+                if (currentReserves != 0) {
+                    emit FuelReservesChanged(player, 0, -int256(currentReserves));
+                }
+            }
         }
 
         inventories[player].equippedShipId = shipId;
@@ -181,12 +209,42 @@ contract RisingTidesInventory is
         return inventories[player].fuel;
     }
 
+    function getFuelReserves(address player) external view returns (uint256) {
+        return inventories[player].fuelReserves;
+    }
+
     function addFuel(
         address player,
         uint256 amount
     ) external onlyPort whenNotPaused {
-        inventories[player].fuel += amount;
-        emit FuelChanged(player, inventories[player].fuel, int256(amount));
+        PlayerInventory storage inventory = inventories[player];
+        uint256 shipId = inventory.equippedShipId;
+        
+        if (shipId == 0) {
+            // No ship equipped - add to reserves
+            inventory.fuelReserves += amount;
+            emit FuelReservesChanged(player, inventory.fuelReserves, int256(amount));
+        } else {
+            uint256 fuelCapacity = shipTypes[shipId].fuelCapacity;
+            uint256 currentFuel = inventory.fuel;
+            uint256 spaceAvailable = fuelCapacity - currentFuel;
+            
+            if (amount <= spaceAvailable) {
+                // All fuel fits in tank
+                inventory.fuel += amount;
+                emit FuelChanged(player, inventory.fuel, int256(amount));
+            } else {
+                // Fill tank and put excess in reserves
+                inventory.fuel = fuelCapacity;
+                uint256 excess = amount - spaceAvailable;
+                inventory.fuelReserves += excess;
+                
+                if (spaceAvailable > 0) {
+                    emit FuelChanged(player, fuelCapacity, int256(spaceAvailable));
+                }
+                emit FuelReservesChanged(player, inventory.fuelReserves, int256(excess));
+            }
+        }
     }
 
     function consumeFuel(
