@@ -36,20 +36,10 @@ contract RisingTidesFishingRod is
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
+    bytes32 private constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 private constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
 
-    uint256 public constant PRECISION = 1e18;
-    uint256 public constant BASIS_POINTS = 10000;
-    uint256 public constant PERCENT = 100;
-
-    // Region type bit positions
-    uint256 public constant REGION_PORT = 1 << 1;
-    uint256 public constant REGION_OPEN_WATER = 1 << 2;
-    uint256 public constant REGION_DEEP_WATER = 1 << 3;
-    uint256 public constant REGION_REEF = 1 << 4;
-    uint256 public constant REGION_STORM = 1 << 5;
-    uint256 public constant REGION_RESTRICTED = 1 << 6;
+    uint256 private constant PERCENT = 100;
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -58,19 +48,19 @@ contract RisingTidesFishingRod is
     mapping(uint256 => RodType) private _rodTypes;
     mapping(uint256 => RodInstance) private _rodInstances;
 
-    mapping(uint256 => Bonus) public enchantmentBonuses;
-    mapping(uint256 => string) public enchantmentNames;
-    uint256 public nextEnchantmentId;
+    mapping(uint256 => Bonus) private _enchantmentBonuses;
+    mapping(uint256 => string) public _enchantmentNames;
+    uint256 private _nextEnchantmentId;
 
-    mapping(uint256 => Bonus) public titleBonuses;
-    uint256[] public titleThresholds;
-    string[] public titleNames;
-
-    address public risingTidesPort;
-    address public risingTidesFishing;
+    mapping(uint256 => Bonus) private _titleBonuses;
+    uint256[] private _titleThresholds;
+    string[] private _titleNames;
 
     uint256 private _nextTokenId;
     string private _baseTokenURI;
+
+    address public risingTidesPort;
+    address public risingTidesFishing;
 
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
@@ -312,12 +302,12 @@ contract RisingTidesFishingRod is
         uint256 totalCatches
     ) public view returns (uint256) {
         uint256 left = 0;
-        uint256 right = titleThresholds.length - 1;
+        uint256 right = _titleThresholds.length - 1;
         uint256 result = 0;
 
         while (left <= right) {
             uint256 mid = (left + right) / 2;
-            if (titleThresholds[mid] <= totalCatches) {
+            if (_titleThresholds[mid] <= totalCatches) {
                 result = mid;
                 left = mid + 1;
             } else {
@@ -342,15 +332,15 @@ contract RisingTidesFishingRod is
     ) private view returns (Bonus memory totalBonus) {
         // Start with title bonus
         uint256 titleIndex = getCurrentTitleIndex(rod.totalCatches);
-        if (titleIndex < titleThresholds.length) {
-            totalBonus = titleBonuses[titleIndex];
+        if (titleIndex < _titleThresholds.length) {
+            totalBonus = _titleBonuses[titleIndex];
         }
 
         // Add enchantment bonuses that apply to this region
         uint256 enchantmentMask = rod.enchantmentMask;
-        for (uint256 i = 0; i < nextEnchantmentId; i++) {
+        for (uint256 i = 0; i < _nextEnchantmentId; i++) {
             if ((enchantmentMask & (uint256(1) << i)) != 0) {
-                Bonus memory enchBonus = enchantmentBonuses[i];
+                Bonus memory enchBonus = _enchantmentBonuses[i];
                 // Check if enchantment applies to current region
                 if ((enchBonus.regionMask & (uint256(1) << regionType)) != 0) {
                     // Combine bonuses
@@ -458,9 +448,9 @@ contract RisingTidesFishingRod is
         string memory name,
         Bonus memory bonus
     ) external onlyRole(GAME_MASTER_ROLE) returns (uint256 enchantmentId) {
-        enchantmentId = nextEnchantmentId++;
-        enchantmentNames[enchantmentId] = name;
-        enchantmentBonuses[enchantmentId] = bonus;
+        enchantmentId = _nextEnchantmentId++;
+        _enchantmentNames[enchantmentId] = name;
+        _enchantmentBonuses[enchantmentId] = bonus;
 
         emit EnchantmentAdded(enchantmentId, name);
     }
@@ -469,13 +459,13 @@ contract RisingTidesFishingRod is
         uint256 enchantmentId,
         Bonus memory bonus
     ) external onlyRole(GAME_MASTER_ROLE) {
-        if (enchantmentId >= nextEnchantmentId) revert InvalidEnchantmentId();
-        enchantmentBonuses[enchantmentId] = bonus;
+        if (enchantmentId >= _nextEnchantmentId) revert InvalidEnchantmentId();
+        _enchantmentBonuses[enchantmentId] = bonus;
     }
 
     function initializeTitles() external onlyRole(GAME_MASTER_ROLE) {
         // Set thresholds
-        titleThresholds = [
+        _titleThresholds = [
             0,
             10,
             25,
@@ -499,7 +489,7 @@ contract RisingTidesFishingRod is
         ];
 
         // Set names
-        titleNames = [
+        _titleNames = [
             "Strange",
             "Unremarkable",
             "Barely Wet",
@@ -523,8 +513,8 @@ contract RisingTidesFishingRod is
         ];
 
         // Initialize all title bonuses to default
-        for (uint256 i = 0; i < titleThresholds.length; i++) {
-            titleBonuses[i] = Bonus({
+        for (uint256 i = 0; i < _titleThresholds.length; i++) {
+            _titleBonuses[i] = Bonus({
                 durabilityBonus: 0,
                 efficiencyBonus: 0,
                 critRateBonus: 0,
@@ -540,32 +530,32 @@ contract RisingTidesFishingRod is
 
         // Set specific title bonuses
         // Title 5: Uncharitable (100 catches) - +5% durability
-        titleBonuses[5].durabilityBonus = 5;
+        _titleBonuses[5].durabilityBonus = 5;
 
         // Title 9: Spectacularly Efficient (300 catches) - +10% efficiency
-        titleBonuses[9].efficiencyBonus = 10;
+        _titleBonuses[9].efficiencyBonus = 10;
 
         // Title 13: Totally Ordinary (675 catches) - +5% crit rate
-        titleBonuses[13].critRateBonus = 500; // 5% in basis points
+        _titleBonuses[13].critRateBonus = 500; // 5% in basis points
 
         // Title 16: Server-Clearing (1500 catches) - +10% max fish weight
-        titleBonuses[16].maxWeightBonus = 10;
+        _titleBonuses[16].maxWeightBonus = 10;
 
         // Title 18: Poseidon's Own (5000 catches) - Perfect Catch
-        titleBonuses[18].hasPerfectCatch = true;
+        _titleBonuses[18].hasPerfectCatch = true;
 
         // Title 19: Absolutely Seaworthy (8500 catches) - Trophy Quality
-        titleBonuses[19].hasTrophyQuality = true;
+        _titleBonuses[19].hasTrophyQuality = true;
 
-        emit TitleSystemUpdated(titleThresholds.length);
+        emit TitleSystemUpdated(_titleThresholds.length);
     }
 
     function updateTitleBonus(
         uint256 titleIndex,
         Bonus memory bonus
     ) external onlyRole(GAME_MASTER_ROLE) {
-        if (titleIndex >= titleThresholds.length) revert InvalidTitleIndex();
-        titleBonuses[titleIndex] = bonus;
+        if (titleIndex >= _titleThresholds.length) revert InvalidTitleIndex();
+        _titleBonuses[titleIndex] = bonus;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -612,17 +602,17 @@ contract RisingTidesFishingRod is
         rod = _rodInstances[tokenId];
         titleIndex = getCurrentTitleIndex(rod.totalCatches);
 
-        if (titleIndex < titleNames.length) {
-            currentTitle = titleNames[titleIndex];
+        if (titleIndex < _titleNames.length) {
+            currentTitle = _titleNames[titleIndex];
         }
     }
 
     function getEnchantmentInfo(
         uint256 enchantmentId
     ) external view returns (string memory name, Bonus memory bonus) {
-        if (enchantmentId >= nextEnchantmentId) revert InvalidEnchantmentId();
-        name = enchantmentNames[enchantmentId];
-        bonus = enchantmentBonuses[enchantmentId];
+        if (enchantmentId >= _nextEnchantmentId) revert InvalidEnchantmentId();
+        name = _enchantmentNames[enchantmentId];
+        bonus = _enchantmentBonuses[enchantmentId];
     }
 
     function getTitleInfo(
@@ -632,20 +622,10 @@ contract RisingTidesFishingRod is
         view
         returns (string memory name, uint256 threshold, Bonus memory bonus)
     {
-        if (titleIndex >= titleThresholds.length) revert InvalidTitleIndex();
-        name = titleNames[titleIndex];
-        threshold = titleThresholds[titleIndex];
-        bonus = titleBonuses[titleIndex];
-    }
-
-    function rodTypes(uint256 rodId) external view returns (RodType memory) {
-        return _rodTypes[rodId];
-    }
-
-    function rodInstances(
-        uint256 tokenId
-    ) external view returns (RodInstance memory) {
-        return _rodInstances[tokenId];
+        if (titleIndex >= _titleThresholds.length) revert InvalidTitleIndex();
+        name = _titleNames[titleIndex];
+        threshold = _titleThresholds[titleIndex];
+        bonus = _titleBonuses[titleIndex];
     }
 
     /*//////////////////////////////////////////////////////////////

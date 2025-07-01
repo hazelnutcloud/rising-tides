@@ -148,12 +148,6 @@ interface IRisingTidesFishingRod {
         uint256 totalCatches
     ) external view returns (uint256);
 
-    function rodTypes(uint256 rodId) external view returns (RodType memory);
-
-    function rodInstances(
-        uint256 tokenId
-    ) external view returns (RodInstance memory);
-
     function getEnchantmentInfo(
         uint256 enchantmentId
     ) external view returns (string memory name, Bonus memory bonus);
@@ -164,6 +158,4 @@ interface IRisingTidesFishingRod {
         external
         view
         returns (string memory name, uint256 threshold, Bonus memory bonus);
-
-
 }
