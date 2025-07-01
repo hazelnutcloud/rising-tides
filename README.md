@@ -82,30 +82,35 @@ Fishing rods are ERC721 NFTs with unique attributes that affect fishing performa
 - **Crit Rate**: Chance to roll twice and take the rarer item
 - **Strength**: Modifier to durability loss (higher strength = lower durability loss)
 - **Efficiency**: Chance to not consume bait
-- **Compatible Bait Types**: Each rod can only equip certain types of bait
+- **Compatible Bait Types**: Each rod type has a bitfield defining compatible bait types
 
 **Rod Enchantments:**
 
-- **Lucky**: 20% chance to catch two fish in one attempt
-- **Icy**: Fish maintains freshness 50% longer
-- **Deadly**: Increased crit rate
-- **Efficient**: Increased efficiency
-- **Strong**: Increased strength and durability
-- **Region-specific**: Bonus stats at certain regions
-- **Tasty**: Increased max fish weight and chance to catch larger fish
+Enchantments are configurable by the GameMaster and can provide various bonuses:
+
+- Stat bonuses (durability, efficiency, crit rate, max weight, strength)
+- Special effects (double catch chance, slower freshness decay)
+- Region-specific bonuses that only apply in certain areas
+- Title-like bonuses (perfect catch chance, trophy quality fish)
 
 **Rod Progression:**
 
 - Rods track total fish caught and gain titles at milestones (similar to TF2's strange items)
-- Higher titles unlock stat bonuses and visual effects
-- Titles provide prestige and gameplay advantages
+- 20 title levels from "Strange" to "Absolutely Seaworthy"
+- Titles provide specific bonuses:
+  - Level 5 (100 catches): +5% durability
+  - Level 9 (300 catches): +10% bait efficiency
+  - Level 13 (675 catches): +5% crit rate
+  - Level 16 (1500 catches): +10% max fish weight
+  - Level 18 (5000 catches): 5% chance for "Perfect Catch" (no durability loss)
+  - Level 19 (8500 catches): 10% chance for "Trophy Quality" fish (1.5x value)
 
 #### Bait System
 
 - Different bait types affect which fish species can be caught
 - Bait-region combinations determine probability distributions
 - Bait is consumed when fishing (unless rod efficiency triggers)
-- Each fishing rod has compatible bait types
+- Each fishing rod type has a bitfield defining compatible bait types
 
 #### Fishing Process
 
@@ -211,9 +216,15 @@ To optimize multiplayer performance, players are distributed across shards:
 
 ## Technical Implementation
 
+For detailed calculations and formulas, see:
+
+- [Calculations Guide](docs/CALCULATIONS.md) - All game mechanics formulas
+- [Units & Precision](docs/CALCULATIONS_UNITS_PRECISION.md) - Data types and precision details
+- [Fishing Rod Progression](docs/FISHING_ROD_PROGRESSION.md) - Complete title system details
+
 ### Smart Contracts
 
-The game consists of five main smart contracts (see [dependency graph](docs/CONTRACT_DEPENDENCY_GRAPH.md)):
+The game consists of five main smart contracts (see [contract dependency graph](docs/CONTRACT_DEPENDENCY_GRAPH.md)):
 
 #### 1. RisingTidesWorld
 
@@ -261,6 +272,7 @@ Manages player inventory state:
 - **Fish Management**: Track caught fish with weight and timestamps
 - **Equipment Tracking**: Monitor currently equipped items
 - **Capacity Management**: Enforce weight limits and inventory constraints
+- **Cargo Weight**: Calculate total weight of player's fish inventory
 - **Material Storage**: Crafting materials from harvested fish
 
 Key Functions:
@@ -270,6 +282,7 @@ Key Functions:
 - `equipShip()`: Set active ship for player
 - `getInventory()`: Query player's full inventory
 - `transferItem()`: Move items between players
+- `getPlayerCargoWeight()`: Get total weight of player's fish
 
 #### 4. RisingTidesPort
 
@@ -298,17 +311,17 @@ Manages fishing rods as ERC721 NFTs:
 
 - **NFT Management**: Each rod is a unique NFT with attributes
 - **Attribute System**: Max durability, weight limits, crit rate, strength, efficiency
-- **Enchantment System**: Special properties that enhance fishing
-- **Title Progression**: Track catches and unlock bonuses
-- **Compatibility**: Define which bait types work with each rod
+- **Enchantment System**: Configurable enchantments with region-specific bonuses
+- **Title Progression**: 20 titles with specific bonuses at milestones
+- **Compatibility**: Bitfield-based bait compatibility (up to 256 bait types)
 - **Metadata Storage**: On-chain attributes and off-chain visuals
 
 Key Functions:
 
 - `mint()`: Create new fishing rod NFT, passing in attributes and any enchantments (can only be called by RisingTidesPort)
-- `updateAttributes()`: Modify rod stats (for repairs/upgrades)
-- `incrementCatches()`: Update catch counter for titles
-- `getRodAttributes()`: Query full rod specifications
+- `getAttributes()`: Get effective rod stats including bonuses for fishing
+- `processCatch()`: Process catch results and apply durability loss
+- `repair()`: Restore rod durability (can only be called by RisingTidesPort)
 
 ### Data Structures
 
@@ -367,26 +380,20 @@ struct Player {
 #### Fishing Rod Data
 
 ```solidity
-struct FishingRod {
+struct RodInstance {
+    uint256 rodId;               // Type of rod
     uint256 maxDurability;
     uint256 currentDurability;
     uint256 maxFishWeight;
-    uint256 critRate;        // Basis points (10000 = 100%)
-    uint256 strength;         // Durability loss modifier
-    uint256 efficiency;       // Bait save chance
-    uint256 totalCatches;     // For title progression
-    uint256 enchantmentMask;  // Bitfield for enchantments
-    uint256[] compatibleBait; // Allowed bait types
+    uint256 critRate;            // Basis points (10000 = 100%)
+    uint256 strength;            // Durability loss modifier
+    uint256 efficiency;          // Bait save chance (percentage)
+    uint256 totalCatches;        // For title progression
+    uint256 enchantmentMask;     // Bitfield for enchantments
 }
 
-// Enchantment bit positions
-uint256 constant ENCHANT_LUCKY = 1 << 0;
-uint256 constant ENCHANT_ICY = 1 << 1;
-uint256 constant ENCHANT_DEADLY = 1 << 2;
-uint256 constant ENCHANT_EFFICIENT = 1 << 3;
-uint256 constant ENCHANT_STRONG = 1 << 4;
-uint256 constant ENCHANT_REGION_BONUS = 1 << 5;
-uint256 constant ENCHANT_TASTY = 1 << 6;
+// Enchantments are now configurable by GameMaster
+// Each enchantment can have region-specific bonuses
 ```
 
 #### Ship Data
