@@ -119,19 +119,31 @@ Enchantments are configurable by the GameMaster and can provide various bonuses:
 - Bait-region combinations determine probability distributions
 - Bait is consumed when fishing (unless rod efficiency triggers)
 - Each fishing rod type has a bitfield defining compatible bait types
+- Day/night cycle (6 AM - 6 PM is day) affects fish availability
 
 #### Fishing Process
 
-1. Player must be at a valid fishing location
+1. Player initiates fishing with bait selection and completion method choice (onchain/offchain)
 2. Fishing rod durability and bait compatibility are checked
-3. Bait is consumed (efficiency check may prevent consumption)
-4. Fish is sampled using O(1) alias method with VRF randomness
-5. Critical hits trigger bonus rolls (base: 1 extra roll, can be increased by critMultiplierBonus)
-6. Fish weight is randomly determined (affected by rod's max fish weight)
-7. Weight check: 90% fail chance if fish exceeds rod's max weight
-8. Rod durability decreases based on fish size and strength modifier
-9. Fish is added to inventory with timestamp for freshness tracking
-10. Lucky enchantment may grant additional fish
+3. VRF request is made for randomness
+4. Player completes fishing using their chosen method:
+   - **Offchain**: Server provides signed result for interactive gameplay
+   - **Onchain**: Success determined by VRF seed and configurable failure rate
+5. Base cooldown (5 seconds) is applied to prevent spam
+6. Bait is consumed (efficiency check may prevent consumption)
+7. Fish is selected using O(1) alias method based on:
+   - Map ID, region type, bait ID, and day/night phase
+   - Fish rarity determined by array index (GameMaster must sort by rarity)
+8. Critical hits trigger bonus rolls:
+   - Base: 1 extra roll on crit
+   - Additional rolls from critMultiplierBonus
+   - Rarest fish (highest index) among all rolls is caught
+9. Fish weight is randomly determined within species range
+10. Weight check: 96% fail chance if fish exceeds rod's max weight
+11. Rod durability decreases based on fish size and strength modifier
+12. Fish-specific cooldown applied if longer than base cooldown
+13. Fish is added to inventory with timestamp for freshness tracking
+14. Lucky enchantment may grant additional fish
 
 #### Crafting & Repair System
 
@@ -262,18 +274,23 @@ Key Functions:
 
 Handles fishing mechanics and probability systems:
 
-- **Probability Tables**: Alias method implementation for O(1) fish sampling
-- **Fishing Logic**: Core fishing mechanics and validation
-- **VRF Integration**: External VRF contract interface for randomness
-- **Bait-Region Tables**: Probability distributions per bait/region combo
-- **Catch Validation**: Weight limits and success rate calculations
+- **Dual Completion System**: Players precommit to onchain or offchain completion
+- **Probability Tables**: Alias method for O(1) fish sampling with day/night variations
+- **VRF Integration**: Chainlink VRF compatible interface for randomness
+- **Cooldown System**: Base cooldown (5s) plus fish-specific cooldowns
+- **Fish Selection**: Multi-layered probability system:
+  - Primary key: map-region-bait-dayphase combination
+  - Fallback: default bait table → global default table
+  - Rarity by index: GameMaster sorts fishIds arrays by rarity
+- **Critical Hit System**: Bonus rolls select rarest fish among attempts
 
 Key Functions:
 
-- `initiateFishing()`: Start fishing with bait and rod validation
-- `completeFishing()`: Process VRF result and determine catch
-- `setFishingTable()`: Configure probability distributions
-- `calculateCatch()`: Determine fish species and weight
+- `initiateFishing(baitId, useOffchainCompletion)`: Start fishing with precommitment
+- `completeFishingOffchain()`: Complete with EIP-712 signed server result
+- `completeFishingOnchain()`: Complete with configurable failure rate
+- `setAliasTable()`: Configure probability distributions
+- `setFishSpecies()`: Define fish attributes and cooldowns
 
 #### 3. RisingTidesInventory
 
