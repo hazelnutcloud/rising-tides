@@ -132,7 +132,7 @@ Determines if a catch succeeds based on rod's max fish weight.
 
 ```
 if (fishWeight > rodMaxWeight) {
-    successChance = 10%  // 90% fail chance
+    successChance = 4%  // 96% fail chance
 } else {
     successChance = 100%
 }
