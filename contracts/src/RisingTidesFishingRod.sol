@@ -198,7 +198,26 @@ contract RisingTidesFishingRod is
                             FISHING INTEGRATION
     //////////////////////////////////////////////////////////////*/
 
-    function getAttributes(
+    function checkRodUsability(
+        uint256 tokenId
+    )
+        external
+        view
+        returns (
+            bool isUsable,
+            uint256 compatibleBaitMask
+        )
+    {
+        if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
+
+        RodInstance memory rod = _rodInstances[tokenId];
+        RodType memory rodType = _rodTypes[rod.rodId];
+
+        isUsable = rod.currentDurability > 0;
+        compatibleBaitMask = rodType.compatibleBaitMask;
+    }
+
+    function getFishingAttributes(
         uint256 tokenId,
         uint256 regionType
     )
@@ -208,18 +227,13 @@ contract RisingTidesFishingRod is
             uint256 effectiveMaxFishWeight,
             uint256 effectiveCritRate,
             uint256 effectiveEfficiency,
-            uint256 effectiveCritMultiplierBonus,
-            uint256 compatibleBaitMask,
-            bool isUsable
+            uint256 effectiveCritMultiplierBonus
         )
     {
         if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
 
         RodInstance memory rod = _rodInstances[tokenId];
-        RodType memory rodType = _rodTypes[rod.rodId];
-
-        isUsable = rod.currentDurability > 0;
-
+        
         Bonus memory totalBonus = _calculateTotalBonus(rod, regionType);
 
         effectiveMaxFishWeight =
@@ -228,8 +242,6 @@ contract RisingTidesFishingRod is
         effectiveCritRate = rod.critRate + totalBonus.critRateBonus;
         effectiveEfficiency = rod.efficiency + totalBonus.efficiencyBonus;
         effectiveCritMultiplierBonus = totalBonus.critMultiplierBonus;
-
-        compatibleBaitMask = rodType.compatibleBaitMask;
     }
 
     function processCatch(

@@ -8,12 +8,12 @@ interface IRisingTidesFishing {
 
     struct FishSpecies {
         string name;
-        uint256 minWeight;        // in kg with 1e18 precision
-        uint256 maxWeight;        // in kg with 1e18 precision
-        uint256 baseValue;        // in DBL per kg
-        uint256 minCooldown;      // in seconds
-        uint256 maxCooldown;      // in seconds
-        uint256 decayRate;        // seconds for 100% freshness decay
+        uint256 minWeight; // in kg with 1e18 precision
+        uint256 maxWeight; // in kg with 1e18 precision
+        uint256 baseValue; // in DBL per kg
+        uint256 minCooldown; // in seconds
+        uint256 maxCooldown; // in seconds
+        uint256 decayRate; // seconds for 100% freshness decay
         bool exists;
     }
 
@@ -30,12 +30,14 @@ interface IRisingTidesFishing {
         int32 r;
         bool isPending;
         bool isDayTime;
+        bool vrfFulfilled;
+        bool isOffchainCompletion;
     }
 
     struct AliasTable {
-        uint256[] probabilities;  // Probability values for each fish
-        uint256[] aliases;        // Alias indices for each fish
-        uint256[] fishIds;        // Fish species IDs
+        uint256[] probabilities; // Probability values for each fish
+        uint256[] aliases; // Alias indices for each fish
+        uint256[] fishIds; // Fish species IDs
         uint256 totalProbability; // Sum of all probabilities
         bool exists;
     }
@@ -92,10 +94,7 @@ interface IRisingTidesFishing {
         uint256 amount
     );
 
-    event FishDiscarded(
-        address indexed player,
-        uint256[] fishIndices
-    );
+    event FishDiscarded(address indexed player, uint256[] fishIndices);
 
     event FishSpeciesSet(
         uint256 indexed fishId,
@@ -135,18 +134,22 @@ interface IRisingTidesFishing {
     error NoFishingRodEquipped();
     error InvalidBaitId();
     error InsufficientBait();
-    error CannotFishWhileMoving();
     error InvalidFishingLocation();
+    error UnusableRod();
     error InventoryFull();
     error InvalidDiscardIndices();
     error Unauthorized();
     error InvalidFailureRate();
+    error WrongCompletionMethod();
 
     /*//////////////////////////////////////////////////////////////
                             FISHING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function initiateFishing(uint256 baitId) external returns (uint256 requestId);
+    function initiateFishing(
+        uint256 baitId,
+        bool useOffchainCompletion
+    ) external returns (uint256 requestId);
 
     function completeFishingOffchain(
         uint256 requestId,
@@ -164,9 +167,13 @@ interface IRisingTidesFishing {
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getActiveFishingRequest(address player) external view returns (FishingRequest memory);
+    function getActiveFishingRequest(
+        address player
+    ) external view returns (FishingRequest memory);
 
-    function getFishSpecies(uint256 fishId) external view returns (FishSpecies memory);
+    function getFishSpecies(
+        uint256 fishId
+    ) external view returns (FishSpecies memory);
 
     function getAliasTable(
         uint256 mapId,
@@ -185,7 +192,10 @@ interface IRisingTidesFishing {
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function setFishSpecies(uint256 fishId, FishSpecies calldata species) external;
+    function setFishSpecies(
+        uint256 fishId,
+        FishSpecies calldata species
+    ) external;
 
     function setAliasTable(
         uint256 mapId,
@@ -224,5 +234,8 @@ interface IRisingTidesFishing {
                             VRF CALLBACK
     //////////////////////////////////////////////////////////////*/
 
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) external;
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) external;
 }

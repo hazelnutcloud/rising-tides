@@ -131,7 +131,8 @@ contract RisingTidesFishing is
     //////////////////////////////////////////////////////////////*/
 
     function initiateFishing(
-        uint256 baitId
+        uint256 baitId,
+        bool useOffchainCompletion
     ) external whenNotPaused returns (uint256 requestId) {
         // Check if player already has an active request
         if (activeFishingRequests[msg.sender].isPending)
@@ -142,55 +143,38 @@ contract RisingTidesFishing is
             revert StillOnCooldown();
 
         // Validate player location and state
-        (bool canFish, int32 q, int32 r, uint256 regionId) = world
-            .validateFishingLocation(msg.sender);
+        (
+            bool canFish,
+            int32 q,
+            int32 r,
+            uint256 regionId,
+            uint256 mapId
+        ) = world.validateFishingLocation(msg.sender);
         if (!canFish) revert InvalidFishingLocation();
-        if (world.isMoving(msg.sender)) revert CannotFishWhileMoving();
 
-        // Get player info for mapId
-        IRisingTidesWorld.Player memory playerInfo = world.getPlayerInfo(
-            msg.sender
-        );
-
-        // Check fishing rod
-        uint256 rodTokenId = inventory.getEquippedRod(msg.sender);
-        if (rodTokenId == 0) revert NoFishingRodEquipped();
-
-        // TODO: lots of missing stuff here
-
-        // Validate rod is usable
-        (, , , , , bool isUsable) = fishingRod.getAttributes(
-            rodTokenId,
-            regionId & 0xFF
-        );
-        if (!isUsable) revert InvalidFishingLocation();
-
-        // Check bait
-        if (baitId != 0) {
-            uint256 baitAmount = inventory.getBait(msg.sender, baitId);
-            if (baitAmount == 0) revert InsufficientBait();
-        }
+        // Check and validate rod
+        uint256 rodTokenId = _validateRodAndBait(baitId);
 
         // Generate request ID
         requestId = nextRequestId++;
+        requestIdToPlayer[requestId] = msg.sender;
 
         // Store request
-        activeFishingRequests[msg.sender] = FishingRequest({
-            player: msg.sender,
-            requestId: requestId,
-            randomSeed: 0, // Will be filled by VRF
-            timestamp: block.timestamp,
-            rodTokenId: rodTokenId,
-            baitId: baitId,
-            mapId: playerInfo.mapId,
-            regionId: regionId,
-            q: q,
-            r: r,
-            isPending: true,
-            isDayTime: isDayTime()
-        });
-
-        requestIdToPlayer[requestId] = msg.sender;
+        FishingRequest storage request = activeFishingRequests[msg.sender];
+        request.player = msg.sender;
+        request.requestId = requestId;
+        request.randomSeed = 0;
+        request.timestamp = block.timestamp;
+        request.rodTokenId = rodTokenId;
+        request.baitId = baitId;
+        request.mapId = mapId;
+        request.regionId = regionId;
+        request.q = q;
+        request.r = r;
+        request.isPending = true;
+        request.isDayTime = isDayTime();
+        request.vrfFulfilled = false;
+        request.isOffchainCompletion = useOffchainCompletion;
 
         // Request randomness from VRF
         // In a real implementation, this would call the VRF coordinator
@@ -200,13 +184,40 @@ contract RisingTidesFishing is
             requestId,
             rodTokenId,
             baitId,
-            playerInfo.mapId,
+            mapId,
             regionId,
             q,
             r,
-            isDayTime(),
+            request.isDayTime,
             block.timestamp
         );
+    }
+
+    function _validateRodAndBait(
+        uint256 baitId
+    ) internal view returns (uint256 rodTokenId) {
+        // Check fishing rod
+        rodTokenId = inventory.getEquippedRod(msg.sender);
+        if (rodTokenId == 0) revert NoFishingRodEquipped();
+
+        // Validate rod is usable and get bait compatibility
+        (bool isUsable, uint256 compatibleBaitMask) = fishingRod
+            .checkRodUsability(rodTokenId);
+        if (!isUsable) revert UnusableRod();
+
+        // Check bait
+        if (baitId != 0) {
+            uint256 baitAmount = inventory.getBait(msg.sender, baitId);
+            if (baitAmount == 0) revert InsufficientBait();
+
+            // Check if bait is compatible with rod
+            if (
+                compatibleBaitMask != 0 &&
+                (compatibleBaitMask & (uint256(1) << baitId)) == 0
+            ) {
+                revert InvalidBaitId();
+            }
+        }
     }
 
     function completeFishingOffchain(
@@ -222,7 +233,10 @@ contract RisingTidesFishing is
         FishingRequest storage request = activeFishingRequests[msg.sender];
         if (!request.isPending || request.requestId != requestId)
             revert InvalidRequestId();
-        if (request.randomSeed == 0) revert InvalidRequestId(); // VRF not fulfilled yet
+        if (!request.vrfFulfilled) revert InvalidRequestId(); // VRF not fulfilled yet
+
+        // Check precommitment
+        if (!request.isOffchainCompletion) revert WrongCompletionMethod();
 
         // Validate signature
         if (result.expiry < block.timestamp) revert RequestExpired();
@@ -260,7 +274,10 @@ contract RisingTidesFishing is
         FishingRequest storage request = activeFishingRequests[msg.sender];
         if (!request.isPending || request.requestId != requestId)
             revert InvalidRequestId();
-        if (request.randomSeed == 0) revert InvalidRequestId(); // VRF not fulfilled yet
+        if (!request.vrfFulfilled) revert InvalidRequestId(); // VRF not fulfilled yet
+
+        // Check precommitment
+        if (request.isOffchainCompletion) revert WrongCompletionMethod();
 
         // Determine success based on onchain failure rate
         bool success = (request.randomSeed % BASIS_POINTS) >=
@@ -287,6 +304,7 @@ contract RisingTidesFishing is
 
         // Store random seed
         request.randomSeed = randomWords[0];
+        request.vrfFulfilled = true;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -365,6 +383,8 @@ contract RisingTidesFishing is
         uint256[] calldata aliases,
         uint256[] calldata fishIds
     ) external onlyRole(GAME_MASTER_ROLE) {
+        // Note: fishIds array must be sorted by rarity in ascending order (least rare to most rare)
+        // The critical hit system selects the fish with the highest index as the rarest
         _validateAndSetAliasTable(
             keccak256(abi.encodePacked(mapId, regionType, baitId, _isDayTime)),
             probabilities,
@@ -467,8 +487,20 @@ contract RisingTidesFishing is
         // Mark request as completed
         request.isPending = false;
 
+        // Get all rod attributes in a single call
+        uint256 regionType = request.regionId & 0xFF;
+        (
+            uint256 effectiveMaxFishWeight,
+            uint256 effectiveCritRate,
+            uint256 effectiveEfficiency,
+            uint256 effectiveCritMultiplierBonus
+        ) = fishingRod.getFishingAttributes(request.rodTokenId, regionType);
+
         // Process bait consumption
-        bool consumeBait = _processBaitConsumption(request);
+        bool consumeBait = _processBaitConsumption(
+            request,
+            effectiveEfficiency
+        );
 
         if (!success) {
             emit FishingFailed(
@@ -487,19 +519,21 @@ contract RisingTidesFishing is
         }
 
         // Process the actual fishing
-        _processFishCatch(request, consumeBait, isOffchain);
+        _processFishCatch(
+            request,
+            consumeBait,
+            isOffchain,
+            effectiveMaxFishWeight,
+            effectiveCritRate,
+            effectiveCritMultiplierBonus
+        );
     }
 
     function _processBaitConsumption(
-        FishingRequest storage request
+        FishingRequest storage request,
+        uint256 effectiveEfficiency
     ) internal returns (bool) {
         if (request.baitId == 0) return false;
-
-        uint256 regionType = request.regionId & 0xFF;
-        (, , uint256 effectiveEfficiency, , , ) = fishingRod.getAttributes(
-            request.rodTokenId,
-            regionType
-        );
 
         bool consumeBait = true;
         if (effectiveEfficiency > 0) {
@@ -522,19 +556,12 @@ contract RisingTidesFishing is
     function _processFishCatch(
         FishingRequest storage request,
         bool consumeBait,
-        bool isOffchain
+        bool isOffchain,
+        uint256 effectiveMaxFishWeight,
+        uint256 effectiveCritRate,
+        uint256 effectiveCritMultiplierBonus
     ) internal {
         uint256 regionType = request.regionId & 0xFF;
-
-        // Get rod attributes
-        (
-            uint256 effectiveMaxFishWeight,
-            uint256 effectiveCritRate,
-            ,
-            uint256 effectiveCritMultiplierBonus,
-            ,
-
-        ) = fishingRod.getAttributes(request.rodTokenId, regionType);
 
         // Select fish
         uint256 fishId = _selectFishWithCrits(
@@ -566,7 +593,7 @@ contract RisingTidesFishing is
             uint256 catchRoll = uint256(
                 keccak256(abi.encode(request.randomSeed, "overweight"))
             ) % 100;
-            if (catchRoll >= 10) {
+            if (catchRoll >= 4) {
                 emit FishingFailed(
                     request.player,
                     request.requestId,
@@ -595,15 +622,6 @@ contract RisingTidesFishing is
         uint256 effectiveCritRate,
         uint256 effectiveCritMultiplierBonus
     ) internal view returns (uint256) {
-        // Initial fish selection
-        uint256 fishId = _selectFish(
-            request.mapId,
-            request.regionId & 0xFF,
-            request.baitId,
-            request.isDayTime,
-            request.randomSeed
-        );
-
         // Calculate number of rolls
         uint256 numRolls = 1;
         if (effectiveCritRate > 0) {
@@ -615,10 +633,18 @@ contract RisingTidesFishing is
             }
         }
 
-        // Roll for best fish
-        uint256 bestFishId = fishId;
+        // Initial fish selection
+        (uint256 bestFishId, uint256 bestFishIndex) = _selectFish(
+            request.mapId,
+            request.regionId & 0xFF,
+            request.baitId,
+            request.isDayTime,
+            request.randomSeed
+        );
+
+        // Roll for best fish (highest index = rarest)
         for (uint256 i = 1; i < numRolls; i++) {
-            uint256 rolledFishId = _selectFish(
+            (uint256 rolledFishId, uint256 rolledFishIndex) = _selectFish(
                 request.mapId,
                 request.regionId & 0xFF,
                 request.baitId,
@@ -626,8 +652,10 @@ contract RisingTidesFishing is
                 uint256(keccak256(abi.encode(request.randomSeed, "roll", i)))
             );
 
-            if (rolledFishId > bestFishId) {
+            // Compare by index (higher index = rarer fish)
+            if (rolledFishIndex > bestFishIndex) {
                 bestFishId = rolledFishId;
+                bestFishIndex = rolledFishIndex;
             }
         }
 
@@ -730,7 +758,7 @@ contract RisingTidesFishing is
         uint256 baitId,
         bool _isDayTime,
         uint256 randomSeed
-    ) internal view returns (uint256) {
+    ) internal view returns (uint256 fishId, uint256 fishIndex) {
         // Try specific table first
         bytes32 key = keccak256(
             abi.encodePacked(mapId, regionType, baitId, _isDayTime)
@@ -749,7 +777,7 @@ contract RisingTidesFishing is
 
         // No table available
         if (!table.exists || table.fishIds.length == 0) {
-            return 0;
+            return (0, 0);
         }
 
         // Alias method sampling
@@ -757,11 +785,14 @@ contract RisingTidesFishing is
         uint256 index = randomSeed % n;
         uint256 prob = (randomSeed >> 128) % table.totalProbability;
 
+        uint256 selectedIndex;
         if (prob < table.probabilities[index]) {
-            return table.fishIds[index];
+            selectedIndex = index;
         } else {
-            return table.fishIds[table.aliases[index]];
+            selectedIndex = table.aliases[index];
         }
+
+        return (table.fishIds[selectedIndex], selectedIndex);
     }
 
     function _calculateFishWeight(

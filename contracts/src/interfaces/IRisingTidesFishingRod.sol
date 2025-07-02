@@ -104,7 +104,17 @@ interface IRisingTidesFishingRod {
                             FISHING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getAttributes(
+    function checkRodUsability(
+        uint256 tokenId
+    )
+        external
+        view
+        returns (
+            bool isUsable,
+            uint256 compatibleBaitMask
+        );
+
+    function getFishingAttributes(
         uint256 tokenId,
         uint256 regionType
     )
@@ -114,9 +124,7 @@ interface IRisingTidesFishingRod {
             uint256 effectiveMaxFishWeight,
             uint256 effectiveCritRate,
             uint256 effectiveEfficiency,
-            uint256 effectiveCritMultiplierBonus,
-            uint256 compatibleBaitMask,
-            bool isUsable
+            uint256 effectiveCritMultiplierBonus
         );
 
     function processCatch(
