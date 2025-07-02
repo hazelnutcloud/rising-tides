@@ -32,7 +32,7 @@ This makes Strange rods significantly more valuable and creates an exciting elem
 15. **Reef-Clearing** (850 catches)
 16. **Rage-Inducing** (1000 catches)
 17. **Server-Clearing** (1500 catches)
-    - _Bonus: +10% max fish weight range_
+    - _Bonus: +10% max fish weight (rod can handle 10% heavier fish)_
 18. **Australian** (2500 catches)
 19. **Poseidon's Own** (5000 catches)
     - _Bonus: 10% chance for "Perfect Catch" (no durability loss)_

@@ -1,20 +1,81 @@
 # Rising Tides New Fishing Mechanics
 
-## Fishing fullfilment
+## Fishing Fulfillment
 
-- There should be two function or ways to fulfill a player's fishing request:
+Players must choose their completion method when initiating fishing (precommitment system):
 
-1. Offchain fulfillment
-2. Onchain fulfillment
+```solidity
+function initiateFishing(uint256 baitId, bool useOffchainCompletion)
+```
 
-### Offchain fulfillment
+This prevents players from gaming the system by choosing the completion method after seeing the VRF result.
 
-After the external VRF contract calls the FishingContract, the completion should actually be put into a queue. Afterwards, the user should call another method `completeFishingOffchain` where they pass a signed packet provided by an offchain server. This method allows the game to implement some fun mechanics around fishing like minigames when the player is trying to catch a fish. The packet should contain the result whether the fishing attempt was succesful or another
+### Offchain Fulfillment
 
-### Onchain fulfillment
+After the VRF fulfills the randomness request, players who chose offchain completion must call `completeFishingOffchain` with a signed packet from the game server. This enables:
 
-Alternatively, the user may call a different function `completeFishingOnChain` where they do not need a signed packet from an offchain server. However, the outcome of their fishing now becomes a coin toss where they have a chance to fail determined by the random number generated. This chance of failure is configurable by the master and is by default set to 50/50. This alternative function serves as a fallback in case of server failure and ensure the liveness of the contracts and the fully onchain nature of the game.
+- Interactive minigames
+- Enhanced gameplay experiences
+- Server-side fishing mechanics
 
-## Fishing cooldown
+The signed packet uses EIP-712 and contains:
 
-- Each type of fish should have another set of attributes called minCooldown and maxCooldown. This is the time that the player must wait after catching this fish. Larger/rarer fish should have a longer cooldown simulating the struggle to reel in the fish.
+- Success/failure result
+- Request ID
+- Nonce (replay protection)
+- Expiry timestamp
+
+### Onchain Fulfillment
+
+Players who chose onchain completion call `completeFishingOnchain` without needing server interaction. The success rate is determined by:
+
+- VRF-generated random seed
+- Configurable failure rate (default: 50%)
+- Formula: `success = (randomSeed % 10000) >= onchainFailureRate`
+
+This serves as a fallback ensuring the game remains fully playable even without server availability.
+
+## Fishing Cooldown
+
+### Base Cooldown
+
+- All fishing attempts have a minimum 5-second cooldown to prevent spam
+- Applied immediately when completing fishing (success or failure)
+
+### Fish-Specific Cooldown
+
+- Each fish species has minCooldown and maxCooldown attributes
+- Actual cooldown is randomly determined within this range
+- Larger/rarer fish have longer cooldowns (simulating the struggle to reel them in)
+- If fish cooldown > base cooldown, the longer duration is used
+
+## Fish Selection System
+
+### Alias Tables
+
+The game uses alias tables for O(1) fish selection based on:
+
+- Map ID
+- Region type
+- Bait ID
+- Day/night phase (6 AM - 6 PM is day)
+
+### Probability Distribution
+
+- GameMaster configures probability tables for each map-region-bait-dayphase combination
+- Fallback hierarchy:
+  1. Specific table for exact combination
+  2. Default table for the bait type
+  3. Global default table
+
+### Fish Rarity
+
+- **Important**: Fish rarity is determined by array index position, NOT fish ID
+- GameMaster must sort fishIds arrays by rarity (least rare → most rare)
+- Critical hits select the fish with the highest index among all rolls
+
+### Critical Hit System
+
+- Base roll: 1 fish selection
+- Critical hit: 2 + critMultiplierBonus selections
+- The rarest fish (highest index) among all rolls is caught

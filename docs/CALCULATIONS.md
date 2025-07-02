@@ -138,6 +138,18 @@ if (fishWeight > rodMaxWeight) {
 }
 ```
 
+### Fish Weight Calculation
+
+Fish weight is randomly determined within the species' natural weight range.
+
+**Formula:**
+
+```
+fishWeight = random(species.minWeight, species.maxWeight)
+```
+
+**Note:** Fish weight is NOT affected by rod bonuses or title bonuses. It's purely based on the species characteristics.
+
 ### Critical Hit Mechanics
 
 Determines if player gets bonus rolls for rarer fish.
@@ -190,6 +202,30 @@ if (hasLuckyEnchantment) {
     doubleCatch = random() < 0.20  // 20% chance
 }
 ```
+
+### Fishing Cooldowns
+
+Players must wait between fishing attempts. There are two types of cooldowns:
+
+**Base Cooldown:**
+
+- Applied to ALL fishing attempts (success or failure)
+- Default: 5 seconds
+- Prevents spam fishing
+
+**Fish-Specific Cooldown:**
+
+- Each fish species has minCooldown and maxCooldown
+- Actual cooldown is randomly determined: `random(minCooldown, maxCooldown)`
+- If fish cooldown > base cooldown, the longer cooldown is used
+- Larger/rarer fish typically have longer cooldowns
+
+**Example:**
+
+- Base cooldown: 5 seconds
+- Caught a rare fish with cooldown range 30-60 seconds
+- Actual cooldown rolled: 45 seconds
+- Player must wait 45 seconds before next fishing attempt
 
 ## Market Economy
 
@@ -333,7 +369,7 @@ Titles unlock at specific catch milestones with associated bonuses. **Only avail
 | Totally Ordinary        | 675              | +5% crit rate                                            |
 | Reef-Clearing           | 850              | None                                                     |
 | Rage-Inducing           | 1000             | None                                                     |
-| Server-Clearing         | 1500             | +10% max fish weight range                               |
+| Server-Clearing         | 1500             | +10% max fish weight (rod handles heavier fish)          |
 | Australian              | 2500             | None                                                     |
 | Poseidon's Own          | 5000             | 5% chance for "Perfect Catch" (no durability loss)       |
 | Absolutely Seaworthy    | 8500             | Fish have 10% chance to be "Trophy Quality" (1.5x value) |
@@ -376,11 +412,13 @@ effectiveCritRate = baseCritRate + titleCritRateBonus
 effectiveCritMultiplierBonus = titleCritMultiplierBonus + enchantmentCritMultiplierBonus
 ```
 
-**Max Weight Range Bonus:**
+**Max Weight Bonus:**
 
 ```
 effectiveMaxWeight = baseMaxWeight × (1 + titleWeightBonus/100)
 ```
+
+**Note:** This bonus affects the rod's ability to handle heavier fish, NOT the actual weight of fish caught. Fish weight is always determined by the species' natural weight range.
 
 ## Additional Calculations
 
