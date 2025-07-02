@@ -260,9 +260,11 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
         (uint256 enginePower, uint256 weightCapacity, ) = inventory
             .getShipStats(shipId);
-        
+
         // Get ship's supported region types
-        IRisingTidesInventory.Ship memory shipInfo = inventory.getShipInfo(shipId);
+        IRisingTidesInventory.Ship memory shipInfo = inventory.getShipInfo(
+            shipId
+        );
         // Engine power is expected to be in 1e18 precision
         if (enginePower < MIN_ENGINE_POWER) revert ShipEngineTooWeak();
 
@@ -290,7 +292,11 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
             // Check if ship can navigate to this region type
             uint256 regionType = getRegionType(player.mapId, nextQ, nextR);
-            if (regionType != 0 && (shipInfo.supportedRegionTypes & (uint256(1) << regionType)) == 0) {
+            if (
+                regionType != 0 &&
+                (shipInfo.supportedRegionTypes & (uint256(1) << regionType)) ==
+                0
+            ) {
                 revert ShipCannotNavigateRegion();
             }
 
@@ -377,10 +383,17 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         // Check if ship can navigate to the destination port
         uint256 shipId = inventory.getEquippedShip(msg.sender);
         if (shipId == 0) revert NoShipEquipped();
-        
-        IRisingTidesInventory.Ship memory shipInfo = inventory.getShipInfo(shipId);
+
+        IRisingTidesInventory.Ship memory shipInfo = inventory.getShipInfo(
+            shipId
+        );
         uint256 destinationRegionType = getRegionType(newMapId, spawnQ, spawnR);
-        if (destinationRegionType != 0 && (shipInfo.supportedRegionTypes & (uint256(1) << destinationRegionType)) == 0) {
+        if (
+            destinationRegionType != 0 &&
+            (shipInfo.supportedRegionTypes &
+                (uint256(1) << destinationRegionType)) ==
+            0
+        ) {
             revert ShipCannotNavigateRegion();
         }
 
@@ -666,7 +679,17 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
     function validateFishingLocation(
         address player
-    ) external view returns (bool canFish, int32 q, int32 r, uint256 regionId) {
+    )
+        external
+        view
+        returns (
+            bool canFish,
+            int32 q,
+            int32 r,
+            uint256 regionId,
+            uint256 mapId
+        )
+    {
         if (!players[player].isRegistered) revert PlayerNotRegistered();
 
         // Get current position
@@ -674,7 +697,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
         // Check if player is moving
         if (isMoving(player)) {
-            return (false, q, r, 0);
+            return (false, q, r, 0, 0);
         }
 
         // Get region ID for current position
@@ -683,5 +706,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         // For now, players can fish anywhere except ports
         // This can be extended to check for specific fishing regions
         canFish = !isPortRegion(players[player].mapId, q, r);
+
+        mapId = players[player].mapId;
     }
 }

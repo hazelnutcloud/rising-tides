@@ -28,21 +28,21 @@ interface IRisingTidesWorld {
     error EnginePowerTooLow();
     error MustMoveToDifferentPosition();
     error ShipCannotNavigateRegion();
-    
+
     enum Direction {
-        EAST,        // +q, 0r
-        NORTHEAST,   // +q, -r
-        NORTHWEST,   // 0q, -r
-        WEST,        // -q, 0r
-        SOUTHWEST,   // -q, +r
-        SOUTHEAST    // 0q, +r
+        EAST, // +q, 0r
+        NORTHEAST, // +q, -r
+        NORTHWEST, // 0q, -r
+        WEST, // -q, 0r
+        SOUTHWEST, // -q, +r
+        SOUTHEAST // 0q, +r
     }
-    
+
     struct Coordinate {
         int32 q;
         int32 r;
     }
-    
+
     struct Player {
         Coordinate[] path;
         uint256 currentPathIndex;
@@ -53,7 +53,7 @@ interface IRisingTidesWorld {
         uint256 segmentDuration;
         bool isRegistered;
     }
-    
+
     struct Map {
         string name;
         uint256 travelCost;
@@ -64,14 +64,31 @@ interface IRisingTidesWorld {
         int32 maxR;
         bool exists;
     }
-    
-    function getPlayerLocation(address player) external view returns (int32 q, int32 r, uint256 mapId);
-    
-    function getCurrentPosition(address player) external view returns (int32 q, int32 r);
-    
+
+    function getPlayerLocation(
+        address player
+    ) external view returns (int32 q, int32 r, uint256 mapId);
+
+    function getCurrentPosition(
+        address player
+    ) external view returns (int32 q, int32 r);
+
     function isMoving(address player) external view returns (bool);
-    
-    function getPlayerInfo(address player) external view returns (Player memory);
-    
-    function validateFishingLocation(address player) external view returns (bool canFish, int32 q, int32 r, uint256 regionId);
+
+    function getPlayerInfo(
+        address player
+    ) external view returns (Player memory);
+
+    function validateFishingLocation(
+        address player
+    )
+        external
+        view
+        returns (
+            bool canFish,
+            int32 q,
+            int32 r,
+            uint256 regionId,
+            uint256 mapId
+        );
 }
