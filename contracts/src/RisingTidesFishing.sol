@@ -59,6 +59,7 @@ contract RisingTidesFishing is
     uint256 private constant DAY_DURATION = 86400; // 24 hours in seconds
     uint256 private constant DAY_START = 21600; // 6 AM in seconds
     uint256 private constant DAY_END = 64800; // 6 PM in seconds
+    uint256 private constant BASE_COOLDOWN = 5; // 5 seconds minimum between fishing attempts to prevent spam
 
     /*//////////////////////////////////////////////////////////////
                                 STORAGE
@@ -487,6 +488,9 @@ contract RisingTidesFishing is
         // Mark request as completed
         request.isPending = false;
 
+        // Apply base cooldown immediately to prevent spam
+        playerCooldowns[request.player] = block.timestamp + BASE_COOLDOWN;
+
         // Get all rod attributes in a single call
         uint256 regionType = request.regionId & 0xFF;
         (
@@ -584,8 +588,7 @@ contract RisingTidesFishing is
         // Calculate fish weight
         uint256 weight = _calculateFishWeight(
             fishId,
-            request.randomSeed,
-            effectiveMaxFishWeight
+            request.randomSeed
         );
 
         // Check if rod can handle the fish
@@ -611,7 +614,6 @@ contract RisingTidesFishing is
             fishId,
             weight,
             regionType,
-            effectiveMaxFishWeight,
             consumeBait,
             isOffchain
         );
@@ -667,7 +669,6 @@ contract RisingTidesFishing is
         uint256 fishId,
         uint256 weight,
         uint256 regionType,
-        uint256 effectiveMaxFishWeight,
         bool consumeBait,
         bool isOffchain
     ) internal {
@@ -680,13 +681,16 @@ contract RisingTidesFishing is
                 request.randomSeed
             );
 
-        // Calculate cooldown
-        uint256 cooldownDuration = _calculateCooldown(
-            fishId,
-            request.randomSeed
-        );
-        uint256 cooldownUntil = block.timestamp + cooldownDuration;
-        playerCooldowns[request.player] = cooldownUntil;
+        // Calculate fish-specific cooldown and extend if longer than base
+        uint256 fishCooldown = _calculateCooldown(fishId, request.randomSeed);
+        uint256 cooldownUntil;
+        if (fishCooldown > BASE_COOLDOWN) {
+            cooldownUntil = block.timestamp + fishCooldown;
+            playerCooldowns[request.player] = cooldownUntil;
+        } else {
+            // Base cooldown already applied, use that
+            cooldownUntil = playerCooldowns[request.player];
+        }
 
         // Add fish to inventory
         try
@@ -703,7 +707,6 @@ contract RisingTidesFishing is
                 _tryAddSecondFish(
                     request,
                     fishId,
-                    effectiveMaxFishWeight,
                     modifiers
                 );
             }
@@ -730,13 +733,11 @@ contract RisingTidesFishing is
     function _tryAddSecondFish(
         FishingRequest storage request,
         uint256 fishId,
-        uint256 effectiveMaxFishWeight,
         IRisingTidesFishingRod.FishModifiers memory modifiers
     ) internal {
         uint256 secondWeight = _calculateFishWeight(
             fishId,
-            uint256(keccak256(abi.encode(request.randomSeed, "double"))),
-            effectiveMaxFishWeight
+            uint256(keccak256(abi.encode(request.randomSeed, "double")))
         );
 
         try
@@ -797,21 +798,12 @@ contract RisingTidesFishing is
 
     function _calculateFishWeight(
         uint256 fishId,
-        uint256 randomSeed,
-        uint256 maxWeightBonus
+        uint256 randomSeed
     ) internal view returns (uint256) {
         FishSpecies memory species = fishSpecies[fishId];
 
-        // Apply max weight bonus from rod
-        uint256 effectiveMaxWeight = species.maxWeight;
-        if (maxWeightBonus > 0) {
-            effectiveMaxWeight =
-                (species.maxWeight * (100 + maxWeightBonus)) /
-                100;
-        }
-
-        // Random weight between min and effective max
-        uint256 range = effectiveMaxWeight - species.minWeight;
+        // Random weight between min and max
+        uint256 range = species.maxWeight - species.minWeight;
         uint256 randomWeight = (randomSeed % range) + species.minWeight;
 
         return randomWeight;
