@@ -136,11 +136,15 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
     function setHexRegion(
         uint256 mapId,
-        int32 q,
-        int32 r,
-        uint256 regionId
+        uint256 regionId,
+        int32[] calldata qs,
+        int32[] calldata rs
     ) external onlyRole(GAME_MASTER_ROLE) {
-        hexToRegion[mapId][packCoordinates(q, r)] = regionId;
+        for (uint256 i = 0; i < qs.length; i++) {
+            int32 q = qs[i];
+            int32 r = rs[i];
+            hexToRegion[mapId][packCoordinates(q, r)] = regionId;
+        }
     }
 
     function getRegionId(
@@ -472,19 +476,20 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     ) public view returns (bool) {
         Map memory map = maps[mapId];
         if (!map.exists) return false;
-        
+
         // For hexagonal map with axial coordinates:
         // Valid positions satisfy: |q| <= radius, |r| <= radius, |q + r| <= radius
         int32 s = -q - r; // The third axial coordinate
-        
+
         // Use absolute values for comparison
         uint32 absQ = q >= 0 ? uint32(q) : uint32(-q);
         uint32 absR = r >= 0 ? uint32(r) : uint32(-r);
         uint32 absS = s >= 0 ? uint32(s) : uint32(-s);
-        
-        return absQ <= uint32(map.radius) && 
-               absR <= uint32(map.radius) && 
-               absS <= uint32(map.radius);
+
+        return
+            absQ <= uint32(map.radius) &&
+            absR <= uint32(map.radius) &&
+            absS <= uint32(map.radius);
     }
 
     function getDirectionOffset(
