@@ -91,4 +91,16 @@ interface IRisingTidesWorld {
             uint256 regionId,
             uint256 mapId
         );
+
+    function isPortRegion(
+        uint256 mapId,
+        int32 q,
+        int32 r
+    ) external view returns (bool);
+
+    function getRegionType(
+        uint256 mapId,
+        int32 q,
+        int32 r
+    ) external view returns (uint256);
 }

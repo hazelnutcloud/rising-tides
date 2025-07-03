@@ -208,7 +208,7 @@ contract RisingTidesFishing is
 
         // Check bait
         if (baitId != 0) {
-            uint256 baitAmount = inventory.getBait(msg.sender, baitId);
+            uint256 baitAmount = inventory.getItem(msg.sender, IRisingTidesInventory.ItemType.BAIT, baitId);
             if (baitAmount == 0) revert InsufficientBait();
 
             // Check if bait is compatible with rod
@@ -550,7 +550,7 @@ contract RisingTidesFishing is
         }
 
         if (consumeBait) {
-            inventory.consumeBait(request.player, request.baitId, 1);
+            inventory.consumeItem(request.player, IRisingTidesInventory.ItemType.BAIT, request.baitId, 1);
             emit BaitConsumed(request.player, request.baitId, 1);
         }
 

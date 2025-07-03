@@ -254,25 +254,40 @@ finalPrice = marketValue × weight × freshness
 
 ### Freshness Decay
 
-Calculates fish freshness based on time since catch.
+Calculates fish freshness based on time since catch using discrete levels.
 
 **Formula:**
 
 ```
-freshness = max(0, 100 - (timeSinceCatch / decayRate))
+decayPercent = (timeSinceCatch * 100) / decayRate
+
+if (decayPercent >= 100) return ROTTEN (0% value)
+else if (decayPercent >= 66) return ROTTING (33% value)
+else if (decayPercent >= 33) return STALE (66% value)
+else return FRESH (100% value)
 ```
+
+**Freshness Levels:**
+
+| Level   | Decay Range | Sale Value     |
+| ------- | ----------- | -------------- |
+| FRESH   | 0-32%       | 100%           |
+| STALE   | 33-65%      | 66%            |
+| ROTTING | 66-99%      | 33%            |
+| ROTTEN  | 100%+       | 0% (discarded) |
 
 **Factors:**
 
 - Time since catch (in seconds)
 - Decay rate (species-specific)
-- Icy enchantment: 50% slower decay
+- Freshness modifier from enchantments (e.g., Icy: 150% = 50% slower decay)
 
 **Example:**
 
 - Time Since Catch: 3600 seconds (1 hour)
-- Decay Rate: 7200 seconds (2 hours for 100% decay)
-- Freshness = 100 - (3600 / 7200) × 100 = 50%
+- Decay Rate: 7200 seconds
+- Decay Percent = (3600 × 100) / 7200 = 50%
+- Freshness Level: STALE (66% value)
 
 ### Market Recovery
 
@@ -420,6 +435,58 @@ effectiveMaxWeight = baseMaxWeight × (1 + titleWeightBonus/100)
 
 **Note:** This bonus affects the rod's ability to handle heavier fish, NOT the actual weight of fish caught. Fish weight is always determined by the species' natural weight range.
 
+## Port Economy
+
+### Rod Repair Cost
+
+Repairs cost DBL based on durability restored:
+
+**Formula:**
+
+```
+repairCost = durabilityToAdd × repairCostPerDurability
+```
+
+**Constants:**
+
+- `repairCostPerDurability = 1e18` (1 DBL per durability point, configurable)
+
+**Example:**
+
+- Durability to add: 50
+- Cost per durability: 1e18 (1 DBL)
+- Total cost = 50 × 1e18 = 50 DBL
+
+### Item Purchase
+
+All items (fuel, bait, materials, ships) are purchased through unified buyItem function:
+
+**Formula:**
+
+```
+totalCost = item.price × amount
+```
+
+**Special Cases:**
+
+- Ships: amount must be 1, player cannot already own the ship
+- Fuel: automatically added to ship tank (or reserves if full)
+- All items have level requirements
+
+### Crafting Recipe Map Restrictions
+
+Recipes can be restricted to specific maps using bitfield:
+
+```
+canCraft = (recipe.allowedMapsBitfield == 0) ||
+           ((recipe.allowedMapsBitfield & (1 << mapId)) != 0)
+```
+
+Where:
+
+- `allowedMapsBitfield = 0` means recipe available at all maps
+- Otherwise, bit at position `mapId` must be set
+
 ## Additional Calculations
 
 ### Ship Region Compatibility
@@ -448,22 +515,26 @@ cost = destinationMap.travelCost
 
 ### Level Requirements
 
-Maps have minimum level requirements:
+Maps and items have minimum level requirements:
 
 ```
-canAccess = playerLevel >= map.requiredLevel
+canAccess = playerLevel >= requiredLevel
 ```
 
 ## Constants Reference
 
-| Constant               | Value      | Description                                                 |
-| ---------------------- | ---------- | ----------------------------------------------------------- |
-| PRECISION              | 1e18       | Fixed-point precision for calculations                      |
-| MIN_ENGINE_POWER       | 10e18      | Minimum engine power required to move (with 1e18 precision) |
-| MAX_MOVEMENT_QUEUE     | 10         | Maximum movement steps per transaction                      |
-| baseMovementTime       | 10 seconds | Base time to move one hex                                   |
-| maxPlayersPerShard     | 100        | Maximum players per shard                                   |
-| fuelEfficiencyModifier | 1e18       | Fuel consumption modifier                                   |
+| Constant                   | Value      | Description                                                 |
+| -------------------------- | ---------- | ----------------------------------------------------------- |
+| PRECISION                  | 1e18       | Fixed-point precision for calculations                      |
+| MIN_ENGINE_POWER           | 10e18      | Minimum engine power required to move (with 1e18 precision) |
+| MAX_MOVEMENT_QUEUE         | 10         | Maximum movement steps per transaction                      |
+| baseMovementTime           | 10 seconds | Base time to move one hex                                   |
+| maxPlayersPerShard         | 100        | Maximum players per shard                                   |
+| fuelEfficiencyModifier     | 1e18       | Fuel consumption modifier                                   |
+| MIN_PRICE_PERCENT          | 10         | Minimum fish price as % of base price                       |
+| STRANGE_CHANCE             | 10         | 10% chance for Strange quality rods                         |
+| TROPHY_MULTIPLIER          | 150        | Trophy fish sell for 1.5x value                             |
+| REPAIR_COST_PER_DURABILITY | 1e18       | Default cost of 1 DBL per durability point                  |
 
 ## Notes
 

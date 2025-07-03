@@ -8,7 +8,7 @@ graph TD
     World[RisingTidesWorld<br/>- Player positions<br/>- Movement<br/>- Maps & regions<br/>- Shards]
     Fishing[RisingTidesFishing<br/>- Probability tables<br/>- Fishing logic<br/>- VRF integration]
     Inventory[RisingTidesInventory<br/>- Ship & resource storage<br/>- Rod NFT custody<br/>- Weight management]
-    Port[RisingTidesPort<br/>- Market interface<br/>- Shop functions<br/>- Crafting station]
+    Port[RisingTidesPort<br/>- Dynamic fish market<br/>- Unified item shop<br/>- Rod crafting & repair]
     Rod[RisingTidesFishingRod<br/>- ERC721 NFTs<br/>- Rod attributes<br/>- Enchantments]
 
     %% External dependencies

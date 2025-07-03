@@ -133,19 +133,36 @@ contract RisingTidesInventory is
                 // New ship has less capacity - move excess to reserves
                 inventory.fuel = newFuelCapacity;
                 inventory.fuelReserves = totalFuel - newFuelCapacity;
-                
-                emit FuelChanged(player, newFuelCapacity, int256(newFuelCapacity) - int256(currentFuel));
-                emit FuelReservesChanged(player, totalFuel - newFuelCapacity, int256(totalFuel - newFuelCapacity) - int256(currentReserves));
+
+                emit FuelChanged(
+                    player,
+                    newFuelCapacity,
+                    int256(newFuelCapacity) - int256(currentFuel)
+                );
+                emit FuelReservesChanged(
+                    player,
+                    totalFuel - newFuelCapacity,
+                    int256(totalFuel - newFuelCapacity) -
+                        int256(currentReserves)
+                );
             } else {
                 // New ship has more capacity - fill from reserves
                 inventory.fuel = totalFuel;
                 inventory.fuelReserves = 0;
-                
+
                 if (currentFuel != totalFuel) {
-                    emit FuelChanged(player, totalFuel, int256(totalFuel) - int256(currentFuel));
+                    emit FuelChanged(
+                        player,
+                        totalFuel,
+                        int256(totalFuel) - int256(currentFuel)
+                    );
                 }
                 if (currentReserves != 0) {
-                    emit FuelReservesChanged(player, 0, -int256(currentReserves));
+                    emit FuelReservesChanged(
+                        player,
+                        0,
+                        -int256(currentReserves)
+                    );
                 }
             }
         }
@@ -182,10 +199,10 @@ contract RisingTidesInventory is
         return (shipOwnership[player] & (uint256(1) << shipId)) != 0;
     }
 
-    function grantShip(
+    function _grantShip(
         address player,
         uint256 shipId
-    ) external onlyPort whenNotPaused {
+    ) private onlyPort whenNotPaused {
         if (!shipTypes[shipId].exists) revert InvalidShipId();
         shipOwnership[player] |= (uint256(1) << shipId);
         emit ShipGranted(player, shipId);
@@ -202,8 +219,64 @@ contract RisingTidesInventory is
     }
 
     /*//////////////////////////////////////////////////////////////
-                            RESOURCE FUNCTIONS
+                             RESOURCE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    function getItem(
+        address player,
+        ItemType itemType,
+        uint256 itemId
+    ) external view returns (uint256) {
+        if (itemType == ItemType.FUEL) {
+            return inventories[player].fuel;
+        } else if (itemType == ItemType.BAIT) {
+            return inventories[player].bait[itemId];
+        } else if (itemType == ItemType.MATERIAL) {
+            return inventories[player].materials[itemId];
+        } else if (itemType == ItemType.SHIP) {
+            return this.hasShip(player, itemId) ? 1 : 0;
+        }
+        return 0;
+    }
+
+    function addItem(
+        address player,
+        ItemType itemType,
+        uint256 itemId,
+        uint256 amount
+    ) external onlyPort whenNotPaused {
+        if (itemType == ItemType.FUEL) {
+            _addFuel(player, amount);
+        } else if (itemType == ItemType.BAIT) {
+            _addBait(player, itemId, amount);
+        } else if (itemType == ItemType.MATERIAL) {
+            _addMaterials(player, itemId, amount);
+        } else if (itemType == ItemType.SHIP) {
+            if (amount != 1) revert InvalidShipAmount();
+            _grantShip(player, itemId);
+        }
+    }
+
+    function consumeItem(
+        address player,
+        ItemType itemType,
+        uint256 itemId,
+        uint256 amount
+    ) external onlyAuthorized whenNotPaused {
+        if (itemType == ItemType.FUEL) {
+            _consumeFuel(player, amount);
+        } else if (itemType == ItemType.BAIT) {
+            // Only fishing contract can consume bait
+            if (msg.sender != address(risingTidesFishing)) revert OnlyFishing();
+            _consumeBait(player, itemId, amount);
+        } else if (itemType == ItemType.MATERIAL) {
+            // Only port contract can consume materials
+            if (msg.sender != risingTidesPort) revert OnlyPort();
+            _consumeMaterials(player, itemId, amount);
+        } else if (itemType == ItemType.SHIP) {
+            revert CannotConsumeShips();
+        }
+    }
 
     function getFuel(address player) external view returns (uint256) {
         return inventories[player].fuel;
@@ -217,18 +290,33 @@ contract RisingTidesInventory is
         address player,
         uint256 amount
     ) external onlyPort whenNotPaused {
+        _addFuel(player, amount);
+    }
+
+    function consumeFuel(
+        address player,
+        uint256 amount
+    ) external onlyAuthorized whenNotPaused {
+        _consumeFuel(player, amount);
+    }
+
+    function _addFuel(address player, uint256 amount) internal {
         PlayerInventory storage inventory = inventories[player];
         uint256 shipId = inventory.equippedShipId;
-        
+
         if (shipId == 0) {
             // No ship equipped - add to reserves
             inventory.fuelReserves += amount;
-            emit FuelReservesChanged(player, inventory.fuelReserves, int256(amount));
+            emit FuelReservesChanged(
+                player,
+                inventory.fuelReserves,
+                int256(amount)
+            );
         } else {
             uint256 fuelCapacity = shipTypes[shipId].fuelCapacity;
             uint256 currentFuel = inventory.fuel;
             uint256 spaceAvailable = fuelCapacity - currentFuel;
-            
+
             if (amount <= spaceAvailable) {
                 // All fuel fits in tank
                 inventory.fuel += amount;
@@ -238,36 +326,30 @@ contract RisingTidesInventory is
                 inventory.fuel = fuelCapacity;
                 uint256 excess = amount - spaceAvailable;
                 inventory.fuelReserves += excess;
-                
+
                 if (spaceAvailable > 0) {
-                    emit FuelChanged(player, fuelCapacity, int256(spaceAvailable));
+                    emit FuelChanged(
+                        player,
+                        fuelCapacity,
+                        int256(spaceAvailable)
+                    );
                 }
-                emit FuelReservesChanged(player, inventory.fuelReserves, int256(excess));
+                emit FuelReservesChanged(
+                    player,
+                    inventory.fuelReserves,
+                    int256(excess)
+                );
             }
         }
     }
 
-    function consumeFuel(
-        address player,
-        uint256 amount
-    ) external onlyAuthorized whenNotPaused {
+    function _consumeFuel(address player, uint256 amount) internal {
         if (inventories[player].fuel < amount) revert InsufficientFuel();
         inventories[player].fuel -= amount;
         emit FuelChanged(player, inventories[player].fuel, -int256(amount));
     }
 
-    function getBait(
-        address player,
-        uint256 baitId
-    ) external view returns (uint256) {
-        return inventories[player].bait[baitId];
-    }
-
-    function addBait(
-        address player,
-        uint256 baitId,
-        uint256 amount
-    ) external onlyPort whenNotPaused {
+    function _addBait(address player, uint256 baitId, uint256 amount) internal {
         inventories[player].bait[baitId] += amount;
         emit BaitChanged(
             player,
@@ -277,11 +359,11 @@ contract RisingTidesInventory is
         );
     }
 
-    function consumeBait(
+    function _consumeBait(
         address player,
         uint256 baitId,
         uint256 amount
-    ) external onlyFishing whenNotPaused {
+    ) internal {
         if (inventories[player].bait[baitId] < amount)
             revert InsufficientBait();
         inventories[player].bait[baitId] -= amount;
@@ -293,18 +375,11 @@ contract RisingTidesInventory is
         );
     }
 
-    function getMaterials(
-        address player,
-        uint256 materialId
-    ) external view returns (uint256) {
-        return inventories[player].materials[materialId];
-    }
-
-    function addMaterials(
+    function _addMaterials(
         address player,
         uint256 materialId,
         uint256 amount
-    ) external onlyPort whenNotPaused {
+    ) internal {
         inventories[player].materials[materialId] += amount;
         emit MaterialsChanged(
             player,
@@ -314,11 +389,11 @@ contract RisingTidesInventory is
         );
     }
 
-    function consumeMaterials(
+    function _consumeMaterials(
         address player,
         uint256 materialId,
         uint256 amount
-    ) external onlyPort whenNotPaused {
+    ) internal {
         if (inventories[player].materials[materialId] < amount)
             revert InsufficientMaterials();
         inventories[player].materials[materialId] -= amount;

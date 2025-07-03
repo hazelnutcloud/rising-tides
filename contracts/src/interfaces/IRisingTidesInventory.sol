@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 interface IRisingTidesInventory {
     /*//////////////////////////////////////////////////////////////
-                                STRUCTS
+                                 STRUCTS
     //////////////////////////////////////////////////////////////*/
 
     struct Ship {
@@ -15,12 +15,18 @@ interface IRisingTidesInventory {
         bool exists;
     }
 
+    enum ItemType {
+        FUEL,
+        BAIT,
+        MATERIAL,
+        SHIP
+    }
     struct Fish {
-        uint256 fishId;              // Species ID from Fishing contract
-        uint256 weight;              // Exact weight passed by Fishing contract
-        uint256 caughtAt;            // Timestamp for freshness
-        bool isTrophyQuality;        // 1.5x value when selling
-        uint256 freshnessModifier;   // Affects freshness decay rate (100 = normal)
+        uint256 fishId; // Species ID from Fishing contract
+        uint256 weight; // Exact weight passed by Fishing contract
+        uint256 caughtAt; // Timestamp for freshness
+        bool isTrophyQuality; // 1.5x value when selling
+        uint256 freshnessModifier; // Affects freshness decay rate (100 = normal)
     }
 
     struct StarterKit {
@@ -36,12 +42,16 @@ interface IRisingTidesInventory {
 
     // Ship events
     event ShipGranted(address indexed player, uint256 indexed shipId);
-    event ShipEquipped(address indexed player, uint256 indexed shipId, uint256 previousShipId);
-    
+    event ShipEquipped(
+        address indexed player,
+        uint256 indexed shipId,
+        uint256 previousShipId
+    );
+
     // Rod events
     event RodEquipped(address indexed player, uint256 indexed tokenId);
     event RodUnequipped(address indexed player, uint256 indexed tokenId);
-    
+
     // Fish events - include all fish data for reconstruction
     event FishAdded(
         address indexed player,
@@ -57,15 +67,33 @@ interface IRisingTidesInventory {
         uint256 weight,
         uint256 fishIndex
     );
-    
+
     // Resource events - separate events for each resource type
     event FuelChanged(address indexed player, uint256 newAmount, int256 delta);
-    event FuelReservesChanged(address indexed player, uint256 newReserves, int256 delta);
-    event BaitChanged(address indexed player, uint256 indexed baitId, uint256 newAmount, int256 delta);
-    event MaterialsChanged(address indexed player, uint256 indexed materialId, uint256 newAmount, int256 delta);
-    
+    event FuelReservesChanged(
+        address indexed player,
+        uint256 newReserves,
+        int256 delta
+    );
+    event BaitChanged(
+        address indexed player,
+        uint256 indexed baitId,
+        uint256 newAmount,
+        int256 delta
+    );
+    event MaterialsChanged(
+        address indexed player,
+        uint256 indexed materialId,
+        uint256 newAmount,
+        int256 delta
+    );
+
     // Starter kit event
-    event StarterKitMinted(address indexed player, uint256 shipId, uint256 fuel);
+    event StarterKitMinted(
+        address indexed player,
+        uint256 shipId,
+        uint256 fuel
+    );
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
@@ -87,6 +115,8 @@ interface IRisingTidesInventory {
     error OnlyWorld();
     error OnlyFishing();
     error OnlyPort();
+    error InvalidShipAmount();
+    error CannotConsumeShips();
 
     /*//////////////////////////////////////////////////////////////
                             SHIP FUNCTIONS
@@ -94,9 +124,13 @@ interface IRisingTidesInventory {
 
     function equipShip(address player, uint256 shipId) external;
 
-    function getEquippedShip(address player) external view returns (uint256 shipId);
+    function getEquippedShip(
+        address player
+    ) external view returns (uint256 shipId);
 
-    function getShipStats(uint256 shipId)
+    function getShipStats(
+        uint256 shipId
+    )
         external
         view
         returns (
@@ -105,9 +139,10 @@ interface IRisingTidesInventory {
             uint256 fuelCapacity
         );
 
-    function hasShip(address player, uint256 shipId) external view returns (bool);
-
-    function grantShip(address player, uint256 shipId) external;
+    function hasShip(
+        address player,
+        uint256 shipId
+    ) external view returns (bool);
 
     function getTotalWeight(address player) external view returns (uint256);
 
@@ -123,17 +158,25 @@ interface IRisingTidesInventory {
 
     function consumeFuel(address player, uint256 amount) external;
 
-    function getBait(address player, uint256 baitId) external view returns (uint256);
+    function addItem(
+        address player,
+        ItemType itemType,
+        uint256 itemId,
+        uint256 amount
+    ) external;
 
-    function addBait(address player, uint256 baitId, uint256 amount) external;
+    function consumeItem(
+        address player,
+        ItemType itemType,
+        uint256 itemId,
+        uint256 amount
+    ) external;
 
-    function consumeBait(address player, uint256 baitId, uint256 amount) external;
-
-    function getMaterials(address player, uint256 materialId) external view returns (uint256);
-
-    function addMaterials(address player, uint256 materialId, uint256 amount) external;
-
-    function consumeMaterials(address player, uint256 materialId, uint256 amount) external;
+    function getItem(
+        address player,
+        ItemType itemType,
+        uint256 itemId
+    ) external view returns (uint256);
 
     /*//////////////////////////////////////////////////////////////
                             FISH FUNCTIONS
@@ -147,11 +190,16 @@ interface IRisingTidesInventory {
         uint256 freshnessModifier
     ) external;
 
-    function removeFish(address player, uint256 index) external returns (Fish memory);
+    function removeFish(
+        address player,
+        uint256 index
+    ) external returns (Fish memory);
 
     function getFish(address player) external view returns (Fish[] memory);
 
-    function getPlayerCargoWeight(address player) external view returns (uint256);
+    function getPlayerCargoWeight(
+        address player
+    ) external view returns (uint256);
 
     /*//////////////////////////////////////////////////////////////
                             ROD FUNCTIONS
@@ -187,5 +235,8 @@ interface IRisingTidesInventory {
 
     function setStarterKit(StarterKit memory kit) external;
 
-    function setAuthorizedContract(address contractAddress, bool authorized) external;
+    function setAuthorizedContract(
+        address contractAddress,
+        bool authorized
+    ) external;
 }

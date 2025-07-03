@@ -210,23 +210,74 @@ finalPrice = marketValue × weight × freshness
 - **0.1 DBL** = 1e17 wei
 - **0.01 DBL** = 1e16 wei
 
-### Freshness Decay
+### Freshness Levels
+
+**Discrete Levels:**
+
+| Level   | Value | Description           |
+| ------- | ----- | --------------------- |
+| FRESH   | 100%  | Caught recently       |
+| STALE   | 66%   | Starting to decay     |
+| ROTTING | 33%   | Significantly decayed |
+| ROTTEN  | 0%    | Cannot be sold        |
+
+### Dynamic Market Pricing
+
+**Units:**
+
+- **currentPrice**: DBL per kg with PRECISION (uint256)
+  - Updates based on supply/demand
+  - Cannot drop below 10% of base price
+- **priceDropRate**: Multiplier with PRECISION (uint256)
+  - How much price drops per DBL sold
+  - Example: 0.01e18 = 1% drop per DBL
+- **priceRecoveryRate**: DBL per second with PRECISION (uint256)
+  - How fast price recovers to base
+  - Example: 0.1e18 = 0.1 DBL/kg per second
+
+### Port Shop Pricing
+
+**Units:**
+
+- **price**: DBL with 18 decimals (uint256)
+  - Fixed prices for items
+  - Example: 5e18 = 5 DBL
+- **requiredLevel**: Player level (uint256)
+  - Minimum level to purchase
+  - Example: 10 = Level 10 required
+
+### Rod Repair Cost
+
+**Units:**
+
+- **repairCostPerDurability**: DBL per durability point (uint256)
+  - Default: 1e18 (1 DBL per point)
+  - Configurable by game master
+- **durabilityToAdd**: Durability points (uint256)
+  - Direct specification of repair amount
+
+## Inventory Management Units
+
+### Unified Item System
+
+**Item Types:**
 
 ```solidity
-freshness = max(0, 100 - (timeSinceCatch / decayRate))
+enum ItemType {
+    FUEL,     // 0: Fuel for ships
+    BAIT,     // 1: Bait for fishing
+    MATERIAL, // 2: Materials for crafting/repair
+    SHIP      // 3: Ships
+}
 ```
 
 **Units:**
 
-- **timeSinceCatch**: Seconds (uint256)
-  - Source: block.timestamp difference
-- **decayRate**: Seconds per 1% decay (uint256)
-  - Example: 72 = 1% decay every 72 seconds
-- **freshness**: Percentage (uint256)
-  - Range: 0-100
-  - Precision: Whole percentage points
-
-## Inventory Management Units
+- **Item Amounts**: Quantity (uint256)
+  - Fuel: Liters with 1e18 precision
+  - Bait: Individual units
+  - Materials: Individual units
+  - Ships: Always 1 (binary ownership)
 
 ### Weight Capacity
 
