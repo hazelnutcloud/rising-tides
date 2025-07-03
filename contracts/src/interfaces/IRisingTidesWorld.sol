@@ -58,10 +58,7 @@ interface IRisingTidesWorld {
         string name;
         uint256 travelCost;
         uint256 requiredLevel;
-        int32 minQ;
-        int32 maxQ;
-        int32 minR;
-        int32 maxR;
+        int32 radius; // Radius of the hexagonal map
         bool exists;
     }
 

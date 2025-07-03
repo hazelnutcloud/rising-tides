@@ -177,22 +177,16 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         string memory name,
         uint256 travelCost,
         uint256 requiredLevel,
-        int32 minQ,
-        int32 maxQ,
-        int32 minR,
-        int32 maxR
+        int32 radius
     ) external onlyRole(GAME_MASTER_ROLE) {
         if (maps[mapId].exists) revert MapAlreadyExists();
-        if (minQ >= maxQ || minR >= maxR) revert InvalidBoundaries();
+        if (radius <= 0) revert InvalidBoundaries();
 
         maps[mapId] = Map({
             name: name,
             travelCost: travelCost,
             requiredLevel: requiredLevel,
-            minQ: minQ,
-            maxQ: maxQ,
-            minR: minR,
-            maxR: maxR,
+            radius: radius,
             exists: true
         });
 
@@ -477,12 +471,20 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         int32 r
     ) public view returns (bool) {
         Map memory map = maps[mapId];
-        return
-            map.exists &&
-            q >= map.minQ &&
-            q <= map.maxQ &&
-            r >= map.minR &&
-            r <= map.maxR;
+        if (!map.exists) return false;
+        
+        // For hexagonal map with axial coordinates:
+        // Valid positions satisfy: |q| <= radius, |r| <= radius, |q + r| <= radius
+        int32 s = -q - r; // The third axial coordinate
+        
+        // Use absolute values for comparison
+        uint32 absQ = q >= 0 ? uint32(q) : uint32(-q);
+        uint32 absR = r >= 0 ? uint32(r) : uint32(-r);
+        uint32 absS = s >= 0 ? uint32(s) : uint32(-s);
+        
+        return absQ <= uint32(map.radius) && 
+               absR <= uint32(map.radius) && 
+               absS <= uint32(map.radius);
     }
 
     function getDirectionOffset(
