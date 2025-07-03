@@ -7,7 +7,7 @@
 
 	// Hex grid parameters
 	const mapRadius = 16; // Creates a hexagonal map with radius 16
-	const hexSize = 5;
+	const hexSize = 1;
 
 	// Create boat at center
 	const boat = new Boat(0, 0, hexSize);
