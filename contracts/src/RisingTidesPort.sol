@@ -26,6 +26,7 @@ import {IRisingTidesWorld} from "./interfaces/IRisingTidesWorld.sol";
 import {IRisingTidesInventory} from "./interfaces/IRisingTidesInventory.sol";
 import {IRisingTidesFishing} from "./interfaces/IRisingTidesFishing.sol";
 import {IRisingTidesFishingRod} from "./interfaces/IRisingTidesFishingRod.sol";
+import {IDoubloons} from "./interfaces/IDoubloons.sol";
 import {IERC20} from "../lib/forge-std/src/interfaces/IERC20.sol";
 import {IERC721} from "../lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import {AccessControl} from "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
@@ -74,7 +75,7 @@ contract RisingTidesPort is
     IRisingTidesInventory public inventory;
     IRisingTidesFishing public fishing;
     IRisingTidesFishingRod public fishingRod;
-    IERC20 public doubloons;
+    IDoubloons public doubloons;
 
     // VRF coordinator for crafting randomness
     address public vrfCoordinator;
@@ -130,7 +131,7 @@ contract RisingTidesPort is
         inventory = IRisingTidesInventory(_inventory);
         fishing = IRisingTidesFishing(_fishing);
         fishingRod = IRisingTidesFishingRod(_fishingRod);
-        doubloons = IERC20(_doubloons);
+        doubloons = IDoubloons(_doubloons);
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(ADMIN_ROLE, _admin);
@@ -152,9 +153,9 @@ contract RisingTidesPort is
             totalEarnings += earnings;
         }
 
-        // Transfer earnings to player
+        // Mint earnings to player
         if (totalEarnings > 0) {
-            doubloons.transfer(msg.sender, totalEarnings); // TODO: change to mint
+            doubloons.mint(msg.sender, totalEarnings);
         }
     }
 
@@ -170,9 +171,9 @@ contract RisingTidesPort is
             totalEarnings += earnings;
         }
 
-        // Transfer earnings to player
+        // Mint earnings to player
         if (totalEarnings > 0) {
-            doubloons.transfer(msg.sender, totalEarnings);
+            doubloons.mint(msg.sender, totalEarnings);
         }
     }
 
@@ -336,8 +337,8 @@ contract RisingTidesPort is
         // Calculate total cost
         uint256 totalCost = item.price * amount;
 
-        // Transfer payment
-        doubloons.transferFrom(msg.sender, address(this), totalCost); //TODO: this should burn
+        // Burn payment from player
+        doubloons.burn(msg.sender, totalCost);
 
         // Special handling for ships
         if (itemType == IRisingTidesInventory.ItemType.SHIP) {
@@ -402,8 +403,8 @@ contract RisingTidesPort is
             );
         }
 
-        // Transfer DBL cost
-        doubloons.transferFrom(msg.sender, address(this), recipe.dblCost);
+        // Burn DBL cost
+        doubloons.burn(msg.sender, recipe.dblCost);
 
         // Create crafting request
         requestId = nextRequestId++;
@@ -483,8 +484,8 @@ contract RisingTidesPort is
         // Calculate cost in DBL
         uint256 totalCost = actualDurabilityAdded * repairCostPerDurability;
 
-        // Transfer payment
-        doubloons.transferFrom(msg.sender, address(this), totalCost);
+        // Burn payment from player
+        doubloons.burn(msg.sender, totalCost);
 
         // Repair rod
         fishingRod.repair(tokenId, actualDurabilityAdded);
