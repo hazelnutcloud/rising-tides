@@ -229,13 +229,4 @@ interface IRisingTidesFishing {
     function pause() external;
 
     function unpause() external;
-
-    /*//////////////////////////////////////////////////////////////
-                            VRF CALLBACK
-    //////////////////////////////////////////////////////////////*/
-
-    function fulfillRandomWords(
-        uint256 requestId,
-        uint256[] memory randomWords
-    ) external;
 }

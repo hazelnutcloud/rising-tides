@@ -30,13 +30,16 @@ import {Pausable} from "../lib/openzeppelin-contracts/contracts/utils/Pausable.s
 import {ReentrancyGuard} from "../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {ECDSA} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {EIP712} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
+import {IVRFConsumer} from "./interfaces/IVRFConsumer.sol";
+import {IVRFCoordinator} from "./interfaces/IVRFCoordinator.sol";
 
 contract RisingTidesFishing is
     IRisingTidesFishing,
     AccessControl,
     Pausable,
     ReentrancyGuard,
-    EIP712
+    EIP712,
+    IVRFConsumer
 {
     using ECDSA for bytes32;
 
@@ -71,7 +74,7 @@ contract RisingTidesFishing is
     IRisingTidesFishingRod public fishingRod;
 
     // VRF and offchain
-    address public vrfCoordinator;
+    IVRFCoordinator public vrfCoordinator;
     address public offchainSigner;
     uint256 public onchainFailureRate = 5000; // 50% in basis points
 
@@ -118,7 +121,7 @@ contract RisingTidesFishing is
         world = IRisingTidesWorld(_world);
         inventory = IRisingTidesInventory(_inventory);
         fishingRod = IRisingTidesFishingRod(_fishingRod);
-        vrfCoordinator = _vrfCoordinator;
+        vrfCoordinator = IVRFCoordinator(_vrfCoordinator);
         offchainSigner = _offchainSigner;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -178,8 +181,10 @@ contract RisingTidesFishing is
         request.isOffchainCompletion = useOffchainCompletion;
 
         // Request randomness from VRF
-        // In a real implementation, this would call the VRF coordinator
-        // For now, we'll emit the event
+        vrfCoordinator.requestRandomNumbers(
+            1,
+            uint256(blockhash(block.number - 1))
+        );
         emit FishingInitiated(
             msg.sender,
             requestId,
@@ -208,7 +213,11 @@ contract RisingTidesFishing is
 
         // Check bait
         if (baitId != 0) {
-            uint256 baitAmount = inventory.getItem(msg.sender, IRisingTidesInventory.ItemType.BAIT, baitId);
+            uint256 baitAmount = inventory.getItem(
+                msg.sender,
+                IRisingTidesInventory.ItemType.BAIT,
+                baitId
+            );
             if (baitAmount == 0) revert InsufficientBait();
 
             // Check if bait is compatible with rod
@@ -292,7 +301,7 @@ contract RisingTidesFishing is
                             VRF CALLBACK
     //////////////////////////////////////////////////////////////*/
 
-    function fulfillRandomWords(
+    function rawFulfillRandomNumbers(
         uint256 requestId,
         uint256[] memory randomWords
     ) external onlyVRFCoordinator {
@@ -458,8 +467,8 @@ contract RisingTidesFishing is
     function setVRFCoordinator(
         address coordinator
     ) external onlyRole(ADMIN_ROLE) {
-        _revokeRole(VRF_COORDINATOR_ROLE, vrfCoordinator);
-        vrfCoordinator = coordinator;
+        _revokeRole(VRF_COORDINATOR_ROLE, address(vrfCoordinator));
+        vrfCoordinator = IVRFCoordinator(coordinator);
         _grantRole(VRF_COORDINATOR_ROLE, coordinator);
     }
 
@@ -550,7 +559,12 @@ contract RisingTidesFishing is
         }
 
         if (consumeBait) {
-            inventory.consumeItem(request.player, IRisingTidesInventory.ItemType.BAIT, request.baitId, 1);
+            inventory.consumeItem(
+                request.player,
+                IRisingTidesInventory.ItemType.BAIT,
+                request.baitId,
+                1
+            );
             emit BaitConsumed(request.player, request.baitId, 1);
         }
 
@@ -586,10 +600,7 @@ contract RisingTidesFishing is
         }
 
         // Calculate fish weight
-        uint256 weight = _calculateFishWeight(
-            fishId,
-            request.randomSeed
-        );
+        uint256 weight = _calculateFishWeight(fishId, request.randomSeed);
 
         // Check if rod can handle the fish
         if (weight > effectiveMaxFishWeight) {
@@ -704,11 +715,7 @@ contract RisingTidesFishing is
         {
             // Handle double catch
             if (modifiers.doubleCatch) {
-                _tryAddSecondFish(
-                    request,
-                    fishId,
-                    modifiers
-                );
+                _tryAddSecondFish(request, fishId, modifiers);
             }
 
             emit FishingCompleted(

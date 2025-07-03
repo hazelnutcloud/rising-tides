@@ -32,12 +32,15 @@ import {IERC721} from "../lib/openzeppelin-contracts/contracts/token/ERC721/IERC
 import {AccessControl} from "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
 import {Pausable} from "../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {IVRFConsumer} from "./interfaces/IVRFConsumer.sol";
+import {IVRFCoordinator} from "./interfaces/IVRFCoordinator.sol";
 
 contract RisingTidesPort is
     IRisingTidesPort,
     AccessControl,
     Pausable,
-    ReentrancyGuard
+    ReentrancyGuard,
+    IVRFConsumer
 {
     /*//////////////////////////////////////////////////////////////
                                 CONSTANTS
@@ -78,7 +81,7 @@ contract RisingTidesPort is
     IDoubloons public doubloons;
 
     // VRF coordinator for crafting randomness
-    address public vrfCoordinator;
+    IVRFCoordinator public vrfCoordinator;
 
     // Repair cost per durability point (configurable)
     uint256 public repairCostPerDurability = REPAIR_COST_PER_DURABILITY;
@@ -110,7 +113,7 @@ contract RisingTidesPort is
     }
 
     modifier onlyVRFCoordinator() {
-        if (msg.sender != vrfCoordinator) revert Unauthorized();
+        if (msg.sender != address(vrfCoordinator)) revert Unauthorized();
         _;
     }
 
@@ -343,7 +346,8 @@ contract RisingTidesPort is
         // Special handling for ships
         if (itemType == IRisingTidesInventory.ItemType.SHIP) {
             if (amount != 1) revert InvalidAmount();
-            if (inventory.hasShip(msg.sender, itemId)) revert ShipAlreadyOwned();
+            if (inventory.hasShip(msg.sender, itemId))
+                revert ShipAlreadyOwned();
         }
 
         // Grant items using unified function
@@ -351,8 +355,6 @@ contract RisingTidesPort is
 
         emit ItemPurchased(msg.sender, itemType, itemId, amount, totalCost);
     }
-
-
 
     /*//////////////////////////////////////////////////////////////
                           CRAFTING FUNCTIONS
@@ -417,21 +419,23 @@ contract RisingTidesPort is
         });
         requestIdToPlayer[requestId] = msg.sender;
 
+        vrfCoordinator.requestRandomNumbers(
+            1,
+            uint256(blockhash(block.number - 1))
+        );
+
         emit RodCraftingInitiated(
             msg.sender,
             requestId,
             recipeId,
             recipe.rodTypeId
         );
-
-        // In a real implementation, this would trigger VRF request
-        // For now, we'll need the VRF coordinator to call completeCrafting
     }
 
-    function completeCrafting(
+    function rawFulfillRandomNumbers(
         uint256 requestId,
         uint256[] memory randomWords
-    ) external onlyVRFCoordinator {
+    ) external override onlyVRFCoordinator {
         address player = requestIdToPlayer[requestId];
         if (player == address(0)) revert InvalidRequestId();
 
@@ -490,17 +494,8 @@ contract RisingTidesPort is
         // Repair rod
         fishingRod.repair(tokenId, actualDurabilityAdded);
 
-        emit RodRepaired(
-            msg.sender,
-            tokenId,
-            actualDurabilityAdded,
-            totalCost
-        );
+        emit RodRepaired(msg.sender, tokenId, actualDurabilityAdded, totalCost);
     }
-
-
-
-
 
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
@@ -683,7 +678,7 @@ contract RisingTidesPort is
     function setVRFCoordinator(
         address coordinator
     ) external onlyRole(ADMIN_ROLE) {
-        vrfCoordinator = coordinator;
+        vrfCoordinator = IVRFCoordinator(coordinator);
         _grantRole(VRF_COORDINATOR_ROLE, coordinator);
     }
 

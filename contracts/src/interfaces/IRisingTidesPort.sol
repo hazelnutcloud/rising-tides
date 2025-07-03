@@ -48,8 +48,6 @@ interface IRisingTidesPort {
         FRESH // 100% value
     }
 
-
-
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -108,8 +106,6 @@ interface IRisingTidesPort {
         uint256 durabilityAdded,
         uint256 dblCost
     );
-
-
 
     // Admin events
     event MarketDataSet(
@@ -201,15 +197,7 @@ interface IRisingTidesPort {
 
     function craftRod(uint256 recipeId) external returns (uint256 requestId);
 
-    function completeCrafting(
-        uint256 requestId,
-        uint256[] memory randomWords
-    ) external;
-
-    function repairRod(
-        uint256 tokenId,
-        uint256 durabilityToAdd
-    ) external;
+    function repairRod(uint256 tokenId, uint256 durabilityToAdd) external;
 
     function getCraftingRecipe(
         uint256 recipeId
@@ -219,8 +207,6 @@ interface IRisingTidesPort {
         uint256 recipeId,
         uint256 mapId
     ) external view returns (bool);
-
-
 
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
