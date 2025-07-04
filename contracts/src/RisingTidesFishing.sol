@@ -25,22 +25,15 @@ import {IRisingTidesFishing} from "./interfaces/IRisingTidesFishing.sol";
 import {IRisingTidesWorld} from "./interfaces/IRisingTidesWorld.sol";
 import {IRisingTidesInventory} from "./interfaces/IRisingTidesInventory.sol";
 import {IRisingTidesFishingRod} from "./interfaces/IRisingTidesFishingRod.sol";
-import {AccessControl} from "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
-import {Pausable} from "../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
-import {ECDSA} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {EIP712} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {IVRFConsumer} from "./interfaces/IVRFConsumer.sol";
 import {IVRFCoordinator} from "./interfaces/IVRFCoordinator.sol";
 
-contract RisingTidesFishing is
-    IRisingTidesFishing,
-    AccessControl,
-    Pausable,
-    ReentrancyGuard,
-    EIP712,
-    IVRFConsumer
-{
+contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, ReentrancyGuard, EIP712, IVRFConsumer {
     using ECDSA for bytes32;
 
     /*//////////////////////////////////////////////////////////////
@@ -49,13 +42,10 @@ contract RisingTidesFishing is
 
     bytes32 private constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 private constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
-    bytes32 private constant VRF_COORDINATOR_ROLE =
-        keccak256("VRF_COORDINATOR_ROLE");
+    bytes32 private constant VRF_COORDINATOR_ROLE = keccak256("VRF_COORDINATOR_ROLE");
 
     bytes32 private constant FISHING_RESULT_TYPEHASH =
-        keccak256(
-            "FishingResult(uint256 requestId,bool success,uint256 nonce,uint256 expiry)"
-        );
+        keccak256("FishingResult(uint256 requestId,bool success,uint256 nonce,uint256 expiry)");
 
     uint256 private constant PRECISION = 1e18;
     uint256 private constant BASIS_POINTS = 10000;
@@ -134,26 +124,23 @@ contract RisingTidesFishing is
                             FISHING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function initiateFishing(
-        uint256 baitId,
-        bool useOffchainCompletion
-    ) external whenNotPaused returns (uint256 requestId) {
+    function initiateFishing(uint256 baitId, bool useOffchainCompletion)
+        external
+        whenNotPaused
+        returns (uint256 requestId)
+    {
         // Check if player already has an active request
-        if (activeFishingRequests[msg.sender].isPending)
+        if (activeFishingRequests[msg.sender].isPending) {
             revert AlreadyFishing();
+        }
 
         // Check cooldown
-        if (block.timestamp < playerCooldowns[msg.sender])
+        if (block.timestamp < playerCooldowns[msg.sender]) {
             revert StillOnCooldown();
+        }
 
         // Validate player location and state
-        (
-            bool canFish,
-            int32 q,
-            int32 r,
-            uint256 regionId,
-            uint256 mapId
-        ) = world.validateFishingLocation(msg.sender);
+        (bool canFish, int32 q, int32 r, uint256 regionId, uint256 mapId) = world.validateFishingLocation(msg.sender);
         if (!canFish) revert InvalidFishingLocation();
 
         // Check and validate rod
@@ -181,50 +168,28 @@ contract RisingTidesFishing is
         request.isOffchainCompletion = useOffchainCompletion;
 
         // Request randomness from VRF
-        vrfCoordinator.requestRandomNumbers(
-            1,
-            uint256(blockhash(block.number - 1))
-        );
+        vrfCoordinator.requestRandomNumbers(1, uint256(blockhash(block.number - 1)));
         emit FishingInitiated(
-            msg.sender,
-            requestId,
-            rodTokenId,
-            baitId,
-            mapId,
-            regionId,
-            q,
-            r,
-            request.isDayTime,
-            block.timestamp
+            msg.sender, requestId, rodTokenId, baitId, mapId, regionId, q, r, request.isDayTime, block.timestamp
         );
     }
 
-    function _validateRodAndBait(
-        uint256 baitId
-    ) internal view returns (uint256 rodTokenId) {
+    function _validateRodAndBait(uint256 baitId) internal view returns (uint256 rodTokenId) {
         // Check fishing rod
         rodTokenId = inventory.getEquippedRod(msg.sender);
         if (rodTokenId == 0) revert NoFishingRodEquipped();
 
         // Validate rod is usable and get bait compatibility
-        (bool isUsable, uint256 compatibleBaitMask) = fishingRod
-            .checkRodUsability(rodTokenId);
+        (bool isUsable, uint256 compatibleBaitMask) = fishingRod.checkRodUsability(rodTokenId);
         if (!isUsable) revert UnusableRod();
 
         // Check bait
         if (baitId != 0) {
-            uint256 baitAmount = inventory.getItem(
-                msg.sender,
-                IRisingTidesInventory.ItemType.BAIT,
-                baitId
-            );
+            uint256 baitAmount = inventory.getItem(msg.sender, IRisingTidesInventory.ItemType.BAIT, baitId);
             if (baitAmount == 0) revert InsufficientBait();
 
             // Check if bait is compatible with rod
-            if (
-                compatibleBaitMask != 0 &&
-                (compatibleBaitMask & (uint256(1) << baitId)) == 0
-            ) {
+            if (compatibleBaitMask != 0 && (compatibleBaitMask & (uint256(1) << baitId)) == 0) {
                 revert InvalidBaitId();
             }
         }
@@ -241,8 +206,9 @@ contract RisingTidesFishing is
         if (player != msg.sender) revert Unauthorized();
 
         FishingRequest storage request = activeFishingRequests[msg.sender];
-        if (!request.isPending || request.requestId != requestId)
+        if (!request.isPending || request.requestId != requestId) {
             revert InvalidRequestId();
+        }
         if (!request.vrfFulfilled) revert InvalidRequestId(); // VRF not fulfilled yet
 
         // Check precommitment
@@ -252,15 +218,8 @@ contract RisingTidesFishing is
         if (result.expiry < block.timestamp) revert RequestExpired();
         if (result.nonce != playerNonces[msg.sender]) revert InvalidSignature();
 
-        bytes32 structHash = keccak256(
-            abi.encode(
-                FISHING_RESULT_TYPEHASH,
-                requestId,
-                result.success,
-                result.nonce,
-                result.expiry
-            )
-        );
+        bytes32 structHash =
+            keccak256(abi.encode(FISHING_RESULT_TYPEHASH, requestId, result.success, result.nonce, result.expiry));
 
         bytes32 hash = _hashTypedDataV4(structHash);
         address signer = hash.recover(signature);
@@ -273,25 +232,26 @@ contract RisingTidesFishing is
         _completeFishing(request, result.success, fishToDiscard, true);
     }
 
-    function completeFishingOnchain(
-        uint256 requestId,
-        uint256[] calldata fishToDiscard
-    ) external whenNotPaused nonReentrant {
+    function completeFishingOnchain(uint256 requestId, uint256[] calldata fishToDiscard)
+        external
+        whenNotPaused
+        nonReentrant
+    {
         // Validate request
         address player = requestIdToPlayer[requestId];
         if (player != msg.sender) revert Unauthorized();
 
         FishingRequest storage request = activeFishingRequests[msg.sender];
-        if (!request.isPending || request.requestId != requestId)
+        if (!request.isPending || request.requestId != requestId) {
             revert InvalidRequestId();
+        }
         if (!request.vrfFulfilled) revert InvalidRequestId(); // VRF not fulfilled yet
 
         // Check precommitment
         if (request.isOffchainCompletion) revert WrongCompletionMethod();
 
         // Determine success based on onchain failure rate
-        bool success = (request.randomSeed % BASIS_POINTS) >=
-            onchainFailureRate;
+        bool success = (request.randomSeed % BASIS_POINTS) >= onchainFailureRate;
 
         // Process completion
         _completeFishing(request, success, fishToDiscard, false);
@@ -301,16 +261,14 @@ contract RisingTidesFishing is
                             VRF CALLBACK
     //////////////////////////////////////////////////////////////*/
 
-    function rawFulfillRandomNumbers(
-        uint256 requestId,
-        uint256[] memory randomWords
-    ) external onlyVRFCoordinator {
+    function rawFulfillRandomNumbers(uint256 requestId, uint256[] memory randomWords) external onlyVRFCoordinator {
         address player = requestIdToPlayer[requestId];
         if (player == address(0)) revert InvalidRequestId();
 
         FishingRequest storage request = activeFishingRequests[player];
-        if (!request.isPending || request.requestId != requestId)
+        if (!request.isPending || request.requestId != requestId) {
             revert InvalidRequestId();
+        }
 
         // Store random seed
         request.randomSeed = randomWords[0];
@@ -321,27 +279,20 @@ contract RisingTidesFishing is
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getActiveFishingRequest(
-        address player
-    ) external view returns (FishingRequest memory) {
+    function getActiveFishingRequest(address player) external view returns (FishingRequest memory) {
         return activeFishingRequests[player];
     }
 
-    function getFishSpecies(
-        uint256 fishId
-    ) external view returns (FishSpecies memory) {
+    function getFishSpecies(uint256 fishId) external view returns (FishSpecies memory) {
         return fishSpecies[fishId];
     }
 
-    function getAliasTable(
-        uint256 mapId,
-        uint256 regionType,
-        uint256 baitId,
-        bool _isDayTime
-    ) external view returns (AliasTable memory) {
-        bytes32 key = keccak256(
-            abi.encodePacked(mapId, regionType, baitId, _isDayTime)
-        );
+    function getAliasTable(uint256 mapId, uint256 regionType, uint256 baitId, bool _isDayTime)
+        external
+        view
+        returns (AliasTable memory)
+    {
+        bytes32 key = keccak256(abi.encodePacked(mapId, regionType, baitId, _isDayTime));
         return fishingTables[key];
     }
 
@@ -362,13 +313,11 @@ contract RisingTidesFishing is
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function setFishSpecies(
-        uint256 fishId,
-        FishSpecies calldata species
-    ) external onlyRole(GAME_MASTER_ROLE) {
+    function setFishSpecies(uint256 fishId, FishSpecies calldata species) external onlyRole(GAME_MASTER_ROLE) {
         if (species.minWeight > species.maxWeight) revert InvalidFishSpecies();
-        if (species.minCooldown > species.maxCooldown)
+        if (species.minCooldown > species.maxCooldown) {
             revert InvalidFishSpecies();
+        }
 
         fishSpecies[fishId] = species;
 
@@ -396,21 +345,10 @@ contract RisingTidesFishing is
         // Note: fishIds array must be sorted by rarity in ascending order (least rare to most rare)
         // The critical hit system selects the fish with the highest index as the rarest
         _validateAndSetAliasTable(
-            keccak256(abi.encodePacked(mapId, regionType, baitId, _isDayTime)),
-            probabilities,
-            aliases,
-            fishIds
+            keccak256(abi.encodePacked(mapId, regionType, baitId, _isDayTime)), probabilities, aliases, fishIds
         );
 
-        emit AliasTableSet(
-            mapId,
-            regionType,
-            baitId,
-            _isDayTime,
-            probabilities,
-            aliases,
-            fishIds
-        );
+        emit AliasTableSet(mapId, regionType, baitId, _isDayTime, probabilities, aliases, fishIds);
     }
 
     function setDefaultBaitTable(
@@ -456,17 +394,13 @@ contract RisingTidesFishing is
         });
     }
 
-    function setOnchainFailureRate(
-        uint256 rate
-    ) external onlyRole(GAME_MASTER_ROLE) {
+    function setOnchainFailureRate(uint256 rate) external onlyRole(GAME_MASTER_ROLE) {
         if (rate > BASIS_POINTS) revert InvalidFailureRate();
         onchainFailureRate = rate;
         emit OnchainFailureRateSet(rate);
     }
 
-    function setVRFCoordinator(
-        address coordinator
-    ) external onlyRole(ADMIN_ROLE) {
+    function setVRFCoordinator(address coordinator) external onlyRole(ADMIN_ROLE) {
         _revokeRole(VRF_COORDINATOR_ROLE, address(vrfCoordinator));
         vrfCoordinator = IVRFCoordinator(coordinator);
         _grantRole(VRF_COORDINATOR_ROLE, coordinator);
@@ -510,19 +444,10 @@ contract RisingTidesFishing is
         ) = fishingRod.getFishingAttributes(request.rodTokenId, regionType);
 
         // Process bait consumption
-        bool consumeBait = _processBaitConsumption(
-            request,
-            effectiveEfficiency
-        );
+        bool consumeBait = _processBaitConsumption(request, effectiveEfficiency);
 
         if (!success) {
-            emit FishingFailed(
-                request.player,
-                request.requestId,
-                "Failed catch",
-                consumeBait,
-                isOffchain
-            );
+            emit FishingFailed(request.player, request.requestId, "Failed catch", consumeBait, isOffchain);
             return;
         }
 
@@ -533,38 +458,26 @@ contract RisingTidesFishing is
 
         // Process the actual fishing
         _processFishCatch(
-            request,
-            consumeBait,
-            isOffchain,
-            effectiveMaxFishWeight,
-            effectiveCritRate,
-            effectiveCritMultiplierBonus
+            request, consumeBait, isOffchain, effectiveMaxFishWeight, effectiveCritRate, effectiveCritMultiplierBonus
         );
     }
 
-    function _processBaitConsumption(
-        FishingRequest storage request,
-        uint256 effectiveEfficiency
-    ) internal returns (bool) {
+    function _processBaitConsumption(FishingRequest storage request, uint256 effectiveEfficiency)
+        internal
+        returns (bool)
+    {
         if (request.baitId == 0) return false;
 
         bool consumeBait = true;
         if (effectiveEfficiency > 0) {
-            uint256 efficiencyRoll = uint256(
-                keccak256(abi.encode(request.randomSeed, "efficiency"))
-            ) % 100;
+            uint256 efficiencyRoll = uint256(keccak256(abi.encode(request.randomSeed, "efficiency"))) % 100;
             if (efficiencyRoll < effectiveEfficiency) {
                 consumeBait = false;
             }
         }
 
         if (consumeBait) {
-            inventory.consumeItem(
-                request.player,
-                IRisingTidesInventory.ItemType.BAIT,
-                request.baitId,
-                1
-            );
+            inventory.consumeItem(request.player, IRisingTidesInventory.ItemType.BAIT, request.baitId, 1);
             emit BaitConsumed(request.player, request.baitId, 1);
         }
 
@@ -582,20 +495,10 @@ contract RisingTidesFishing is
         uint256 regionType = request.regionId & 0xFF;
 
         // Select fish
-        uint256 fishId = _selectFishWithCrits(
-            request,
-            effectiveCritRate,
-            effectiveCritMultiplierBonus
-        );
+        uint256 fishId = _selectFishWithCrits(request, effectiveCritRate, effectiveCritMultiplierBonus);
 
         if (fishId == 0 || !fishSpecies[fishId].exists) {
-            emit FishingFailed(
-                request.player,
-                request.requestId,
-                "No fish available",
-                consumeBait,
-                isOffchain
-            );
+            emit FishingFailed(request.player, request.requestId, "No fish available", consumeBait, isOffchain);
             return;
         }
 
@@ -604,30 +507,15 @@ contract RisingTidesFishing is
 
         // Check if rod can handle the fish
         if (weight > effectiveMaxFishWeight) {
-            uint256 catchRoll = uint256(
-                keccak256(abi.encode(request.randomSeed, "overweight"))
-            ) % 100;
+            uint256 catchRoll = uint256(keccak256(abi.encode(request.randomSeed, "overweight"))) % 100;
             if (catchRoll >= 4) {
-                emit FishingFailed(
-                    request.player,
-                    request.requestId,
-                    "Fish too heavy",
-                    consumeBait,
-                    isOffchain
-                );
+                emit FishingFailed(request.player, request.requestId, "Fish too heavy", consumeBait, isOffchain);
                 return;
             }
         }
 
         // Process catch and add to inventory
-        _finalizeCatch(
-            request,
-            fishId,
-            weight,
-            regionType,
-            consumeBait,
-            isOffchain
-        );
+        _finalizeCatch(request, fishId, weight, regionType, consumeBait, isOffchain);
     }
 
     function _selectFishWithCrits(
@@ -638,22 +526,15 @@ contract RisingTidesFishing is
         // Calculate number of rolls
         uint256 numRolls = 1;
         if (effectiveCritRate > 0) {
-            uint256 critRoll = uint256(
-                keccak256(abi.encode(request.randomSeed, "crit"))
-            ) % BASIS_POINTS;
+            uint256 critRoll = uint256(keccak256(abi.encode(request.randomSeed, "crit"))) % BASIS_POINTS;
             if (critRoll < effectiveCritRate) {
                 numRolls = 2 + effectiveCritMultiplierBonus;
             }
         }
 
         // Initial fish selection
-        (uint256 bestFishId, uint256 bestFishIndex) = _selectFish(
-            request.mapId,
-            request.regionId & 0xFF,
-            request.baitId,
-            request.isDayTime,
-            request.randomSeed
-        );
+        (uint256 bestFishId, uint256 bestFishIndex) =
+            _selectFish(request.mapId, request.regionId & 0xFF, request.baitId, request.isDayTime, request.randomSeed);
 
         // Roll for best fish (highest index = rarest)
         for (uint256 i = 1; i < numRolls; i++) {
@@ -684,13 +565,8 @@ contract RisingTidesFishing is
         bool isOffchain
     ) internal {
         // Process catch with rod
-        IRisingTidesFishingRod.FishModifiers memory modifiers = fishingRod
-            .processCatch(
-                request.rodTokenId,
-                weight,
-                regionType,
-                request.randomSeed
-            );
+        IRisingTidesFishingRod.FishModifiers memory modifiers =
+            fishingRod.processCatch(request.rodTokenId, weight, regionType, request.randomSeed);
 
         // Calculate fish-specific cooldown and extend if longer than base
         uint256 fishCooldown = _calculateCooldown(fishId, request.randomSeed);
@@ -704,15 +580,7 @@ contract RisingTidesFishing is
         }
 
         // Add fish to inventory
-        try
-            inventory.addFish(
-                request.player,
-                fishId,
-                weight,
-                modifiers.isTrophyQuality,
-                modifiers.freshnessModifier
-            )
-        {
+        try inventory.addFish(request.player, fishId, weight, modifiers.isTrophyQuality, modifiers.freshnessModifier) {
             // Handle double catch
             if (modifiers.doubleCatch) {
                 _tryAddSecondFish(request, fishId, modifiers);
@@ -742,35 +610,23 @@ contract RisingTidesFishing is
         uint256 fishId,
         IRisingTidesFishingRod.FishModifiers memory modifiers
     ) internal {
-        uint256 secondWeight = _calculateFishWeight(
-            fishId,
-            uint256(keccak256(abi.encode(request.randomSeed, "double")))
-        );
+        uint256 secondWeight =
+            _calculateFishWeight(fishId, uint256(keccak256(abi.encode(request.randomSeed, "double"))));
 
-        try
-            inventory.addFish(
-                request.player,
-                fishId,
-                secondWeight,
-                modifiers.isTrophyQuality,
-                modifiers.freshnessModifier
-            )
-        {} catch {
+        try inventory.addFish(
+            request.player, fishId, secondWeight, modifiers.isTrophyQuality, modifiers.freshnessModifier
+        ) {} catch {
             // Inventory full for second fish, ignore
         }
     }
 
-    function _selectFish(
-        uint256 mapId,
-        uint256 regionType,
-        uint256 baitId,
-        bool _isDayTime,
-        uint256 randomSeed
-    ) internal view returns (uint256 fishId, uint256 fishIndex) {
+    function _selectFish(uint256 mapId, uint256 regionType, uint256 baitId, bool _isDayTime, uint256 randomSeed)
+        internal
+        view
+        returns (uint256 fishId, uint256 fishIndex)
+    {
         // Try specific table first
-        bytes32 key = keccak256(
-            abi.encodePacked(mapId, regionType, baitId, _isDayTime)
-        );
+        bytes32 key = keccak256(abi.encodePacked(mapId, regionType, baitId, _isDayTime));
         AliasTable storage table = fishingTables[key];
 
         // Fallback to default bait table
@@ -803,10 +659,7 @@ contract RisingTidesFishing is
         return (table.fishIds[selectedIndex], selectedIndex);
     }
 
-    function _calculateFishWeight(
-        uint256 fishId,
-        uint256 randomSeed
-    ) internal view returns (uint256) {
+    function _calculateFishWeight(uint256 fishId, uint256 randomSeed) internal view returns (uint256) {
         FishSpecies memory species = fishSpecies[fishId];
 
         // Random weight between min and max
@@ -816,10 +669,7 @@ contract RisingTidesFishing is
         return randomWeight;
     }
 
-    function _calculateCooldown(
-        uint256 fishId,
-        uint256 randomSeed
-    ) internal view returns (uint256) {
+    function _calculateCooldown(uint256 fishId, uint256 randomSeed) internal view returns (uint256) {
         FishSpecies memory species = fishSpecies[fishId];
 
         // Random cooldown between min and max
@@ -873,9 +723,7 @@ contract RisingTidesFishing is
         }
     }
 
-    function _sumArray(
-        uint256[] calldata arr
-    ) internal pure returns (uint256 sum) {
+    function _sumArray(uint256[] calldata arr) internal pure returns (uint256 sum) {
         for (uint256 i = 0; i < arr.length; i++) {
             sum += arr[i];
         }

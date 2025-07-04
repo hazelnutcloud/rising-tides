@@ -46,6 +46,7 @@ interface IRisingTidesPort {
         ROTTING, // 33% value
         STALE, // 66% value
         FRESH // 100% value
+
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -62,19 +63,9 @@ interface IRisingTidesPort {
         bool isTrophyQuality
     );
 
-    event FishDiscarded(
-        address indexed player,
-        uint256 indexed fishId,
-        uint256 weight,
-        string reason
-    );
+    event FishDiscarded(address indexed player, uint256 indexed fishId, uint256 weight, string reason);
 
-    event MarketPriceUpdated(
-        uint256 indexed fishId,
-        uint256 oldPrice,
-        uint256 newPrice,
-        bool isPriceDrop
-    );
+    event MarketPriceUpdated(uint256 indexed fishId, uint256 oldPrice, uint256 newPrice, bool isPriceDrop);
 
     // Shop events
     event ItemPurchased(
@@ -86,34 +77,14 @@ interface IRisingTidesPort {
     );
 
     // Crafting events
-    event RodCraftingInitiated(
-        address indexed player,
-        uint256 indexed requestId,
-        uint256 recipeId,
-        uint256 rodTypeId
-    );
+    event RodCraftingInitiated(address indexed player, uint256 indexed requestId, uint256 recipeId, uint256 rodTypeId);
 
-    event RodCrafted(
-        address indexed player,
-        uint256 indexed tokenId,
-        uint256 indexed rodTypeId,
-        bool isStrange
-    );
+    event RodCrafted(address indexed player, uint256 indexed tokenId, uint256 indexed rodTypeId, bool isStrange);
 
-    event RodRepaired(
-        address indexed player,
-        uint256 indexed tokenId,
-        uint256 durabilityAdded,
-        uint256 dblCost
-    );
+    event RodRepaired(address indexed player, uint256 indexed tokenId, uint256 durabilityAdded, uint256 dblCost);
 
     // Admin events
-    event MarketDataSet(
-        uint256 indexed fishId,
-        uint256 basePrice,
-        uint256 priceDropRate,
-        uint256 priceRecoveryRate
-    );
+    event MarketDataSet(uint256 indexed fishId, uint256 basePrice, uint256 priceDropRate, uint256 priceRecoveryRate);
 
     event ShopItemSet(
         uint256 indexed mapId,
@@ -123,12 +94,7 @@ interface IRisingTidesPort {
         uint256 requiredLevel
     );
 
-    event CraftingRecipeSet(
-        uint256 indexed recipeId,
-        uint256 rodTypeId,
-        uint256 dblCost,
-        uint256 requiredLevel
-    );
+    event CraftingRecipeSet(uint256 indexed recipeId, uint256 rodTypeId, uint256 dblCost, uint256 requiredLevel);
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
@@ -164,32 +130,23 @@ interface IRisingTidesPort {
 
     function sellAllFish() external;
 
-    function getMarketPrice(
-        uint256 fishId
-    ) external view returns (uint256 currentPrice, uint256 basePrice);
+    function getMarketPrice(uint256 fishId) external view returns (uint256 currentPrice, uint256 basePrice);
 
-    function calculateFishValue(
-        uint256 fishId,
-        uint256 weight,
-        FreshnessLevel freshness,
-        bool isTrophyQuality
-    ) external view returns (uint256 value);
+    function calculateFishValue(uint256 fishId, uint256 weight, FreshnessLevel freshness, bool isTrophyQuality)
+        external
+        view
+        returns (uint256 value);
 
     /*//////////////////////////////////////////////////////////////
                             SHOP FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function buyItem(
-        IRisingTidesInventory.ItemType itemType,
-        uint256 itemId,
-        uint256 amount
-    ) external;
+    function buyItem(IRisingTidesInventory.ItemType itemType, uint256 itemId, uint256 amount) external;
 
-    function getShopItem(
-        uint256 mapId,
-        IRisingTidesInventory.ItemType itemType,
-        uint256 itemId
-    ) external view returns (ShopItem memory);
+    function getShopItem(uint256 mapId, IRisingTidesInventory.ItemType itemType, uint256 itemId)
+        external
+        view
+        returns (ShopItem memory);
 
     /*//////////////////////////////////////////////////////////////
                           CRAFTING FUNCTIONS
@@ -199,32 +156,22 @@ interface IRisingTidesPort {
 
     function repairRod(uint256 tokenId, uint256 durabilityToAdd) external;
 
-    function getCraftingRecipe(
-        uint256 recipeId
-    ) external view returns (CraftingRecipe memory);
+    function getCraftingRecipe(uint256 recipeId) external view returns (CraftingRecipe memory);
 
-    function isRecipeAvailableAtMap(
-        uint256 recipeId,
-        uint256 mapId
-    ) external view returns (bool);
+    function isRecipeAvailableAtMap(uint256 recipeId, uint256 mapId) external view returns (bool);
 
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getMarketData(
-        uint256 fishId
-    ) external view returns (MarketData memory);
+    function getMarketData(uint256 fishId) external view returns (MarketData memory);
 
-    function getFreshnessLevel(
-        uint256 caughtAt,
-        uint256 decayRate,
-        uint256 freshnessModifier
-    ) external view returns (FreshnessLevel level, uint256 valuePercent);
+    function getFreshnessLevel(uint256 caughtAt, uint256 decayRate, uint256 freshnessModifier)
+        external
+        view
+        returns (FreshnessLevel level, uint256 valuePercent);
 
-    function getActiveCraftingRequest(
-        address player
-    ) external view returns (CraftingRequest memory);
+    function getActiveCraftingRequest(address player) external view returns (CraftingRequest memory);
 
     /*//////////////////////////////////////////////////////////////
                             ADMIN FUNCTIONS
@@ -232,17 +179,10 @@ interface IRisingTidesPort {
 
     function setMarketData(uint256 fishId, MarketData calldata data) external;
 
-    function setShopItem(
-        uint256 mapId,
-        IRisingTidesInventory.ItemType itemType,
-        uint256 itemId,
-        ShopItem calldata item
-    ) external;
+    function setShopItem(uint256 mapId, IRisingTidesInventory.ItemType itemType, uint256 itemId, ShopItem calldata item)
+        external;
 
-    function setCraftingRecipe(
-        uint256 recipeId,
-        CraftingRecipe calldata recipe
-    ) external;
+    function setCraftingRecipe(uint256 recipeId, CraftingRecipe calldata recipe) external;
 
     function setVRFCoordinator(address coordinator) external;
 

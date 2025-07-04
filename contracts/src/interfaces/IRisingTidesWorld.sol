@@ -36,6 +36,7 @@ interface IRisingTidesWorld {
         WEST, // -q, 0r
         SOUTHWEST, // -q, +r
         SOUTHEAST // 0q, +r
+
     }
 
     struct Coordinate {
@@ -62,42 +63,20 @@ interface IRisingTidesWorld {
         bool exists;
     }
 
-    function getPlayerLocation(
-        address player
-    ) external view returns (int32 q, int32 r, uint256 mapId);
+    function getPlayerLocation(address player) external view returns (int32 q, int32 r, uint256 mapId);
 
-    function getCurrentPosition(
-        address player
-    ) external view returns (int32 q, int32 r);
+    function getCurrentPosition(address player) external view returns (int32 q, int32 r);
 
     function isMoving(address player) external view returns (bool);
 
-    function getPlayerInfo(
-        address player
-    ) external view returns (Player memory);
+    function getPlayerInfo(address player) external view returns (Player memory);
 
-    function validateFishingLocation(
-        address player
-    )
+    function validateFishingLocation(address player)
         external
         view
-        returns (
-            bool canFish,
-            int32 q,
-            int32 r,
-            uint256 regionId,
-            uint256 mapId
-        );
+        returns (bool canFish, int32 q, int32 r, uint256 regionId, uint256 mapId);
 
-    function isPortRegion(
-        uint256 mapId,
-        int32 q,
-        int32 r
-    ) external view returns (bool);
+    function isPortRegion(uint256 mapId, int32 q, int32 r) external view returns (bool);
 
-    function getRegionType(
-        uint256 mapId,
-        int32 q,
-        int32 r
-    ) external view returns (uint256);
+    function getRegionType(uint256 mapId, int32 q, int32 r) external view returns (uint256);
 }

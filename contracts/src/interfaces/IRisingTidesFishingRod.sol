@@ -31,7 +31,7 @@ interface IRisingTidesFishingRod {
         uint256 efficiency;
         uint256 totalCatches;
         uint256 enchantmentMask;
-        bool isStrange;              // Whether this rod can gain titles
+        bool isStrange; // Whether this rod can gain titles
     }
 
     struct Bonus {
@@ -41,7 +41,7 @@ interface IRisingTidesFishingRod {
         uint256 maxWeightBonus;
         uint256 strengthBonus;
         uint256 freshnessModifier;
-        uint256 critMultiplierBonus;  // Additional rolls on crit (0 = normal, 1 = one extra roll, etc.)
+        uint256 critMultiplierBonus; // Additional rolls on crit (0 = normal, 1 = one extra roll, etc.)
         bool hasPerfectCatch;
         bool hasTrophyQuality;
         bool hasDoubleCatch;
@@ -59,25 +59,11 @@ interface IRisingTidesFishingRod {
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event RodMinted(
-        uint256 indexed tokenId,
-        address indexed owner,
-        uint256 rodId,
-        uint256 enchantmentMask
-    );
+    event RodMinted(uint256 indexed tokenId, address indexed owner, uint256 rodId, uint256 enchantmentMask);
 
-    event RodRepaired(
-        uint256 indexed tokenId,
-        uint256 durabilityAdded,
-        uint256 newDurability
-    );
+    event RodRepaired(uint256 indexed tokenId, uint256 durabilityAdded, uint256 newDurability);
 
-    event CatchProcessed(
-        uint256 indexed tokenId,
-        uint256 durabilityLoss,
-        uint256 newTotalCatches,
-        bool perfectCatch
-    );
+    event CatchProcessed(uint256 indexed tokenId, uint256 durabilityLoss, uint256 newTotalCatches, bool perfectCatch);
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
@@ -94,30 +80,15 @@ interface IRisingTidesFishingRod {
                             MINTING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function mint(
-        address to,
-        uint256 rodId,
-        uint256 randomSeed
-    ) external returns (uint256 tokenId);
+    function mint(address to, uint256 rodId, uint256 randomSeed) external returns (uint256 tokenId);
 
     /*//////////////////////////////////////////////////////////////
                             FISHING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function checkRodUsability(
-        uint256 tokenId
-    )
-        external
-        view
-        returns (
-            bool isUsable,
-            uint256 compatibleBaitMask
-        );
+    function checkRodUsability(uint256 tokenId) external view returns (bool isUsable, uint256 compatibleBaitMask);
 
-    function getFishingAttributes(
-        uint256 tokenId,
-        uint256 regionType
-    )
+    function getFishingAttributes(uint256 tokenId, uint256 regionType)
         external
         view
         returns (
@@ -127,12 +98,9 @@ interface IRisingTidesFishingRod {
             uint256 effectiveCritMultiplierBonus
         );
 
-    function processCatch(
-        uint256 tokenId,
-        uint256 fishWeight,
-        uint256 regionType,
-        uint256 randomSeed
-    ) external returns (FishModifiers memory modifiers);
+    function processCatch(uint256 tokenId, uint256 fishWeight, uint256 regionType, uint256 randomSeed)
+        external
+        returns (FishModifiers memory modifiers);
 
     /*//////////////////////////////////////////////////////////////
                             REPAIR FUNCTIONS
@@ -144,28 +112,16 @@ interface IRisingTidesFishingRod {
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getRodInfo(
-        uint256 tokenId
-    )
+    function getRodInfo(uint256 tokenId)
         external
         view
-        returns (
-            RodInstance memory rod,
-            string memory currentTitle,
-            uint256 titleIndex
-        );
+        returns (RodInstance memory rod, string memory currentTitle, uint256 titleIndex);
 
-    function getCurrentTitleIndex(
-        uint256 totalCatches
-    ) external view returns (uint256);
+    function getCurrentTitleIndex(uint256 totalCatches) external view returns (uint256);
 
-    function getEnchantmentInfo(
-        uint256 enchantmentId
-    ) external view returns (string memory name, Bonus memory bonus);
+    function getEnchantmentInfo(uint256 enchantmentId) external view returns (string memory name, Bonus memory bonus);
 
-    function getTitleInfo(
-        uint256 titleIndex
-    )
+    function getTitleInfo(uint256 titleIndex)
         external
         view
         returns (string memory name, uint256 threshold, Bonus memory bonus);

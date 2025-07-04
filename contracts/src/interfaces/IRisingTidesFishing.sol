@@ -81,18 +81,10 @@ interface IRisingTidesFishing {
     );
 
     event FishingFailed(
-        address indexed player,
-        uint256 indexed requestId,
-        string reason,
-        bool baitConsumed,
-        bool isOffchain
+        address indexed player, uint256 indexed requestId, string reason, bool baitConsumed, bool isOffchain
     );
 
-    event BaitConsumed(
-        address indexed player,
-        uint256 indexed baitId,
-        uint256 amount
-    );
+    event BaitConsumed(address indexed player, uint256 indexed baitId, uint256 amount);
 
     event FishDiscarded(address indexed player, uint256[] fishIndices);
 
@@ -146,10 +138,7 @@ interface IRisingTidesFishing {
                             FISHING FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function initiateFishing(
-        uint256 baitId,
-        bool useOffchainCompletion
-    ) external returns (uint256 requestId);
+    function initiateFishing(uint256 baitId, bool useOffchainCompletion) external returns (uint256 requestId);
 
     function completeFishingOffchain(
         uint256 requestId,
@@ -158,29 +147,20 @@ interface IRisingTidesFishing {
         uint256[] calldata fishToDiscard
     ) external;
 
-    function completeFishingOnchain(
-        uint256 requestId,
-        uint256[] calldata fishToDiscard
-    ) external;
+    function completeFishingOnchain(uint256 requestId, uint256[] calldata fishToDiscard) external;
 
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getActiveFishingRequest(
-        address player
-    ) external view returns (FishingRequest memory);
+    function getActiveFishingRequest(address player) external view returns (FishingRequest memory);
 
-    function getFishSpecies(
-        uint256 fishId
-    ) external view returns (FishSpecies memory);
+    function getFishSpecies(uint256 fishId) external view returns (FishSpecies memory);
 
-    function getAliasTable(
-        uint256 mapId,
-        uint256 regionType,
-        uint256 baitId,
-        bool isDayTime
-    ) external view returns (AliasTable memory);
+    function getAliasTable(uint256 mapId, uint256 regionType, uint256 baitId, bool isDayTime)
+        external
+        view
+        returns (AliasTable memory);
 
     function getPlayerCooldown(address player) external view returns (uint256);
 
@@ -192,10 +172,7 @@ interface IRisingTidesFishing {
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function setFishSpecies(
-        uint256 fishId,
-        FishSpecies calldata species
-    ) external;
+    function setFishSpecies(uint256 fishId, FishSpecies calldata species) external;
 
     function setAliasTable(
         uint256 mapId,

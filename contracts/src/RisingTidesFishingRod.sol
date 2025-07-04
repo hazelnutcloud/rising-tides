@@ -21,17 +21,12 @@ pragma solidity ^0.8.20;
                                                 $DBL - Doubloons of the Seven Seas
 */
 
-import {ERC721} from "../lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import {AccessControl} from "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
-import {Pausable} from "../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IRisingTidesFishingRod} from "./interfaces/IRisingTidesFishingRod.sol";
 
-contract RisingTidesFishingRod is
-    IRisingTidesFishingRod,
-    ERC721,
-    AccessControl,
-    Pausable
-{
+contract RisingTidesFishingRod is IRisingTidesFishingRod, ERC721, AccessControl, Pausable {
     /*//////////////////////////////////////////////////////////////
                                 CONSTANTS
     //////////////////////////////////////////////////////////////*/
@@ -71,18 +66,11 @@ contract RisingTidesFishingRod is
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event RodTypeAdded(
-        uint256 indexed rodId,
-        uint256 minDurability,
-        uint256 maxDurability
-    );
+    event RodTypeAdded(uint256 indexed rodId, uint256 minDurability, uint256 maxDurability);
 
     event EnchantmentAdded(uint256 indexed enchantmentId, string name);
 
-    event EnchantmentWeightUpdated(
-        uint256 indexed enchantmentId,
-        uint256 weight
-    );
+    event EnchantmentWeightUpdated(uint256 indexed enchantmentId, uint256 weight);
 
     event BaseEnchantmentChanceUpdated(uint256 chance);
 
@@ -118,11 +106,9 @@ contract RisingTidesFishingRod is
                                 CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor(
-        address _admin,
-        address _gameMaster,
-        string memory __baseURI
-    ) ERC721("Rising Tides Fishing Rod", "RTFR") {
+    constructor(address _admin, address _gameMaster, string memory __baseURI)
+        ERC721("Rising Tides Fishing Rod", "RTFR")
+    {
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(ADMIN_ROLE, _admin);
         _grantRole(GAME_MASTER_ROLE, _gameMaster);
@@ -135,11 +121,12 @@ contract RisingTidesFishingRod is
                                 MINTING
     //////////////////////////////////////////////////////////////*/
 
-    function mint(
-        address to,
-        uint256 rodId,
-        uint256 randomSeed
-    ) external onlyPort whenNotPaused returns (uint256 tokenId) {
+    function mint(address to, uint256 rodId, uint256 randomSeed)
+        external
+        onlyPort
+        whenNotPaused
+        returns (uint256 tokenId)
+    {
         RodType memory rodType = _rodTypes[rodId];
         if (!rodType.exists) revert InvalidRodType();
 
@@ -150,36 +137,16 @@ contract RisingTidesFishingRod is
         rod.rodId = rodId;
 
         // Use different parts of the random seed for each attribute
-        rod.maxDurability = _randomInRange(
-            rodType.minDurability,
-            rodType.maxDurability,
-            randomSeed
-        );
+        rod.maxDurability = _randomInRange(rodType.minDurability, rodType.maxDurability, randomSeed);
         rod.currentDurability = rod.maxDurability;
 
-        rod.maxFishWeight = _randomInRange(
-            rodType.minMaxFishWeight,
-            rodType.maxMaxFishWeight,
-            randomSeed >> 32
-        );
+        rod.maxFishWeight = _randomInRange(rodType.minMaxFishWeight, rodType.maxMaxFishWeight, randomSeed >> 32);
 
-        rod.critRate = _randomInRange(
-            rodType.minCritRate,
-            rodType.maxCritRate,
-            randomSeed >> 64
-        );
+        rod.critRate = _randomInRange(rodType.minCritRate, rodType.maxCritRate, randomSeed >> 64);
 
-        rod.strength = _randomInRange(
-            rodType.minStrength,
-            rodType.maxStrength,
-            randomSeed >> 96
-        );
+        rod.strength = _randomInRange(rodType.minStrength, rodType.maxStrength, randomSeed >> 96);
 
-        rod.efficiency = _randomInRange(
-            rodType.minEfficiency,
-            rodType.maxEfficiency,
-            randomSeed >> 128
-        );
+        rod.efficiency = _randomInRange(rodType.minEfficiency, rodType.maxEfficiency, randomSeed >> 128);
 
         rod.totalCatches = 0;
 
@@ -198,16 +165,7 @@ contract RisingTidesFishingRod is
                             FISHING INTEGRATION
     //////////////////////////////////////////////////////////////*/
 
-    function checkRodUsability(
-        uint256 tokenId
-    )
-        external
-        view
-        returns (
-            bool isUsable,
-            uint256 compatibleBaitMask
-        )
-    {
+    function checkRodUsability(uint256 tokenId) external view returns (bool isUsable, uint256 compatibleBaitMask) {
         if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
 
         RodInstance memory rod = _rodInstances[tokenId];
@@ -217,10 +175,7 @@ contract RisingTidesFishingRod is
         compatibleBaitMask = rodType.compatibleBaitMask;
     }
 
-    function getFishingAttributes(
-        uint256 tokenId,
-        uint256 regionType
-    )
+    function getFishingAttributes(uint256 tokenId, uint256 regionType)
         external
         view
         returns (
@@ -233,23 +188,20 @@ contract RisingTidesFishingRod is
         if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
 
         RodInstance memory rod = _rodInstances[tokenId];
-        
+
         Bonus memory totalBonus = _calculateTotalBonus(rod, regionType);
 
-        effectiveMaxFishWeight =
-            rod.maxFishWeight +
-            ((rod.maxFishWeight * totalBonus.maxWeightBonus) / PERCENT);
+        effectiveMaxFishWeight = rod.maxFishWeight + ((rod.maxFishWeight * totalBonus.maxWeightBonus) / PERCENT);
         effectiveCritRate = rod.critRate + totalBonus.critRateBonus;
         effectiveEfficiency = rod.efficiency + totalBonus.efficiencyBonus;
         effectiveCritMultiplierBonus = totalBonus.critMultiplierBonus;
     }
 
-    function processCatch(
-        uint256 tokenId,
-        uint256 fishWeight,
-        uint256 regionType,
-        uint256 randomSeed
-    ) external onlyFishing returns (FishModifiers memory modifiers) {
+    function processCatch(uint256 tokenId, uint256 fishWeight, uint256 regionType, uint256 randomSeed)
+        external
+        onlyFishing
+        returns (FishModifiers memory modifiers)
+    {
         if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
 
         RodInstance storage rod = _rodInstances[tokenId];
@@ -265,10 +217,8 @@ contract RisingTidesFishingRod is
 
         // Calculate durability loss
         if (!perfectCatch) {
-            uint256 effectiveStrength = rod.strength +
-                ((rod.strength * totalBonus.strengthBonus) / PERCENT);
-            uint256 durabilityLoss = (fishWeight * PERCENT) /
-                (PERCENT + effectiveStrength);
+            uint256 effectiveStrength = rod.strength + ((rod.strength * totalBonus.strengthBonus) / PERCENT);
+            uint256 durabilityLoss = (fishWeight * PERCENT) / (PERCENT + effectiveStrength);
 
             if (durabilityLoss >= rod.currentDurability) {
                 rod.currentDurability = 0;
@@ -297,22 +247,14 @@ contract RisingTidesFishingRod is
             rod.totalCatches++;
         }
 
-        emit CatchProcessed(
-            tokenId,
-            modifiers.actualDurabilityLoss,
-            rod.totalCatches,
-            perfectCatch
-        );
+        emit CatchProcessed(tokenId, modifiers.actualDurabilityLoss, rod.totalCatches, perfectCatch);
     }
 
     /*//////////////////////////////////////////////////////////////
                                 REPAIRS
     //////////////////////////////////////////////////////////////*/
 
-    function repair(
-        uint256 tokenId,
-        uint256 durabilityToAdd
-    ) external onlyPort {
+    function repair(uint256 tokenId, uint256 durabilityToAdd) external onlyPort {
         if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
 
         RodInstance storage rod = _rodInstances[tokenId];
@@ -331,9 +273,7 @@ contract RisingTidesFishingRod is
                             TITLE SYSTEM
     //////////////////////////////////////////////////////////////*/
 
-    function getCurrentTitleIndex(
-        uint256 totalCatches
-    ) public view returns (uint256) {
+    function getCurrentTitleIndex(uint256 totalCatches) public view returns (uint256) {
         uint256 left = 0;
         uint256 right = _titleThresholds.length - 1;
         uint256 result = 0;
@@ -359,10 +299,11 @@ contract RisingTidesFishingRod is
                             INTERNAL HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    function _calculateTotalBonus(
-        RodInstance memory rod,
-        uint256 regionType
-    ) private view returns (Bonus memory totalBonus) {
+    function _calculateTotalBonus(RodInstance memory rod, uint256 regionType)
+        private
+        view
+        returns (Bonus memory totalBonus)
+    {
         // Apply title bonus only for strange rods
         if (rod.isStrange) {
             uint256 titleIndex = getCurrentTitleIndex(rod.totalCatches);
@@ -387,24 +328,14 @@ contract RisingTidesFishingRod is
                     totalBonus.critMultiplierBonus += enchBonus.critMultiplierBonus;
 
                     // For modifiers, take the maximum
-                    if (
-                        enchBonus.freshnessModifier >
-                        totalBonus.freshnessModifier
-                    ) {
-                        totalBonus.freshnessModifier = enchBonus
-                            .freshnessModifier;
+                    if (enchBonus.freshnessModifier > totalBonus.freshnessModifier) {
+                        totalBonus.freshnessModifier = enchBonus.freshnessModifier;
                     }
 
                     // OR the boolean flags
-                    totalBonus.hasPerfectCatch =
-                        totalBonus.hasPerfectCatch ||
-                        enchBonus.hasPerfectCatch;
-                    totalBonus.hasTrophyQuality =
-                        totalBonus.hasTrophyQuality ||
-                        enchBonus.hasTrophyQuality;
-                    totalBonus.hasDoubleCatch =
-                        totalBonus.hasDoubleCatch ||
-                        enchBonus.hasDoubleCatch;
+                    totalBonus.hasPerfectCatch = totalBonus.hasPerfectCatch || enchBonus.hasPerfectCatch;
+                    totalBonus.hasTrophyQuality = totalBonus.hasTrophyQuality || enchBonus.hasTrophyQuality;
+                    totalBonus.hasDoubleCatch = totalBonus.hasDoubleCatch || enchBonus.hasDoubleCatch;
                 }
             }
         }
@@ -417,23 +348,14 @@ contract RisingTidesFishingRod is
         return totalBonus;
     }
 
-    function _randomInRange(
-        uint256 min,
-        uint256 max,
-        uint256 seed
-    ) private pure returns (uint256) {
+    function _randomInRange(uint256 min, uint256 max, uint256 seed) private pure returns (uint256) {
         if (min >= max) return min;
         return min + (seed % (max - min + 1));
     }
 
-    function _generateEnchantments(
-        uint256 seed
-    ) private view returns (uint256 mask) {
+    function _generateEnchantments(uint256 seed) private view returns (uint256 mask) {
         // Check if rod gets any enchantments based on base chance
-        if (
-            baseEnchantmentChance == 0 ||
-            (seed % BASIS_POINTS) >= baseEnchantmentChance
-        ) {
+        if (baseEnchantmentChance == 0 || (seed % BASIS_POINTS) >= baseEnchantmentChance) {
             return 0;
         }
 
@@ -467,10 +389,7 @@ contract RisingTidesFishingRod is
 
             for (uint256 i = 0; i < _nextEnchantmentId; i++) {
                 cumulativeWeight += enchantmentWeights[i];
-                if (
-                    secondRandom < cumulativeWeight &&
-                    (mask & (uint256(1) << i)) == 0
-                ) {
+                if (secondRandom < cumulativeWeight && (mask & (uint256(1) << i)) == 0) {
                     // Add second enchantment if it's different from the first
                     mask |= uint256(1) << i;
                     break;
@@ -485,21 +404,23 @@ contract RisingTidesFishingRod is
                             GAME MASTER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function addRodType(
-        uint256 rodId,
-        RodType memory rodType
-    ) external onlyRole(GAME_MASTER_ROLE) {
+    function addRodType(uint256 rodId, RodType memory rodType) external onlyRole(GAME_MASTER_ROLE) {
         if (_rodTypes[rodId].exists) revert RodTypeAlreadyExists();
-        if (rodType.minDurability > rodType.maxDurability)
+        if (rodType.minDurability > rodType.maxDurability) {
             revert InvalidDurabilityRange();
-        if (rodType.minMaxFishWeight > rodType.maxMaxFishWeight)
+        }
+        if (rodType.minMaxFishWeight > rodType.maxMaxFishWeight) {
             revert InvalidAttributeRange();
-        if (rodType.minCritRate > rodType.maxCritRate)
+        }
+        if (rodType.minCritRate > rodType.maxCritRate) {
             revert InvalidAttributeRange();
-        if (rodType.minStrength > rodType.maxStrength)
+        }
+        if (rodType.minStrength > rodType.maxStrength) {
             revert InvalidAttributeRange();
-        if (rodType.minEfficiency > rodType.maxEfficiency)
+        }
+        if (rodType.minEfficiency > rodType.maxEfficiency) {
             revert InvalidAttributeRange();
+        }
 
         rodType.exists = true;
         _rodTypes[rodId] = rodType;
@@ -507,31 +428,33 @@ contract RisingTidesFishingRod is
         emit RodTypeAdded(rodId, rodType.minDurability, rodType.maxDurability);
     }
 
-    function updateRodType(
-        uint256 rodId,
-        RodType memory rodType
-    ) external onlyRole(GAME_MASTER_ROLE) {
+    function updateRodType(uint256 rodId, RodType memory rodType) external onlyRole(GAME_MASTER_ROLE) {
         if (!_rodTypes[rodId].exists) revert InvalidRodType();
-        if (rodType.minDurability > rodType.maxDurability)
+        if (rodType.minDurability > rodType.maxDurability) {
             revert InvalidDurabilityRange();
-        if (rodType.minMaxFishWeight > rodType.maxMaxFishWeight)
+        }
+        if (rodType.minMaxFishWeight > rodType.maxMaxFishWeight) {
             revert InvalidAttributeRange();
-        if (rodType.minCritRate > rodType.maxCritRate)
+        }
+        if (rodType.minCritRate > rodType.maxCritRate) {
             revert InvalidAttributeRange();
-        if (rodType.minStrength > rodType.maxStrength)
+        }
+        if (rodType.minStrength > rodType.maxStrength) {
             revert InvalidAttributeRange();
-        if (rodType.minEfficiency > rodType.maxEfficiency)
+        }
+        if (rodType.minEfficiency > rodType.maxEfficiency) {
             revert InvalidAttributeRange();
+        }
 
         rodType.exists = true;
         _rodTypes[rodId] = rodType;
     }
 
-    function addEnchantment(
-        string memory name,
-        Bonus memory bonus,
-        uint256 weight
-    ) external onlyRole(GAME_MASTER_ROLE) returns (uint256 enchantmentId) {
+    function addEnchantment(string memory name, Bonus memory bonus, uint256 weight)
+        external
+        onlyRole(GAME_MASTER_ROLE)
+        returns (uint256 enchantmentId)
+    {
         enchantmentId = _nextEnchantmentId++;
         _enchantmentNames[enchantmentId] = name;
         _enchantmentBonuses[enchantmentId] = bonus;
@@ -541,74 +464,62 @@ contract RisingTidesFishingRod is
         emit EnchantmentWeightUpdated(enchantmentId, weight);
     }
 
-    function updateEnchantment(
-        uint256 enchantmentId,
-        Bonus memory bonus
-    ) external onlyRole(GAME_MASTER_ROLE) {
+    function updateEnchantment(uint256 enchantmentId, Bonus memory bonus) external onlyRole(GAME_MASTER_ROLE) {
         if (enchantmentId >= _nextEnchantmentId) revert InvalidEnchantmentId();
         _enchantmentBonuses[enchantmentId] = bonus;
     }
 
-    function setEnchantmentWeight(
-        uint256 enchantmentId,
-        uint256 weight
-    ) external onlyRole(GAME_MASTER_ROLE) {
+    function setEnchantmentWeight(uint256 enchantmentId, uint256 weight) external onlyRole(GAME_MASTER_ROLE) {
         if (enchantmentId >= _nextEnchantmentId) revert InvalidEnchantmentId();
         enchantmentWeights[enchantmentId] = weight;
         emit EnchantmentWeightUpdated(enchantmentId, weight);
     }
 
-    function setBaseEnchantmentChance(
-        uint256 chance
-    ) external onlyRole(GAME_MASTER_ROLE) {
+    function setBaseEnchantmentChance(uint256 chance) external onlyRole(GAME_MASTER_ROLE) {
         if (chance > BASIS_POINTS) revert InvalidEnchantmentChance();
         baseEnchantmentChance = chance;
         emit BaseEnchantmentChanceUpdated(chance);
     }
 
-    function setTitles(
-        uint256[] calldata thresholds,
-        string[] calldata names,
-        Bonus[] calldata bonuses
-    ) external onlyRole(GAME_MASTER_ROLE) {
+    function setTitles(uint256[] calldata thresholds, string[] calldata names, Bonus[] calldata bonuses)
+        external
+        onlyRole(GAME_MASTER_ROLE)
+    {
         // Validate input arrays have same length
         if (thresholds.length != names.length || thresholds.length != bonuses.length) {
             revert InvalidTitleData();
         }
-        
+
         // Validate thresholds are in ascending order
         if (thresholds.length > 0 && thresholds[0] != 0) {
             revert InvalidTitleData(); // First threshold must be 0
         }
-        
+
         for (uint256 i = 1; i < thresholds.length; i++) {
             if (thresholds[i] <= thresholds[i - 1]) {
                 revert InvalidTitleData(); // Thresholds must be ascending
             }
         }
-        
+
         // Clear existing data
         delete _titleThresholds;
         delete _titleNames;
-        
+
         // Set new data
         for (uint256 i = 0; i < thresholds.length; i++) {
             _titleThresholds.push(thresholds[i]);
             _titleNames.push(names[i]);
             _titleBonuses[i] = bonuses[i];
         }
-        
+
         emit TitleSystemUpdated(thresholds.length);
     }
 
-    function updateTitleBonus(
-        uint256 titleIndex,
-        Bonus memory bonus
-    ) external onlyRole(GAME_MASTER_ROLE) {
+    function updateTitleBonus(uint256 titleIndex, Bonus memory bonus) external onlyRole(GAME_MASTER_ROLE) {
         if (titleIndex >= _titleThresholds.length) revert InvalidTitleIndex();
         _titleBonuses[titleIndex] = bonus;
     }
-    
+
     function clearTitles() external onlyRole(GAME_MASTER_ROLE) {
         delete _titleThresholds;
         delete _titleNames;
@@ -620,10 +531,7 @@ contract RisingTidesFishingRod is
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function setContracts(
-        address _port,
-        address _fishing
-    ) external onlyRole(ADMIN_ROLE) {
+    function setContracts(address _port, address _fishing) external onlyRole(ADMIN_ROLE) {
         risingTidesPort = _port;
         risingTidesFishing = _fishing;
     }
@@ -644,21 +552,15 @@ contract RisingTidesFishingRod is
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getRodInfo(
-        uint256 tokenId
-    )
+    function getRodInfo(uint256 tokenId)
         external
         view
-        returns (
-            RodInstance memory rod,
-            string memory currentTitle,
-            uint256 titleIndex
-        )
+        returns (RodInstance memory rod, string memory currentTitle, uint256 titleIndex)
     {
         if (_ownerOf(tokenId) == address(0)) revert InvalidTokenId();
 
         rod = _rodInstances[tokenId];
-        
+
         // Only strange rods can have titles
         if (rod.isStrange) {
             titleIndex = getCurrentTitleIndex(rod.totalCatches);
@@ -671,17 +573,13 @@ contract RisingTidesFishingRod is
         }
     }
 
-    function getEnchantmentInfo(
-        uint256 enchantmentId
-    ) external view returns (string memory name, Bonus memory bonus) {
+    function getEnchantmentInfo(uint256 enchantmentId) external view returns (string memory name, Bonus memory bonus) {
         if (enchantmentId >= _nextEnchantmentId) revert InvalidEnchantmentId();
         name = _enchantmentNames[enchantmentId];
         bonus = _enchantmentBonuses[enchantmentId];
     }
 
-    function getTitleInfo(
-        uint256 titleIndex
-    )
+    function getTitleInfo(uint256 titleIndex)
         external
         view
         returns (string memory name, uint256 threshold, Bonus memory bonus)
@@ -700,16 +598,11 @@ contract RisingTidesFishingRod is
         return _baseTokenURI;
     }
 
-    function tokenURI(
-        uint256 tokenId
-    ) public view override(ERC721) returns (string memory) {
+    function tokenURI(uint256 tokenId) public view override(ERC721) returns (string memory) {
         _requireOwned(tokenId);
 
         string memory baseURI = _baseURI();
-        return
-            bytes(baseURI).length > 0
-                ? string(abi.encodePacked(baseURI, _toString(tokenId)))
-                : "";
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, _toString(tokenId))) : "";
     }
 
     function _toString(uint256 value) internal pure returns (string memory) {
@@ -735,9 +628,7 @@ contract RisingTidesFishingRod is
                             OVERRIDES
     //////////////////////////////////////////////////////////////*/
 
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override(ERC721, AccessControl) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
@@ -745,21 +636,15 @@ contract RisingTidesFishingRod is
                             ROLE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    function grantAdminRole(
-        address _admin
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function grantAdminRole(address _admin) external onlyRole(DEFAULT_ADMIN_ROLE) {
         grantRole(ADMIN_ROLE, _admin);
     }
 
-    function grantGameMasterRole(
-        address _gameMaster
-    ) external onlyRole(ADMIN_ROLE) {
+    function grantGameMasterRole(address _gameMaster) external onlyRole(ADMIN_ROLE) {
         grantRole(GAME_MASTER_ROLE, _gameMaster);
     }
 
-    function revokeGameMasterRole(
-        address _gameMaster
-    ) external onlyRole(ADMIN_ROLE) {
+    function revokeGameMasterRole(address _gameMaster) external onlyRole(ADMIN_ROLE) {
         revokeRole(GAME_MASTER_ROLE, _gameMaster);
     }
 }

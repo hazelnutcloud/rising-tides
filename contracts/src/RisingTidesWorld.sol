@@ -22,8 +22,8 @@ pragma solidity ^0.8.20;
 */
 
 import {IERC20} from "../lib/forge-std/src/interfaces/IERC20.sol";
-import {AccessControl} from "../lib/openzeppelin-contracts/contracts/access/AccessControl.sol";
-import {Pausable} from "../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IRisingTidesInventory} from "./interfaces/IRisingTidesInventory.sol";
 import {IRisingTidesFishing} from "./interfaces/IRisingTidesFishing.sol";
 import {IRisingTidesWorld} from "./interfaces/IRisingTidesWorld.sol";
@@ -59,44 +59,19 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     uint256 public constant MIN_ENGINE_POWER = 10e18; // 10 engine power with 1e18 precision
     uint256 public constant MAX_MOVEMENT_QUEUE = 10;
 
-    event PlayerRegistered(
-        address indexed player,
-        uint256 shardId,
-        int32 q,
-        int32 r,
-        uint256 mapId
-    );
+    event PlayerRegistered(address indexed player, uint256 shardId, int32 q, int32 r, uint256 mapId);
     event PlayerMoved(
-        address indexed player,
-        uint256 indexed shardId,
-        uint256 indexed mapId,
-        int32 q,
-        int32 r,
-        uint256 duration
+        address indexed player, uint256 indexed shardId, uint256 indexed mapId, int32 q, int32 r, uint256 duration
     );
-    event PlayerTraveledMap(
-        address indexed player,
-        uint256 fromMapId,
-        uint256 toMapId,
-        uint256 cost
-    );
-    event ShardReassigned(
-        address indexed player,
-        uint256 oldShardId,
-        uint256 newShardId
-    );
+    event PlayerTraveledMap(address indexed player, uint256 fromMapId, uint256 toMapId, uint256 cost);
+    event ShardReassigned(address indexed player, uint256 oldShardId, uint256 newShardId);
 
     modifier onlyRegistered() {
         if (!players[msg.sender].isRegistered) revert PlayerNotRegistered();
         _;
     }
 
-    constructor(
-        address _doubloons,
-        address _inventory,
-        address _admin,
-        address _gameMaster
-    ) {
+    constructor(address _doubloons, address _inventory, address _admin, address _gameMaster) {
         doubloons = IERC20(_doubloons);
         inventory = IRisingTidesInventory(_inventory);
 
@@ -123,9 +98,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         return (uint256(uint32(q)) << 32) | uint256(uint32(r));
     }
 
-    function unpackCoordinates(
-        uint256 packed
-    ) public pure returns (int32 q, int32 r) {
+    function unpackCoordinates(uint256 packed) public pure returns (int32 q, int32 r) {
         q = int32(uint32(packed >> 32));
         r = int32(uint32(packed));
     }
@@ -134,12 +107,10 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
                             REGION MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    function setHexRegion(
-        uint256 mapId,
-        uint256 regionId,
-        int32[] calldata qs,
-        int32[] calldata rs
-    ) external onlyRole(GAME_MASTER_ROLE) {
+    function setHexRegion(uint256 mapId, uint256 regionId, int32[] calldata qs, int32[] calldata rs)
+        external
+        onlyRole(GAME_MASTER_ROLE)
+    {
         for (uint256 i = 0; i < qs.length; i++) {
             int32 q = qs[i];
             int32 r = rs[i];
@@ -147,28 +118,16 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         }
     }
 
-    function getRegionId(
-        uint256 mapId,
-        int32 q,
-        int32 r
-    ) public view returns (uint256) {
+    function getRegionId(uint256 mapId, int32 q, int32 r) public view returns (uint256) {
         return hexToRegion[mapId][packCoordinates(q, r)];
     }
 
-    function getRegionType(
-        uint256 mapId,
-        int32 q,
-        int32 r
-    ) public view returns (uint256) {
+    function getRegionType(uint256 mapId, int32 q, int32 r) public view returns (uint256) {
         uint256 regionId = getRegionId(mapId, q, r);
         return regionId & 0xFF;
     }
 
-    function isPortRegion(
-        uint256 mapId,
-        int32 q,
-        int32 r
-    ) public view returns (bool) {
+    function isPortRegion(uint256 mapId, int32 q, int32 r) public view returns (bool) {
         return getRegionType(mapId, q, r) == REGION_TYPE_PORT;
     }
 
@@ -176,23 +135,15 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
                             MAP MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    function addMap(
-        uint256 mapId,
-        string memory name,
-        uint256 travelCost,
-        uint256 requiredLevel,
-        int32 radius
-    ) external onlyRole(GAME_MASTER_ROLE) {
+    function addMap(uint256 mapId, string memory name, uint256 travelCost, uint256 requiredLevel, int32 radius)
+        external
+        onlyRole(GAME_MASTER_ROLE)
+    {
         if (maps[mapId].exists) revert MapAlreadyExists();
         if (radius <= 0) revert InvalidBoundaries();
 
-        maps[mapId] = Map({
-            name: name,
-            travelCost: travelCost,
-            requiredLevel: requiredLevel,
-            radius: radius,
-            exists: true
-        });
+        maps[mapId] =
+            Map({name: name, travelCost: travelCost, requiredLevel: requiredLevel, radius: radius, exists: true});
 
         if (mapId >= totalMaps) {
             totalMaps = mapId + 1;
@@ -203,16 +154,13 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
                             PLAYER REGISTRATION
     //////////////////////////////////////////////////////////////*/
 
-    function registerPlayer(
-        uint256 mapId,
-        int32 spawnQ,
-        int32 spawnR
-    ) external whenNotPaused {
+    function registerPlayer(uint256 mapId, int32 spawnQ, int32 spawnR) external whenNotPaused {
         if (players[msg.sender].isRegistered) revert PlayerAlreadyRegistered();
         if (!maps[mapId].exists) revert InvalidMap();
         if (!isValidPosition(mapId, spawnQ, spawnR)) revert InvalidPosition();
-        if (!isPortRegion(mapId, spawnQ, spawnR))
+        if (!isPortRegion(mapId, spawnQ, spawnR)) {
             revert MustSpawnInPortRegion();
+        }
 
         uint256 assignedShard = _getOptimalShard();
 
@@ -239,12 +187,11 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
                             PLAYER MOVEMENT
     //////////////////////////////////////////////////////////////*/
 
-    function move(
-        Direction[] calldata directions
-    ) external whenNotPaused onlyRegistered {
+    function move(Direction[] calldata directions) external whenNotPaused onlyRegistered {
         if (directions.length == 0) revert NoDirectionsProvided();
-        if (directions.length > gameConfig.maxStepsPerMove)
+        if (directions.length > gameConfig.maxStepsPerMove) {
             revert TooManySteps();
+        }
 
         Player storage player = players[msg.sender];
 
@@ -256,13 +203,10 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         uint256 shipId = inventory.getEquippedShip(msg.sender);
         if (shipId == 0) revert NoShipEquipped();
 
-        (uint256 enginePower, uint256 weightCapacity, ) = inventory
-            .getShipStats(shipId);
+        (uint256 enginePower, uint256 weightCapacity,) = inventory.getShipStats(shipId);
 
         // Get ship's supported region types
-        IRisingTidesInventory.Ship memory shipInfo = inventory.getShipInfo(
-            shipId
-        );
+        IRisingTidesInventory.Ship memory shipInfo = inventory.getShipInfo(shipId);
         // Engine power is expected to be in 1e18 precision
         if (enginePower < MIN_ENGINE_POWER) revert ShipEngineTooWeak();
 
@@ -290,34 +234,20 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
             // Check if ship can navigate to this region type
             uint256 regionType = getRegionType(player.mapId, nextQ, nextR);
-            if (
-                regionType != 0 &&
-                (shipInfo.supportedRegionTypes & (uint256(1) << regionType)) ==
-                0
-            ) {
+            if (regionType != 0 && (shipInfo.supportedRegionTypes & (uint256(1) << regionType)) == 0) {
                 revert ShipCannotNavigateRegion();
             }
 
             // Add to path
             player.path.push(Coordinate({q: nextQ, r: nextR}));
 
-            emit PlayerMoved(
-                msg.sender,
-                player.shardId,
-                player.mapId,
-                nextQ,
-                nextR,
-                segmentTime
-            );
+            emit PlayerMoved(msg.sender, player.shardId, player.mapId, nextQ, nextR, segmentTime);
 
             currentQ = nextQ;
             currentR = nextR;
         }
 
-        uint256 totalFuelCost = calculateFuelCost(
-            enginePower,
-            directions.length
-        );
+        uint256 totalFuelCost = calculateFuelCost(enginePower, directions.length);
 
         uint256 playerFuel = inventory.getFuel(msg.sender);
         if (playerFuel < totalFuelCost) revert InsufficientFuel();
@@ -351,11 +281,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         );
     }
 
-    function travelToMap(
-        uint256 newMapId,
-        int32 spawnQ,
-        int32 spawnR
-    ) external whenNotPaused onlyRegistered {
+    function travelToMap(uint256 newMapId, int32 spawnQ, int32 spawnR) external whenNotPaused onlyRegistered {
         Player storage player = players[msg.sender];
 
         if (isMoving(msg.sender)) revert CannotTravelWhileMoving();
@@ -382,16 +308,10 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         uint256 shipId = inventory.getEquippedShip(msg.sender);
         if (shipId == 0) revert NoShipEquipped();
 
-        IRisingTidesInventory.Ship memory shipInfo = inventory.getShipInfo(
-            shipId
-        );
+        IRisingTidesInventory.Ship memory shipInfo = inventory.getShipInfo(shipId);
         uint256 destinationRegionType = getRegionType(newMapId, spawnQ, spawnR);
-        if (
-            destinationRegionType != 0 &&
-            (shipInfo.supportedRegionTypes &
-                (uint256(1) << destinationRegionType)) ==
-            0
-        ) {
+        if (destinationRegionType != 0 && (shipInfo.supportedRegionTypes & (uint256(1) << destinationRegionType)) == 0)
+        {
             revert ShipCannotNavigateRegion();
         }
 
@@ -416,10 +336,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function reassignPlayerShard(
-        address playerAddress,
-        uint256 newShardId
-    ) external onlyRole(ADMIN_ROLE) {
+    function reassignPlayerShard(address playerAddress, uint256 newShardId) external onlyRole(ADMIN_ROLE) {
         if (!players[playerAddress].isRegistered) revert PlayerNotRegistered();
         if (newShardId == 0 || newShardId > totalShards) revert InvalidShard();
 
@@ -439,12 +356,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
                             CALCULATION HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    function calculateHexDistance(
-        int32 q1,
-        int32 r1,
-        int32 q2,
-        int32 r2
-    ) public pure returns (uint256) {
+    function calculateHexDistance(int32 q1, int32 r1, int32 q2, int32 r2) public pure returns (uint256) {
         int32 dq = q2 - q1;
         int32 dr = r2 - r1;
         int32 ds = -dq - dr;
@@ -456,24 +368,15 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         return uint256((absQ + absR + absS) / 2);
     }
 
-    function calculateFuelCost(
-        uint256 enginePower,
-        uint256 distance
-    ) public view returns (uint256) {
+    function calculateFuelCost(uint256 enginePower, uint256 distance) public view returns (uint256) {
         // enginePower is in 1e18 precision
         // distance is in whole hex units
         // fuelEfficiencyModifier is in 1e18 precision
         // Result: fuel units in 1e18 precision
-        return
-            (enginePower * distance * gameConfig.fuelEfficiencyModifier) /
-            PRECISION;
+        return (enginePower * distance * gameConfig.fuelEfficiencyModifier) / PRECISION;
     }
 
-    function isValidPosition(
-        uint256 mapId,
-        int32 q,
-        int32 r
-    ) public view returns (bool) {
+    function isValidPosition(uint256 mapId, int32 q, int32 r) public view returns (bool) {
         Map memory map = maps[mapId];
         if (!map.exists) return false;
 
@@ -486,15 +389,10 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         uint32 absR = r >= 0 ? uint32(r) : uint32(-r);
         uint32 absS = s >= 0 ? uint32(s) : uint32(-s);
 
-        return
-            absQ <= uint32(map.radius) &&
-            absR <= uint32(map.radius) &&
-            absS <= uint32(map.radius);
+        return absQ <= uint32(map.radius) && absR <= uint32(map.radius) && absS <= uint32(map.radius);
     }
 
-    function getDirectionOffset(
-        Direction dir
-    ) public pure returns (int32 dq, int32 dr) {
+    function getDirectionOffset(Direction dir) public pure returns (int32 dq, int32 dr) {
         if (dir == Direction.EAST) return (1, 0);
         if (dir == Direction.NORTHEAST) return (1, -1);
         if (dir == Direction.NORTHWEST) return (0, -1);
@@ -503,27 +401,23 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         if (dir == Direction.SOUTHEAST) return (0, 1);
     }
 
-    function calculateMovementTime(
-        uint256 enginePower,
-        uint256 totalWeight,
-        uint256 distance
-    ) public view returns (uint256) {
+    function calculateMovementTime(uint256 enginePower, uint256 totalWeight, uint256 distance)
+        public
+        view
+        returns (uint256)
+    {
         // enginePower is in 1e18 precision
         // totalWeight is in 1e18 precision
         // distance is in whole hex units
         // Result: time in seconds with 1e18 precision
-        return
-            (gameConfig.baseMovementTime * distance * totalWeight * PRECISION) /
-            enginePower;
+        return (gameConfig.baseMovementTime * distance * totalWeight * PRECISION) / enginePower;
     }
 
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getCurrentPosition(
-        address playerAddress
-    ) public view returns (int32 q, int32 r) {
+    function getCurrentPosition(address playerAddress) public view returns (int32 q, int32 r) {
         Player storage player = players[playerAddress];
 
         if (player.path.length == 0) {
@@ -548,12 +442,10 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
         // Calculate which segment we're on
         // Convert elapsedTime to 1e18 precision for division
-        uint256 currentSegment = (elapsedTime * PRECISION) /
-            player.segmentDuration;
+        uint256 currentSegment = (elapsedTime * PRECISION) / player.segmentDuration;
 
         // Check if we're in the middle of a segment
-        uint256 segmentProgress = (elapsedTime * PRECISION) %
-            player.segmentDuration;
+        uint256 segmentProgress = (elapsedTime * PRECISION) % player.segmentDuration;
 
         // If we have any progress into the current segment, round up to the next position
         if (segmentProgress > 0 && currentSegment < totalSegments) {
@@ -574,8 +466,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
         uint256 elapsedTime = block.timestamp - player.moveStartTime;
         // segmentDuration is in 1e18 precision
-        uint256 totalDuration = player.segmentDuration *
-            (player.path.length - 1);
+        uint256 totalDuration = player.segmentDuration * (player.path.length - 1);
 
         // Convert elapsedTime to 1e18 precision for comparison
         return elapsedTime * PRECISION < totalDuration;
@@ -596,10 +487,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         uint256 optimalShard = 1;
 
         for (uint256 i = 1; i <= totalShards; i++) {
-            if (
-                shardPlayerCount[i] < minPlayers &&
-                shardPlayerCount[i] < gameConfig.maxPlayersPerShard
-            ) {
+            if (shardPlayerCount[i] < minPlayers && shardPlayerCount[i] < gameConfig.maxPlayersPerShard) {
                 minPlayers = shardPlayerCount[i];
                 optimalShard = i;
             }
@@ -622,9 +510,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         gameConfig.maxStepsPerMove = maxStepsPerMove;
     }
 
-    function setTotalShards(
-        uint256 _totalShards
-    ) external onlyRole(ADMIN_ROLE) {
+    function setTotalShards(uint256 _totalShards) external onlyRole(ADMIN_ROLE) {
         if (_totalShards == 0) revert MustHaveAtLeastOneShard();
         totalShards = _totalShards;
     }
@@ -637,10 +523,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         _unpause();
     }
 
-    function setContracts(
-        address _inventory,
-        address _fish
-    ) external onlyRole(ADMIN_ROLE) {
+    function setContracts(address _inventory, address _fish) external onlyRole(ADMIN_ROLE) {
         inventory = IRisingTidesInventory(_inventory);
         fishContract = IRisingTidesFishing(_fish);
     }
@@ -649,21 +532,15 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
                             ROLE MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
-    function grantAdminRole(
-        address _admin
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function grantAdminRole(address _admin) external onlyRole(DEFAULT_ADMIN_ROLE) {
         grantRole(ADMIN_ROLE, _admin);
     }
 
-    function grantGameMasterRole(
-        address _gameMaster
-    ) external onlyRole(ADMIN_ROLE) {
+    function grantGameMasterRole(address _gameMaster) external onlyRole(ADMIN_ROLE) {
         grantRole(GAME_MASTER_ROLE, _gameMaster);
     }
 
-    function revokeGameMasterRole(
-        address _gameMaster
-    ) external onlyRole(ADMIN_ROLE) {
+    function revokeGameMasterRole(address _gameMaster) external onlyRole(ADMIN_ROLE) {
         revokeRole(GAME_MASTER_ROLE, _gameMaster);
     }
 
@@ -671,31 +548,19 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
                         EXTERNAL VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function getPlayerLocation(
-        address player
-    ) external view returns (int32 q, int32 r, uint256 mapId) {
+    function getPlayerLocation(address player) external view returns (int32 q, int32 r, uint256 mapId) {
         (q, r) = getCurrentPosition(player);
         mapId = players[player].mapId;
     }
 
-    function getPlayerInfo(
-        address player
-    ) external view returns (Player memory) {
+    function getPlayerInfo(address player) external view returns (Player memory) {
         return players[player];
     }
 
-    function validateFishingLocation(
-        address player
-    )
+    function validateFishingLocation(address player)
         external
         view
-        returns (
-            bool canFish,
-            int32 q,
-            int32 r,
-            uint256 regionId,
-            uint256 mapId
-        )
+        returns (bool canFish, int32 q, int32 r, uint256 regionId, uint256 mapId)
     {
         if (!players[player].isRegistered) revert PlayerNotRegistered();
 
