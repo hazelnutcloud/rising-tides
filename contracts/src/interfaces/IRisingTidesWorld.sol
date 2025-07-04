@@ -28,6 +28,9 @@ interface IRisingTidesWorld {
     error EnginePowerTooLow();
     error MustMoveToDifferentPosition();
     error ShipCannotNavigateRegion();
+    error RequestExpired();
+    error InvalidNonce();
+    error InvalidSignature();
 
     enum Direction {
         EAST, // +q, 0r
@@ -82,4 +85,12 @@ interface IRisingTidesWorld {
     function getRegionType(uint256 mapId, int32 q, int32 r) external view returns (uint256);
 
     function grantXP(address player, uint256 amount) external;
+    
+    function grantXPOffchain(
+        address player,
+        uint256 amount,
+        uint256 nonce,
+        uint256 expiry,
+        bytes calldata signature
+    ) external;
 }

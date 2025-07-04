@@ -24,11 +24,14 @@ pragma solidity ^0.8.20;
 import {IERC20} from "../lib/forge-std/src/interfaces/IERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {IRisingTidesInventory} from "./interfaces/IRisingTidesInventory.sol";
 import {IRisingTidesFishing} from "./interfaces/IRisingTidesFishing.sol";
 import {IRisingTidesWorld} from "./interfaces/IRisingTidesWorld.sol";
 
-contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
+contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 {
+    using ECDSA for bytes32;
     struct GameConfig {
         uint256 maxPlayersPerShard;
         uint256 fuelEfficiencyModifier;
@@ -41,6 +44,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     mapping(uint256 => mapping(uint256 => uint256)) public hexToRegion;
     mapping(uint256 => uint256) public shardPlayerCount;
     mapping(uint256 => uint256) public levelThresholds;
+    mapping(address => uint256) public playerNonces;
 
     uint256 public totalShards;
     uint256 public totalMaps;
@@ -51,6 +55,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     IERC20 public doubloons;
     IRisingTidesInventory public inventory;
     IRisingTidesFishing public fishContract;
+    address public offchainSigner;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
@@ -61,6 +66,9 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     uint256 public constant PRECISION = 1e18;
     uint256 public constant MIN_ENGINE_POWER = 10e18; // 10 engine power with 1e18 precision
     uint256 public constant MAX_MOVEMENT_QUEUE = 10;
+    
+    bytes32 private constant XP_GRANT_TYPEHASH = 
+        keccak256("XPGrant(address player,uint256 amount,uint256 nonce,uint256 expiry)");
 
     event PlayerRegistered(address indexed player, uint256 shardId, int32 q, int32 r, uint256 mapId);
     event PlayerMoved(
@@ -75,7 +83,8 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         _;
     }
 
-    constructor(address _doubloons, address _inventory, address _admin, address _gameMaster) {
+    constructor(address _doubloons, address _inventory, address _admin, address _gameMaster) 
+        EIP712("RisingTidesWorld", "1") {
         doubloons = IERC20(_doubloons);
         inventory = IRisingTidesInventory(_inventory);
 
@@ -347,6 +356,38 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         emit XPGranted(player, amount, players[player].xp);
     }
 
+    function grantXPOffchain(
+        address player,
+        uint256 amount,
+        uint256 nonce,
+        uint256 expiry,
+        bytes calldata signature
+    ) external whenNotPaused {
+        // Validate expiry
+        if (block.timestamp > expiry) revert RequestExpired();
+        
+        // Validate nonce
+        if (nonce != playerNonces[player]) revert InvalidNonce();
+        
+        // Validate player is registered
+        if (!players[player].isRegistered) revert PlayerNotRegistered();
+        
+        // Verify signature
+        bytes32 structHash = keccak256(abi.encode(XP_GRANT_TYPEHASH, player, amount, nonce, expiry));
+        bytes32 hash = _hashTypedDataV4(structHash);
+        address signer = hash.recover(signature);
+        
+        if (signer != offchainSigner) revert InvalidSignature();
+        
+        // Increment nonce
+        playerNonces[player]++;
+        
+        // Grant XP
+        players[player].xp += amount;
+        
+        emit XPGranted(player, amount, players[player].xp);
+    }
+
     /*//////////////////////////////////////////////////////////////
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -563,6 +604,10 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     function setContracts(address _inventory, address _fish) external onlyRole(ADMIN_ROLE) {
         inventory = IRisingTidesInventory(_inventory);
         fishContract = IRisingTidesFishing(_fish);
+    }
+
+    function setOffchainSigner(address _signer) external onlyRole(ADMIN_ROLE) {
+        offchainSigner = _signer;
     }
 
     function setLevelThresholds(uint256[] calldata levels, uint256[] calldata thresholds) external onlyRole(ADMIN_ROLE) {
