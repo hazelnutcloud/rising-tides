@@ -208,8 +208,9 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         if (result.nonce != playerNonces[msg.sender]) revert InvalidSignature();
         if (result.player != msg.sender) revert Unauthorized();
 
-        bytes32 structHash =
-            keccak256(abi.encode(FISHING_RESULT_TYPEHASH, requestId, result.player, result.success, result.nonce, result.expiry));
+        bytes32 structHash = keccak256(
+            abi.encode(FISHING_RESULT_TYPEHASH, requestId, result.player, result.success, result.nonce, result.expiry)
+        );
 
         bytes32 hash = _hashTypedDataV4(structHash);
         address signer = hash.recover(signature);
@@ -573,7 +574,7 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         try inventory.addFish(request.player, fishId, weight, modifiers.isTrophyQuality, modifiers.freshnessModifier) {
             // Calculate and grant XP
             _calculateAndGrantXP(fishId, weight, modifiers.isTrophyQuality);
-            
+
             // Handle double catch
             if (modifiers.doubleCatch) {
                 _tryAddSecondFish(request, fishId, modifiers);
@@ -727,18 +728,18 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
 
     function _calculateAndGrantXP(uint256 fishId, uint256 weight, bool isTrophyQuality) internal returns (uint256) {
         FishSpecies memory species = fishSpecies[fishId];
-        
+
         // Calculate base XP: weight * xpPerWeight / PRECISION
         uint256 baseXP = (weight * species.xpPerWeight) / PRECISION;
-        
+
         // Double XP for trophy quality fish
         uint256 totalXP = isTrophyQuality ? baseXP * 2 : baseXP;
-        
+
         // Grant XP through World contract
         if (totalXP > 0) {
             world.grantXP(msg.sender, totalXP);
         }
-        
+
         return totalXP;
     }
 }

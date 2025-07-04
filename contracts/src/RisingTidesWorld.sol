@@ -32,6 +32,7 @@ import {IRisingTidesWorld} from "./interfaces/IRisingTidesWorld.sol";
 
 contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 {
     using ECDSA for bytes32;
+
     struct GameConfig {
         uint256 maxPlayersPerShard;
         uint256 fuelEfficiencyModifier;
@@ -66,8 +67,8 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
     uint256 public constant PRECISION = 1e18;
     uint256 public constant MIN_ENGINE_POWER = 10e18; // 10 engine power with 1e18 precision
     uint256 public constant MAX_MOVEMENT_QUEUE = 10;
-    
-    bytes32 private constant XP_GRANT_TYPEHASH = 
+
+    bytes32 private constant XP_GRANT_TYPEHASH =
         keccak256("XPGrant(address player,uint256 amount,uint256 nonce,uint256 expiry)");
 
     event PlayerRegistered(address indexed player, uint256 shardId, int32 q, int32 r, uint256 mapId);
@@ -83,8 +84,9 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
         _;
     }
 
-    constructor(address _doubloons, address _inventory, address _admin, address _gameMaster) 
-        EIP712("RisingTidesWorld", "1") {
+    constructor(address _doubloons, address _inventory, address _admin, address _gameMaster)
+        EIP712("RisingTidesWorld", "1")
+    {
         doubloons = IERC20(_doubloons);
         inventory = IRisingTidesInventory(_inventory);
 
@@ -225,12 +227,12 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
         // Get player's fuel and calculate costs
         uint256 playerFuel = inventory.getFuel(msg.sender);
         uint256 fuelCostPerSegment = calculateFuelCost(shipInfo.enginePower, 1);
-        
+
         // Determine how many segments we can actually move
         uint256 maxSegments = fuelCostPerSegment == 0 ? directions.length : playerFuel / fuelCostPerSegment;
         bool isEmergencyMode = false;
         uint256 effectiveEnginePower = shipInfo.enginePower;
-        
+
         // Ensure we move at least one segment if requested
         if (maxSegments == 0 && directions.length > 0) {
             maxSegments = directions.length;
@@ -238,7 +240,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
             isEmergencyMode = true;
             fuelCostPerSegment = 0;
         } else if (maxSegments > directions.length) {
-           maxSegments = directions.length; 
+            maxSegments = directions.length;
         }
 
         // Calculate time per segment
@@ -274,8 +276,8 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
 
         // Calculate actual fuel cost based on segments moved
         uint256 fuelToConsume = fuelCostPerSegment * maxSegments;
-            
-            // Consume fuel if we have any and we're not in pure emergency mode
+
+        // Consume fuel if we have any and we're not in pure emergency mode
         if (fuelToConsume > 0) {
             inventory.consumeFuel(msg.sender, fuelToConsume);
         }
@@ -283,7 +285,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
         player.segmentDuration = segmentTime;
         player.moveStartTime = block.timestamp;
         player.currentPathIndex = 0;
-        
+
         emit PlayerMoved(msg.sender, player.shardId, player.mapId, segmentTime, player.path);
     }
 
@@ -365,41 +367,38 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
 
     function grantXP(address player, uint256 amount) external onlyRole(FISHING_CONTRACT_ROLE) {
         if (!players[player].isRegistered) revert PlayerNotRegistered();
-        
+
         players[player].xp += amount;
-        
+
         emit XPGranted(player, amount, players[player].xp);
     }
 
-    function grantXPOffchain(
-        address player,
-        uint256 amount,
-        uint256 nonce,
-        uint256 expiry,
-        bytes calldata signature
-    ) external whenNotPaused {
+    function grantXPOffchain(address player, uint256 amount, uint256 nonce, uint256 expiry, bytes calldata signature)
+        external
+        whenNotPaused
+    {
         // Validate expiry
         if (block.timestamp > expiry) revert RequestExpired();
-        
+
         // Validate nonce
         if (nonce != playerNonces[player]) revert InvalidNonce();
-        
+
         // Validate player is registered
         if (!players[player].isRegistered) revert PlayerNotRegistered();
-        
+
         // Verify signature
         bytes32 structHash = keccak256(abi.encode(XP_GRANT_TYPEHASH, player, amount, nonce, expiry));
         bytes32 hash = _hashTypedDataV4(structHash);
         address signer = hash.recover(signature);
-        
+
         if (signer != offchainSigner) revert InvalidSignature();
-        
+
         // Increment nonce
         playerNonces[player]++;
-        
+
         // Grant XP
         players[player].xp += amount;
-        
+
         emit XPGranted(player, amount, players[player].xp);
     }
 
@@ -487,18 +486,18 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    
+
     function getPlayerLevel(address playerAddress) public view returns (uint256 level) {
         uint256 xp = players[playerAddress].xp;
-        
+
         // Binary search for the appropriate level
         uint256 left = 1;
         uint256 right = maxLevel;
         uint256 result = 1;
-        
+
         while (left <= right) {
             uint256 mid = (left + right) / 2;
-            
+
             if (xp >= levelThresholds[mid]) {
                 // Player has enough XP for this level
                 result = mid;
@@ -508,7 +507,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
                 right = mid - 1; // Search in lower levels
             }
         }
-        
+
         return result;
     }
 
@@ -625,10 +624,13 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
         offchainSigner = _signer;
     }
 
-    function setLevelThresholds(uint256[] calldata levels, uint256[] calldata thresholds) external onlyRole(ADMIN_ROLE) {
+    function setLevelThresholds(uint256[] calldata levels, uint256[] calldata thresholds)
+        external
+        onlyRole(ADMIN_ROLE)
+    {
         require(levels.length == thresholds.length, "Arrays must have same length");
         require(levels.length > 0, "Must provide at least one level");
-        
+
         uint256 previousThreshold = 0;
         for (uint256 i = 0; i < levels.length; i++) {
             require(levels[i] > 0, "Level must be greater than 0");

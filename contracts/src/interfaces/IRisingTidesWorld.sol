@@ -38,6 +38,7 @@ interface IRisingTidesWorld {
         WEST, // -q, 0r
         SOUTHWEST, // -q, +r
         SOUTHEAST // 0q, +r
+
     }
 
     struct Coordinate {
@@ -63,9 +64,9 @@ interface IRisingTidesWorld {
         int32 radius; // Radius of the hexagonal map
         bool exists;
     }
-    
+
     function getPlayerLevel(address player) external view returns (uint256 level);
-    
+
     function getPlayerLocation(address player) external view returns (int32 q, int32 r, uint256 mapId);
 
     function getCurrentPosition(address player) external view returns (int32 q, int32 r);
@@ -84,12 +85,7 @@ interface IRisingTidesWorld {
     function getRegionType(uint256 mapId, int32 q, int32 r) external view returns (uint256);
 
     function grantXP(address player, uint256 amount) external;
-    
-    function grantXPOffchain(
-        address player,
-        uint256 amount,
-        uint256 nonce,
-        uint256 expiry,
-        bytes calldata signature
-    ) external;
+
+    function grantXPOffchain(address player, uint256 amount, uint256 nonce, uint256 expiry, bytes calldata signature)
+        external;
 }
