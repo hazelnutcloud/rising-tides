@@ -39,6 +39,8 @@
 		"@threlte/core": "^8.0.5",
 		"@threlte/extras": "^9.4.0",
 		"animejs": "^4.0.2",
+		"rising-tides-data": "workspace:*",
+		"svelte-tweakpane-ui": "^1.5.9",
 		"three": "^0.178.0"
 	}
 }

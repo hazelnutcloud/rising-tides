@@ -1,5 +1,3 @@
-import { RegionType } from './hex-cell.svelte';
-
 interface HexNode {
 	q: number;
 	r: number;
@@ -7,25 +5,6 @@ interface HexNode {
 	h: number; // Heuristic cost to end
 	f: number; // Total cost (g + h)
 	parent: HexNode | null;
-}
-
-// Get movement cost for a region type
-function getMovementCost(regionType: RegionType): number {
-	switch (regionType) {
-		case RegionType.OCEAN:
-		case RegionType.SHALLOW_WATER:
-			return 1;
-		case RegionType.DEEP_WATER:
-			return 2; // Slower in deep water
-		case RegionType.PORT:
-			return 1;
-		case RegionType.REEF:
-			return 3; // Very slow through reefs
-		case RegionType.STORM:
-			return Infinity; // Cannot pass through storms
-		default:
-			return 1;
-	}
 }
 
 // Calculate hex distance (heuristic)
@@ -51,16 +30,10 @@ export function findPath(
 	startR: number,
 	endQ: number,
 	endR: number,
-	isValidPosition: (q: number, r: number) => boolean,
-	getRegionType: (q: number, r: number) => RegionType
+	isValidPosition: (q: number, r: number) => boolean
 ): Array<{ q: number; r: number }> | null {
 	// Check if start and end are valid
 	if (!isValidPosition(startQ, startR) || !isValidPosition(endQ, endR)) {
-		return null;
-	}
-
-	// Check if end position is passable
-	if (getMovementCost(getRegionType(endQ, endR)) === Infinity) {
 		return null;
 	}
 
@@ -121,13 +94,7 @@ export function findPath(
 				continue;
 			}
 
-			// Get movement cost
-			const movementCost = getMovementCost(getRegionType(neighbor.q, neighbor.r));
-			if (movementCost === Infinity) {
-				continue; // Cannot pass through this hex
-			}
-
-			const tentativeG = current.g + movementCost;
+			const tentativeG = current.g;
 
 			// Check if neighbor is already in open set
 			let neighborNode = openSet.find((n) => n.q === neighbor.q && n.r === neighbor.r);

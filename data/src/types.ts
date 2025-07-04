@@ -1,3 +1,5 @@
+import type { regionTypes } from "./regions";
+
 export type Map = {
   id: number;
   name: string;
@@ -13,21 +15,15 @@ export type Region = {
     day: number[];
     night: number[];
   };
+  coordinates: Coordinate[];
 };
 
-export enum RegionType {
-  Port = 1,
-  Terrain = 2,
-  Coastal = 3,
-  Shallow = 4,
-  Oceanic = 5,
-  Abyssal = 6,
-  Hadal = 7,
-  Volcanic = 8,
-  Mangrove = 9,
-  Icy = 10,
-  Reef = 11,
-}
+export type Coordinate = {
+  q: number;
+  r: number;
+};
+
+export type RegionType = (typeof regionTypes)[keyof typeof regionTypes];
 
 export type FishSpecies = {
   id: number;
