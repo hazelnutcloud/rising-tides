@@ -55,12 +55,7 @@ contract Deploy is Script {
 
         // 5. Deploy RisingTidesWorld (needs Doubloons and Inventory)
         console.log("Deploying RisingTidesWorld...");
-        world = new RisingTidesWorld(
-            address(doubloons),
-            address(inventory),
-            deployer,
-            deployer
-        );
+        world = new RisingTidesWorld(address(doubloons), address(inventory), deployer, deployer);
         console.log("RisingTidesWorld deployed at:", address(world));
 
         // 6. Deploy RisingTidesFishing (needs World, Inventory, Rod, VRF)
@@ -92,12 +87,7 @@ contract Deploy is Script {
         console.log("\nSetting up contract connections...");
 
         // Set contract addresses in Inventory (also authorizes them)
-        inventory.setContracts(
-            address(world),
-            address(fishing),
-            address(port),
-            address(fishingRod)
-        );
+        inventory.setContracts(address(world), address(fishing), address(port), address(fishingRod));
 
         // Set contract addresses in World
         world.setContracts(address(inventory), address(fishing));

@@ -55,6 +55,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
 
     uint256 public constant REGION_TYPE_PORT = 1;
+    uint256 public constant REGION_TYPE_TERRAIN = 2;
     uint256 public constant PRECISION = 1e18;
     uint256 public constant MIN_ENGINE_POWER = 10e18; // 10 engine power with 1e18 precision
     uint256 public constant MAX_MOVEMENT_QUEUE = 10;
@@ -237,6 +238,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
             if (regionType != 0 && (shipInfo.supportedRegionTypes & (uint256(1) << regionType)) == 0) {
                 revert ShipCannotNavigateRegion();
             }
+            if (regionType == 2) revert ShipCannotNavigateRegion();
 
             // Add to path
             player.path.push(Coordinate({q: nextQ, r: nextR}));
