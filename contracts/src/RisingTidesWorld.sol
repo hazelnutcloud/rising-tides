@@ -215,27 +215,41 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
         uint256 shipId = inventory.getEquippedShip(msg.sender);
         if (shipId == 0) revert NoShipEquipped();
 
-        (uint256 enginePower, uint256 weightCapacity,) = inventory.getShipStats(shipId);
-
         // Get ship's supported region types
         IRisingTidesInventory.Ship memory shipInfo = inventory.getShipInfo(shipId);
-        // Engine power is expected to be in 1e18 precision
-        if (enginePower < MIN_ENGINE_POWER) revert ShipEngineTooWeak();
 
         // Get actual cargo weight from Fish contract
         // Both cargoWeight and weightCapacity should be in 1e18 precision
         uint256 cargoWeight = inventory.getPlayerCargoWeight(msg.sender);
-        if (cargoWeight > weightCapacity) revert CargoExceedsCapacity();
+
+        // Get player's fuel and calculate costs
+        uint256 playerFuel = inventory.getFuel(msg.sender);
+        uint256 fuelCostPerSegment = calculateFuelCost(shipInfo.enginePower, 1);
+        
+        // Determine how many segments we can actually move
+        uint256 maxSegments = fuelCostPerSegment == 0 ? directions.length : playerFuel / fuelCostPerSegment;
+        bool isEmergencyMode = false;
+        uint256 effectiveEnginePower = shipInfo.enginePower;
+        
+        // Ensure we move at least one segment if requested
+        if (maxSegments == 0 && directions.length > 0) {
+            maxSegments = directions.length;
+            effectiveEnginePower = MIN_ENGINE_POWER;
+            isEmergencyMode = true;
+            fuelCostPerSegment = 0;
+        } else if (maxSegments > directions.length) {
+           maxSegments = directions.length; 
+        }
 
         // Calculate time per segment
         uint256 segmentTime = calculateMovementTime(
-            enginePower,
+            effectiveEnginePower,
             cargoWeight,
             1 // Time for one hex
         );
 
-        // Build path and validate positions
-        for (uint256 i = 0; i < directions.length; i++) {
+        // Build path and validate positions (limited by fuel)
+        for (uint256 i = 0; i < maxSegments; i++) {
             (int32 dq, int32 dr) = getDirectionOffset(directions[i]);
             int32 nextQ = currentQ + dq;
             int32 nextR = currentR + dr;
@@ -258,12 +272,13 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable, EIP712 
             currentR = nextR;
         }
 
-        uint256 totalFuelCost = calculateFuelCost(enginePower, directions.length);
-
-        uint256 playerFuel = inventory.getFuel(msg.sender);
-        if (playerFuel < totalFuelCost) revert InsufficientFuel();
-
-        inventory.consumeFuel(msg.sender, totalFuelCost);
+        // Calculate actual fuel cost based on segments moved
+        uint256 fuelToConsume = fuelCostPerSegment * maxSegments;
+            
+            // Consume fuel if we have any and we're not in pure emergency mode
+        if (fuelToConsume > 0) {
+            inventory.consumeFuel(msg.sender, fuelToConsume);
+        }
 
         player.segmentDuration = segmentTime;
         player.moveStartTime = block.timestamp;

@@ -11,7 +11,6 @@ interface IRisingTidesWorld {
     error NoDirectionsProvided();
     error TooManySteps();
     error NoShipEquipped();
-    error ShipEngineTooWeak();
     error CargoExceedsCapacity();
     error InsufficientFuel();
     error NotCurrentlyMoving();

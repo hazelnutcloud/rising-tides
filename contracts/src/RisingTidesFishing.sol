@@ -572,7 +572,7 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         // Add fish to inventory
         try inventory.addFish(request.player, fishId, weight, modifiers.isTrophyQuality, modifiers.freshnessModifier) {
             // Calculate and grant XP
-            uint256 xpToGrant = _calculateAndGrantXP(fishId, weight, modifiers.isTrophyQuality);
+            _calculateAndGrantXP(fishId, weight, modifiers.isTrophyQuality);
             
             // Handle double catch
             if (modifiers.doubleCatch) {
