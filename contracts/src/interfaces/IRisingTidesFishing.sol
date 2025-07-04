@@ -186,14 +186,7 @@ interface IRisingTidesFishing {
         uint256[] calldata aliases,
         uint256[] calldata fishIds
     ) external;
-
-    function setDefaultBaitTable(
-        uint256 baitId,
-        uint256[] calldata probabilities,
-        uint256[] calldata aliases,
-        uint256[] calldata fishIds
-    ) external;
-
+    
     function setGlobalDefaultTable(
         uint256[] calldata probabilities,
         uint256[] calldata aliases,

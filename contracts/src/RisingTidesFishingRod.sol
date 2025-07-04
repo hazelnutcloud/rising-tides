@@ -194,7 +194,7 @@ contract RisingTidesFishingRod is IRisingTidesFishingRod, ERC721, AccessControl,
         effectiveMaxFishWeight = rod.maxFishWeight + ((rod.maxFishWeight * totalBonus.maxWeightBonus) / PERCENT);
         effectiveCritRate = rod.critRate + totalBonus.critRateBonus;
         effectiveEfficiency = rod.efficiency + totalBonus.efficiencyBonus;
-        effectiveCritMultiplierBonus = totalBonus.critMultiplierBonus;
+        effectiveCritMultiplierBonus = rod.critMultiplier + totalBonus.critMultiplierBonus;
     }
 
     function processCatch(uint256 tokenId, uint256 fishWeight, uint256 regionType, uint256 randomSeed)

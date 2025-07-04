@@ -84,7 +84,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
     mapping(bytes32 => AliasTable) public fishingTables;
 
     // Default fallback tables
-    mapping(uint256 => AliasTable) public defaultBaitTables; // baitId => table
     AliasTable public globalDefaultTable;
 
     /*//////////////////////////////////////////////////////////////
@@ -342,28 +341,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         );
 
         emit AliasTableSet(mapId, regionType, baitId, _isDayTime, probabilities, aliases, fishIds);
-    }
-
-    function setDefaultBaitTable(
-        uint256 baitId,
-        uint256[] calldata probabilities,
-        uint256[] calldata aliases,
-        uint256[] calldata fishIds
-    ) external onlyRole(GAME_MASTER_ROLE) {
-        _validateAndSetAliasTable(
-            bytes32(0), // Temporary key for validation
-            probabilities,
-            aliases,
-            fishIds
-        );
-
-        defaultBaitTables[baitId] = AliasTable({
-            probabilities: probabilities,
-            aliases: aliases,
-            fishIds: fishIds,
-            totalProbability: _sumArray(probabilities),
-            exists: true
-        });
     }
 
     function setGlobalDefaultTable(
@@ -625,11 +602,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         // Try specific table first
         bytes32 key = keccak256(abi.encodePacked(mapId, regionType, baitId, _isDayTime));
         AliasTable storage table = fishingTables[key];
-
-        // Fallback to default bait table
-        if (!table.exists && baitId != 0) {
-            table = defaultBaitTables[baitId];
-        }
 
         // Fallback to global default
         if (!table.exists) {

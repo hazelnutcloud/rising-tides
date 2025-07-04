@@ -13,6 +13,8 @@ interface IRisingTidesFishingRod {
         uint256 maxMaxFishWeight;
         uint256 minCritRate;
         uint256 maxCritRate;
+        uint256 minCritMultiplier;
+        uint256 maxCritMultiplier;
         uint256 minStrength;
         uint256 maxStrength;
         uint256 minEfficiency;
@@ -27,6 +29,7 @@ interface IRisingTidesFishingRod {
         uint256 currentDurability;
         uint256 maxFishWeight;
         uint256 critRate;
+        uint256 critMultiplier;
         uint256 strength;
         uint256 efficiency;
         uint256 totalCatches;
