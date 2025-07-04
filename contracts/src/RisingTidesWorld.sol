@@ -32,7 +32,6 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     struct GameConfig {
         uint256 maxPlayersPerShard;
         uint256 fuelEfficiencyModifier;
-        uint256 defaultStartingLevel;
         uint256 baseMovementTime; // Base time in seconds to move one hex
         uint256 maxStepsPerMove; // Maximum steps allowed in one transaction
     }
@@ -41,9 +40,11 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     mapping(uint256 => Map) public maps;
     mapping(uint256 => mapping(uint256 => uint256)) public hexToRegion;
     mapping(uint256 => uint256) public shardPlayerCount;
+    mapping(uint256 => uint256) public levelThresholds;
 
     uint256 public totalShards;
     uint256 public totalMaps;
+    uint256 public maxLevel;
 
     GameConfig public gameConfig;
 
@@ -83,7 +84,6 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         gameConfig = GameConfig({
             maxPlayersPerShard: 100,
             fuelEfficiencyModifier: 1e17, // 0.1 fuel per engine power per hex tile
-            defaultStartingLevel: 1,
             baseMovementTime: 1, // 1 seconds base movement time
             maxStepsPerMove: 5 // Max 5 steps per transaction
         });
@@ -168,7 +168,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         Player storage player = players[msg.sender];
         player.mapId = mapId;
         player.shardId = assignedShard;
-        player.level = gameConfig.defaultStartingLevel;
+        player.xp = 0;
         player.moveStartTime = block.timestamp;
         player.segmentDuration = 0;
         player.isRegistered = true;
@@ -277,9 +277,8 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
             msg.sender,
             player.shardId,
             player.mapId,
-            currentQ,
-            currentR,
-            0 // duration 0 indicates stop
+            0, // duration 0 indicates stop
+            player.path
         );
     }
 
@@ -302,7 +301,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         if (!isValidPosition(newMapId, spawnQ, spawnR)) {
             revert InvalidPosition();
         }
-        if (player.level < maps[newMapId].requiredLevel) {
+        if (getPlayerLevel(msg.sender) < maps[newMapId].requiredLevel) {
             revert InsufficientLevel();
         }
 
@@ -418,6 +417,30 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    
+    function getPlayerLevel(address playerAddress) public view returns (uint256 level) {
+        uint256 xp = players[playerAddress].xp;
+        
+        // Binary search for the appropriate level
+        uint256 left = 1;
+        uint256 right = maxLevel;
+        uint256 result = 1;
+        
+        while (left <= right) {
+            uint256 mid = (left + right) / 2;
+            
+            if (xp >= levelThresholds[mid]) {
+                // Player has enough XP for this level
+                result = mid;
+                left = mid + 1; // Search for potentially higher levels
+            } else {
+                // Player doesn't have enough XP for this level
+                right = mid - 1; // Search in lower levels
+            }
+        }
+        
+        return result;
+    }
 
     function getCurrentPosition(address playerAddress) public view returns (int32 q, int32 r) {
         Player storage player = players[playerAddress];
@@ -501,13 +524,11 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     function setGameConfig(
         uint256 maxPlayersPerShard,
         uint256 fuelEfficiencyModifier,
-        uint256 defaultStartingLevel,
         uint256 baseMovementTime,
         uint256 maxStepsPerMove
     ) external onlyRole(ADMIN_ROLE) {
         gameConfig.maxPlayersPerShard = maxPlayersPerShard;
         gameConfig.fuelEfficiencyModifier = fuelEfficiencyModifier;
-        gameConfig.defaultStartingLevel = defaultStartingLevel;
         gameConfig.baseMovementTime = baseMovementTime;
         gameConfig.maxStepsPerMove = maxStepsPerMove;
     }
@@ -528,6 +549,22 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     function setContracts(address _inventory, address _fish) external onlyRole(ADMIN_ROLE) {
         inventory = IRisingTidesInventory(_inventory);
         fishContract = IRisingTidesFishing(_fish);
+    }
+
+    function setLevelThresholds(uint256[] calldata levels, uint256[] calldata thresholds) external onlyRole(ADMIN_ROLE) {
+        require(levels.length == thresholds.length, "Arrays must have same length");
+        require(levels.length > 0, "Must provide at least one level");
+        
+        uint256 previousThreshold = 0;
+        for (uint256 i = 0; i < levels.length; i++) {
+            require(levels[i] > 0, "Level must be greater than 0");
+            require(thresholds[i] > previousThreshold, "Thresholds must be increasing");
+            levelThresholds[levels[i]] = thresholds[i];
+            if (levels[i] > maxLevel) {
+                maxLevel = levels[i];
+            }
+            previousThreshold = thresholds[i];
+        }
     }
 
     /*//////////////////////////////////////////////////////////////

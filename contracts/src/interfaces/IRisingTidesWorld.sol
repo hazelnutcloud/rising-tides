@@ -36,7 +36,6 @@ interface IRisingTidesWorld {
         WEST, // -q, 0r
         SOUTHWEST, // -q, +r
         SOUTHEAST // 0q, +r
-
     }
 
     struct Coordinate {
@@ -49,7 +48,7 @@ interface IRisingTidesWorld {
         uint256 currentPathIndex;
         uint256 mapId;
         uint256 shardId;
-        uint256 level;
+        uint256 xp;
         uint256 moveStartTime;
         uint256 segmentDuration;
         bool isRegistered;
@@ -62,7 +61,9 @@ interface IRisingTidesWorld {
         int32 radius; // Radius of the hexagonal map
         bool exists;
     }
-
+    
+    function getPlayerLevel(address player) external view returns (uint256 level);
+    
     function getPlayerLocation(address player) external view returns (int32 q, int32 r, uint256 mapId);
 
     function getCurrentPosition(address player) external view returns (int32 q, int32 r);

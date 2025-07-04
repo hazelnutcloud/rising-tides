@@ -287,7 +287,7 @@ contract RisingTidesPort is IRisingTidesPort, AccessControl, Pausable, Reentranc
 
         // Check player level
         IRisingTidesWorld.Player memory player = world.getPlayerInfo(msg.sender);
-        if (player.level < item.requiredLevel) revert InsufficientLevel();
+        if (world.getPlayerLevel(msg.sender) < item.requiredLevel) revert InsufficientLevel();
 
         // Calculate total cost
         uint256 totalCost = item.price * amount;
@@ -324,8 +324,7 @@ contract RisingTidesPort is IRisingTidesPort, AccessControl, Pausable, Reentranc
         if (!recipe.exists) revert InvalidRecipe();
 
         // Check player level
-        IRisingTidesWorld.Player memory player = world.getPlayerInfo(msg.sender);
-        if (player.level < recipe.requiredLevel) revert InsufficientLevel();
+        if (world.getPlayerLevel(msg.sender) < recipe.requiredLevel) revert InsufficientLevel();
 
         // Check map restriction if any (0 means all maps allowed)
         if (recipe.allowedMapsBitfield != 0) {
