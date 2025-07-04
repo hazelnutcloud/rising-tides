@@ -44,7 +44,7 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
     bytes32 private constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
 
     bytes32 private constant FISHING_RESULT_TYPEHASH =
-        keccak256("FishingResult(uint256 requestId,bool success,uint256 nonce,uint256 expiry)");
+        keccak256("FishingResult(uint256 requestId,address player,bool success,uint256 nonce,uint256 expiry)");
 
     uint256 private constant PRECISION = 1e18;
     uint256 private constant BASIS_POINTS = 10000;
@@ -206,9 +206,10 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         // Validate signature
         if (result.expiry < block.timestamp) revert RequestExpired();
         if (result.nonce != playerNonces[msg.sender]) revert InvalidSignature();
+        if (result.player != msg.sender) revert Unauthorized();
 
         bytes32 structHash =
-            keccak256(abi.encode(FISHING_RESULT_TYPEHASH, requestId, result.success, result.nonce, result.expiry));
+            keccak256(abi.encode(FISHING_RESULT_TYPEHASH, requestId, result.player, result.success, result.nonce, result.expiry));
 
         bytes32 hash = _hashTypedDataV4(structHash);
         address signer = hash.recover(signature);

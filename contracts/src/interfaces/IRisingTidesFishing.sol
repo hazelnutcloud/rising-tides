@@ -44,6 +44,7 @@ interface IRisingTidesFishing {
     }
 
     struct OffchainResult {
+        address player;
         bool success;
         uint256 nonce;
         uint256 expiry;
