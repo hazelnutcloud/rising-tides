@@ -42,7 +42,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
 
     bytes32 private constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 private constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
-    bytes32 private constant VRF_COORDINATOR_ROLE = keccak256("VRF_COORDINATOR_ROLE");
 
     bytes32 private constant FISHING_RESULT_TYPEHASH =
         keccak256("FishingResult(uint256 requestId,bool success,uint256 nonce,uint256 expiry)");
@@ -89,15 +88,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
     AliasTable public globalDefaultTable;
 
     /*//////////////////////////////////////////////////////////////
-                                MODIFIERS
-    //////////////////////////////////////////////////////////////*/
-
-    modifier onlyVRFCoordinator() {
-        if (!hasRole(VRF_COORDINATOR_ROLE, msg.sender)) revert Unauthorized();
-        _;
-    }
-
-    /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
@@ -105,8 +95,8 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         address _world,
         address _inventory,
         address _fishingRod,
-        address _vrfCoordinator,
-        address _offchainSigner
+        address _offchainSigner,
+        address _vrfCoordinator
     ) EIP712("RisingTidesFishing", "1") {
         world = IRisingTidesWorld(_world);
         inventory = IRisingTidesInventory(_inventory);
@@ -117,7 +107,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
         _grantRole(GAME_MASTER_ROLE, msg.sender);
-        _grantRole(VRF_COORDINATOR_ROLE, _vrfCoordinator);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -261,7 +250,8 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
                             VRF CALLBACK
     //////////////////////////////////////////////////////////////*/
 
-    function rawFulfillRandomNumbers(uint256 requestId, uint256[] memory randomWords) external onlyVRFCoordinator {
+    function rawFulfillRandomNumbers(uint256 requestId, uint256[] memory randomWords) external {
+        if (msg.sender != address(vrfCoordinator)) revert Unauthorized();
         address player = requestIdToPlayer[requestId];
         if (player == address(0)) revert InvalidRequestId();
 
@@ -401,9 +391,7 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
     }
 
     function setVRFCoordinator(address coordinator) external onlyRole(ADMIN_ROLE) {
-        _revokeRole(VRF_COORDINATOR_ROLE, address(vrfCoordinator));
         vrfCoordinator = IVRFCoordinator(coordinator);
-        _grantRole(VRF_COORDINATOR_ROLE, coordinator);
     }
 
     function setOffchainSigner(address signer) external onlyRole(ADMIN_ROLE) {

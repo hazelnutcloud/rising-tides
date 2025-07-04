@@ -42,7 +42,6 @@ contract RisingTidesPort is IRisingTidesPort, AccessControl, Pausable, Reentranc
 
     bytes32 private constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 private constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
-    bytes32 private constant VRF_COORDINATOR_ROLE = keccak256("VRF_COORDINATOR_ROLE");
 
     uint256 private constant PRECISION = 1e18;
     uint256 private constant MIN_PRICE_PERCENT = 10; // Can't sell below 10% of base price
@@ -104,11 +103,6 @@ contract RisingTidesPort is IRisingTidesPort, AccessControl, Pausable, Reentranc
         _;
     }
 
-    modifier onlyVRFCoordinator() {
-        if (msg.sender != address(vrfCoordinator)) revert Unauthorized();
-        _;
-    }
-
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -120,13 +114,15 @@ contract RisingTidesPort is IRisingTidesPort, AccessControl, Pausable, Reentranc
         address _fishingRod,
         address _doubloons,
         address _admin,
-        address _gameMaster
+        address _gameMaster,
+        address _vrfCoordinator
     ) {
         world = IRisingTidesWorld(_world);
         inventory = IRisingTidesInventory(_inventory);
         fishing = IRisingTidesFishing(_fishing);
         fishingRod = IRisingTidesFishingRod(_fishingRod);
         doubloons = IDoubloons(_doubloons);
+        vrfCoordinator = IVRFCoordinator(_vrfCoordinator);
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(ADMIN_ROLE, _admin);
@@ -366,11 +362,8 @@ contract RisingTidesPort is IRisingTidesPort, AccessControl, Pausable, Reentranc
         emit RodCraftingInitiated(msg.sender, requestId, recipeId, recipe.rodTypeId);
     }
 
-    function rawFulfillRandomNumbers(uint256 requestId, uint256[] memory randomWords)
-        external
-        override
-        onlyVRFCoordinator
-    {
+    function rawFulfillRandomNumbers(uint256 requestId, uint256[] memory randomWords) external override {
+        if (msg.sender != address(vrfCoordinator)) revert Unauthorized();
         address player = requestIdToPlayer[requestId];
         if (player == address(0)) revert InvalidRequestId();
 
@@ -576,7 +569,6 @@ contract RisingTidesPort is IRisingTidesPort, AccessControl, Pausable, Reentranc
 
     function setVRFCoordinator(address coordinator) external onlyRole(ADMIN_ROLE) {
         vrfCoordinator = IVRFCoordinator(coordinator);
-        _grantRole(VRF_COORDINATOR_ROLE, coordinator);
     }
 
     function setRepairCostPerDurability(uint256 cost) external onlyRole(GAME_MASTER_ROLE) {
