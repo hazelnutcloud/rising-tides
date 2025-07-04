@@ -319,7 +319,8 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
             species.baseValue,
             species.minCooldown,
             species.maxCooldown,
-            species.decayRate
+            species.decayRate,
+            species.xpPerWeight
         );
     }
 
@@ -569,6 +570,9 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
 
         // Add fish to inventory
         try inventory.addFish(request.player, fishId, weight, modifiers.isTrophyQuality, modifiers.freshnessModifier) {
+            // Calculate and grant XP
+            uint256 xpToGrant = _calculateAndGrantXP(fishId, weight, modifiers.isTrophyQuality);
+            
             // Handle double catch
             if (modifiers.doubleCatch) {
                 _tryAddSecondFish(request, fishId, modifiers);
@@ -603,7 +607,10 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
 
         try inventory.addFish(
             request.player, fishId, secondWeight, modifiers.isTrophyQuality, modifiers.freshnessModifier
-        ) {} catch {
+        ) {
+            // Grant XP for the second fish as well
+            _calculateAndGrantXP(fishId, secondWeight, modifiers.isTrophyQuality);
+        } catch {
             // Inventory full for second fish, ignore
         }
     }
@@ -715,5 +722,22 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         for (uint256 i = 0; i < arr.length; i++) {
             sum += arr[i];
         }
+    }
+
+    function _calculateAndGrantXP(uint256 fishId, uint256 weight, bool isTrophyQuality) internal returns (uint256) {
+        FishSpecies memory species = fishSpecies[fishId];
+        
+        // Calculate base XP: weight * xpPerWeight / PRECISION
+        uint256 baseXP = (weight * species.xpPerWeight) / PRECISION;
+        
+        // Double XP for trophy quality fish
+        uint256 totalXP = isTrophyQuality ? baseXP * 2 : baseXP;
+        
+        // Grant XP through World contract
+        if (totalXP > 0) {
+            world.grantXP(msg.sender, totalXP);
+        }
+        
+        return totalXP;
     }
 }

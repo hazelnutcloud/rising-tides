@@ -54,6 +54,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
+    bytes32 public constant FISHING_CONTRACT_ROLE = keccak256("FISHING_CONTRACT_ROLE");
 
     uint256 public constant REGION_TYPE_PORT = 1;
     uint256 public constant REGION_TYPE_TERRAIN = 2;
@@ -67,6 +68,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
     );
     event PlayerTraveledMap(address indexed player, uint256 fromMapId, uint256 toMapId, uint256 cost);
     event ShardReassigned(address indexed player, uint256 oldShardId, uint256 newShardId);
+    event XPGranted(address indexed player, uint256 amount, uint256 newTotalXP);
 
     modifier onlyRegistered() {
         if (!players[msg.sender].isRegistered) revert PlayerNotRegistered();
@@ -331,6 +333,18 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         player.path.push(Coordinate({q: spawnQ, r: spawnR}));
         player.segmentDuration = 0;
         player.currentPathIndex = 0;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            XP MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    function grantXP(address player, uint256 amount) external onlyRole(FISHING_CONTRACT_ROLE) {
+        if (!players[player].isRegistered) revert PlayerNotRegistered();
+        
+        players[player].xp += amount;
+        
+        emit XPGranted(player, amount, players[player].xp);
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -95,6 +95,10 @@ contract Deploy is Script {
         // Set contract addresses in FishingRod
         fishingRod.setContracts(address(port), address(fishing));
 
+        // Grant FISHING_CONTRACT_ROLE to Fishing contract in World
+        bytes32 FISHING_CONTRACT_ROLE = world.FISHING_CONTRACT_ROLE();
+        world.grantRole(FISHING_CONTRACT_ROLE, address(fishing));
+
         // Grant roles on Doubloons
         bytes32 MINTER_ROLE = doubloons.MINTER_ROLE();
         bytes32 BURNER_ROLE = doubloons.BURNER_ROLE();

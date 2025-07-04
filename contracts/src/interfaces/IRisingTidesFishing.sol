@@ -14,6 +14,7 @@ interface IRisingTidesFishing {
         uint256 minCooldown; // in seconds
         uint256 maxCooldown; // in seconds
         uint256 decayRate; // seconds for 100% freshness decay
+        uint256 xpPerWeight; // XP per kg with 1e18 precision
         bool exists;
     }
 
@@ -96,7 +97,8 @@ interface IRisingTidesFishing {
         uint256 baseValue,
         uint256 minCooldown,
         uint256 maxCooldown,
-        uint256 decayRate
+        uint256 decayRate,
+        uint256 xpPerWeight
     );
 
     event AliasTableSet(

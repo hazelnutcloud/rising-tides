@@ -80,4 +80,6 @@ interface IRisingTidesWorld {
     function isPortRegion(uint256 mapId, int32 q, int32 r) external view returns (bool);
 
     function getRegionType(uint256 mapId, int32 q, int32 r) external view returns (uint256);
+
+    function grantXP(address player, uint256 amount) external;
 }

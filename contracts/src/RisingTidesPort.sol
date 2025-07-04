@@ -286,7 +286,6 @@ contract RisingTidesPort is IRisingTidesPort, AccessControl, Pausable, Reentranc
         if (!item.available) revert ItemNotAvailable();
 
         // Check player level
-        IRisingTidesWorld.Player memory player = world.getPlayerInfo(msg.sender);
         if (world.getPlayerLevel(msg.sender) < item.requiredLevel) revert InsufficientLevel();
 
         // Calculate total cost
