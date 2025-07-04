@@ -10,14 +10,14 @@ test:
 	forge test -vvv
 
 deploy-anvil:
-	forge script script/DeployAndSave.s.sol:DeployAndSaveScript \
+	forge script script/Deploy.s.sol:Deploy \
 		--rpc-url $(ANVIL_RPC_URL) \
 		--broadcast \
 		--interactives 1 \
 		-vvvv
 
 deploy-risetestnet:
-	forge script script/DeployAndSave.s.sol:DeployAndSaveScript \
+	forge script script/Deploy.s.sol:Deploy \
 		--rpc-url $(RISE_TESTNET_RPC_URL) \
 		--broadcast \
 		-- interactives 1 \
@@ -28,7 +28,7 @@ deploy-risetestnet:
 		-vvvv
 
 deploy-rise:
-	forge script script/DeployAndSave.s.sol:DeployAndSaveScript \
+	forge script script/Deploy.s.sol:Deploy \
 		--rpc-url $(RISE_RPC_URL) \
 		--broadcast \
 		--ledger \

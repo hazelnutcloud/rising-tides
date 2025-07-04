@@ -13,7 +13,7 @@ import {RisingTidesWorld} from "../src/RisingTidesWorld.sol";
 import {RisingTidesFishing} from "../src/RisingTidesFishing.sol";
 import {RisingTidesPort} from "../src/RisingTidesPort.sol";
 
-contract DeployAndSaveScript is Script {
+contract Deploy is Script {
     // Contract instances
     Doubloons public doubloons;
     MockVRFCoordinator public vrfCoordinator;
@@ -115,54 +115,7 @@ contract DeployAndSaveScript is Script {
 
         vm.stopBroadcast();
 
-        // Save deployment addresses
-        _saveDeployment();
-
         console.log("\nDeployment complete!");
         console.log("All contracts deployed and configured successfully.");
-    }
-
-    function _saveDeployment() internal {
-        string memory deploymentDir = "deployments/";
-        string memory chainDir = string.concat(
-            deploymentDir,
-            vm.toString(block.chainid),
-            "/"
-        );
-
-        // Create directories if they don't exist
-        vm.createDir(deploymentDir, true);
-        vm.createDir(chainDir, true);
-
-        // Create deployment JSON
-        string memory json = "deployment";
-        vm.serializeAddress(json, "doubloons", address(doubloons));
-        vm.serializeAddress(json, "vrfCoordinator", address(vrfCoordinator));
-        vm.serializeAddress(json, "fishingRod", address(fishingRod));
-        vm.serializeAddress(json, "inventory", address(inventory));
-        vm.serializeAddress(json, "world", address(world));
-        vm.serializeAddress(json, "fishing", address(fishing));
-        vm.serializeAddress(json, "port", address(port));
-        vm.serializeUint(json, "chainId", block.chainid);
-        vm.serializeUint(json, "blockNumber", block.number);
-        string memory finalJson = vm.serializeUint(
-            json,
-            "timestamp",
-            block.timestamp
-        );
-
-        // Write to file
-        string memory filename = string.concat(chainDir, "latest.json");
-        vm.writeJson(finalJson, filename);
-
-        // Also save with timestamp
-        string memory timestampFilename = string.concat(
-            chainDir,
-            vm.toString(block.timestamp),
-            ".json"
-        );
-        vm.writeJson(finalJson, timestampFilename);
-
-        console.log("Deployment saved to:", filename);
     }
 }
