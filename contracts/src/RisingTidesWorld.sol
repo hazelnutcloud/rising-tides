@@ -62,7 +62,7 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
 
     event PlayerRegistered(address indexed player, uint256 shardId, int32 q, int32 r, uint256 mapId);
     event PlayerMoved(
-        address indexed player, uint256 indexed shardId, uint256 indexed mapId, int32 q, int32 r, uint256 duration
+        address indexed player, uint256 indexed shardId, uint256 indexed mapId, uint256 segmentTime, Coordinate[] path
     );
     event PlayerTraveledMap(address indexed player, uint256 fromMapId, uint256 toMapId, uint256 cost);
     event ShardReassigned(address indexed player, uint256 oldShardId, uint256 newShardId);
@@ -243,8 +243,6 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
             // Add to path
             player.path.push(Coordinate({q: nextQ, r: nextR}));
 
-            emit PlayerMoved(msg.sender, player.shardId, player.mapId, nextQ, nextR, segmentTime);
-
             currentQ = nextQ;
             currentR = nextR;
         }
@@ -259,6 +257,8 @@ contract RisingTidesWorld is IRisingTidesWorld, AccessControl, Pausable {
         player.segmentDuration = segmentTime;
         player.moveStartTime = block.timestamp;
         player.currentPathIndex = 0;
+        
+        emit PlayerMoved(msg.sender, player.shardId, player.mapId, segmentTime, player.path);
     }
 
     function stopMoving() external onlyRegistered {
