@@ -2,6 +2,7 @@
 	import { Canvas } from '@threlte/core';
 	import Scene from './scene.svelte';
 	import { MapEditor } from './editor.svelte';
+	import { regionTypes } from 'rising-tides-data';
 
 	const editor = new MapEditor();
 </script>
@@ -12,7 +13,6 @@
 			<Scene
 				bind:regions={editor.regions}
 				bind:mapRadius={editor.mapRadius}
-				regionColors={editor.regionColors}
 				selectedCells={editor.selectedCells}
 				isSelecting={editor.isSelecting}
 				isFillMode={editor.isFillMode}
@@ -69,8 +69,8 @@
 							class="w-full rounded border px-2 py-1"
 							id="region-select"
 						>
-							{#each Object.entries(editor.regionNames) as [value, name] (name)}
-								<option value={Number(value)}>{name}</option>
+							{#each regionTypes as { id, name } (name)}
+								<option value={id}>{name}</option>
 							{/each}
 						</select>
 					</div>
@@ -101,8 +101,8 @@
 							class="w-full rounded border px-2 py-1"
 							id="region-select-fill"
 						>
-							{#each Object.entries(editor.regionNames) as [value, name] (name)}
-								<option value={Number(value)}>{name}</option>
+							{#each regionTypes as { id, name } (name)}
+								<option value={id}>{name}</option>
 							{/each}
 						</select>
 					</div>
@@ -160,9 +160,9 @@
 								<div class="flex items-center gap-2">
 									<div
 										class="h-4 w-4 rounded"
-										style="background-color: {editor.regionColors[region.type]}"
+										style="background-color: {region.type.debugColor}"
 									></div>
-									<span class="font-medium">{editor.regionNames[region.type]}</span>
+									<span class="font-medium">{region.type.name}</span>
 								</div>
 								<p class="mt-1 text-sm text-gray-600">
 									{region.coordinates.length} cells

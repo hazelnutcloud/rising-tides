@@ -2,12 +2,11 @@
 	import { T } from '@threlte/core';
 	import { Instance, InstancedMesh, interactivity, OrbitControls } from '@threlte/extras';
 	import { HexCell } from '$lib/objects/hex-cell.svelte';
-	import { type Region, type RegionType } from 'rising-tides-data';
+	import { type Region } from 'rising-tides-data';
 
 	let {
 		regions = $bindable(),
 		mapRadius = $bindable(),
-		regionColors,
 		selectedCells,
 		isSelecting,
 		isFillMode,
@@ -21,7 +20,6 @@
 	}: {
 		regions: Region[];
 		mapRadius: number;
-		regionColors: Record<RegionType, string>;
 		selectedCells: Set<string>;
 		isSelecting: boolean;
 		isFillMode: boolean;
@@ -92,7 +90,7 @@
 		: isHovered && isSelecting
 			? '#FFA500'
 			: regionData
-				? regionColors[regionData.region.type]
+				? regionData.region.type.debugColor
 				: instance.q === 0 && instance.r === 0
 					? '#AAAAAA'
 					: '#E0E0E0'}

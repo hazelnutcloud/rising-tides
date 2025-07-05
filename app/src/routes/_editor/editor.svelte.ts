@@ -4,31 +4,13 @@ export class MapEditor {
 	regions = $state<Region[]>([]);
 	mapRadius = $state(16);
 	selectedRegionIndex = $state<number | null>(null);
-	selectedRegionType = $state<RegionType>(regionTypes.Oceanic);
+	selectedRegionType = $state<RegionType>(regionTypes[0]);
 	isSelecting = $state(false);
 	isFillMode = $state(false);
 	selectedCells = $state<Set<string>>(new Set());
 	isDragging = $state(false);
 	selectionMode = $state<'paint' | 'erase'>('paint');
 	hoveredCell = $state<string | null>(null);
-
-	regionColors: Record<RegionType, string> = {
-		[regionTypes.Port]: '#8B4513',
-		[regionTypes.Terrain]: '#228B22',
-		[regionTypes.Coastal]: '#F4A460',
-		[regionTypes.Shallow]: '#87CEEB',
-		[regionTypes.Oceanic]: '#4682B4',
-		[regionTypes.Abyssal]: '#191970',
-		[regionTypes.Hadal]: '#000080',
-		[regionTypes.Volcanic]: '#DC143C',
-		[regionTypes.Mangrove]: '#556B2F',
-		[regionTypes.Icy]: '#B0E0E6',
-		[regionTypes.Reef]: '#FF7F50'
-	};
-
-	regionNames = Object.fromEntries(
-		Object.entries(regionTypes).map(([region, type]) => [type, region])
-	);
 
 	handleCellClick = (q: number, r: number) => {
 		const cellKey = `${q},${r}`;

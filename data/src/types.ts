@@ -1,4 +1,4 @@
-import type { regionTypes } from "./regions";
+import type { regionTypes } from "./region-types";
 
 export type Map = {
   id: number;
@@ -23,7 +23,7 @@ export type Coordinate = {
   r: number;
 };
 
-export type RegionType = (typeof regionTypes)[keyof typeof regionTypes];
+export type RegionType = (typeof regionTypes)[number];
 
 export type FishSpecies = {
   id: number;
