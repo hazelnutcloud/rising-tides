@@ -44,10 +44,9 @@ interface IRisingTidesFishing {
     }
 
     struct OffchainResult {
-        address player;
-        bool success;
-        uint256 nonce;
+        uint256 requestId;
         uint256 expiry;
+        bool success;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -67,10 +66,9 @@ interface IRisingTidesFishing {
         uint256 timestamp
     );
 
-    event FishingCompleted(
+    event FishingSucceeded(
         address indexed player,
         uint256 indexed requestId,
-        bool success,
         uint256 fishId,
         uint256 weight,
         bool isTrophyQuality,
@@ -78,7 +76,6 @@ interface IRisingTidesFishing {
         uint256 cooldownUntil,
         bool baitConsumed,
         uint256 durabilityLoss,
-        bool perfectCatch,
         bool isOffchain
     );
 
@@ -182,12 +179,6 @@ interface IRisingTidesFishing {
         uint256 regionType,
         uint256 baitId,
         bool isDayTime,
-        uint256[] calldata probabilities,
-        uint256[] calldata aliases,
-        uint256[] calldata fishIds
-    ) external;
-    
-    function setGlobalDefaultTable(
         uint256[] calldata probabilities,
         uint256[] calldata aliases,
         uint256[] calldata fishIds

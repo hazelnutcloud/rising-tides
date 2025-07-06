@@ -44,7 +44,7 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
     bytes32 private constant GAME_MASTER_ROLE = keccak256("GAME_MASTER_ROLE");
 
     bytes32 private constant FISHING_RESULT_TYPEHASH =
-        keccak256("FishingResult(uint256 requestId,address player,bool success,uint256 nonce,uint256 expiry)");
+        keccak256("FishingResult(uint256 requestId,uint256 expiry,bool success)");
 
     uint256 private constant PRECISION = 1e18;
     uint256 private constant BASIS_POINTS = 10000;
@@ -74,7 +74,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
 
     // Player state
     mapping(address => uint256) public playerCooldowns;
-    mapping(address => uint256) public playerNonces;
 
     // Fish data
     mapping(uint256 => FishSpecies) public fishSpecies;
@@ -83,8 +82,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
     // Key: keccak256(abi.encodePacked(mapId, regionType, baitId, isDayTime))
     mapping(bytes32 => AliasTable) public fishingTables;
 
-    // Default fallback tables
-    AliasTable public globalDefaultTable;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -204,19 +201,13 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
 
         // Validate signature
         if (result.expiry < block.timestamp) revert RequestExpired();
-        if (result.nonce != playerNonces[msg.sender]) revert InvalidSignature();
-        if (result.player != msg.sender) revert Unauthorized();
+        if (result.requestId != requestId) revert Unauthorized();
 
-        bytes32 structHash = keccak256(
-            abi.encode(FISHING_RESULT_TYPEHASH, requestId, result.player, result.success, result.nonce, result.expiry)
-        );
+        bytes32 structHash = keccak256(abi.encode(FISHING_RESULT_TYPEHASH, requestId, result.expiry, result.success));
 
         bytes32 hash = _hashTypedDataV4(structHash);
         address signer = hash.recover(signature);
         if (signer != offchainSigner) revert InvalidSignature();
-
-        // Increment nonce
-        playerNonces[msg.sender]++;
 
         // Process completion
         _completeFishing(request, result.success, fishToDiscard, true);
@@ -343,27 +334,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         emit AliasTableSet(mapId, regionType, baitId, _isDayTime, probabilities, aliases, fishIds);
     }
 
-    function setGlobalDefaultTable(
-        uint256[] calldata probabilities,
-        uint256[] calldata aliases,
-        uint256[] calldata fishIds
-    ) external onlyRole(GAME_MASTER_ROLE) {
-        _validateAndSetAliasTable(
-            bytes32(0), // Temporary key for validation
-            probabilities,
-            aliases,
-            fishIds
-        );
-
-        globalDefaultTable = AliasTable({
-            probabilities: probabilities,
-            aliases: aliases,
-            fishIds: fishIds,
-            totalProbability: _sumArray(probabilities),
-            exists: true
-        });
-    }
-
     function setOnchainFailureRate(uint256 rate) external onlyRole(GAME_MASTER_ROLE) {
         if (rate > BASIS_POINTS) revert InvalidFailureRate();
         onchainFailureRate = rate;
@@ -411,22 +381,16 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
             uint256 effectiveCritMultiplierBonus
         ) = fishingRod.getFishingAttributes(request.rodTokenId, regionType);
 
-        // Process bait consumption
-        bool consumeBait = _processBaitConsumption(request, effectiveEfficiency);
-
-        if (!success) {
-            emit FishingFailed(request.player, request.requestId, "Failed catch", consumeBait, isOffchain);
-            return;
-        }
-
-        // Discard fish if needed
-        if (fishToDiscard.length > 0) {
-            _discardFish(request.player, fishToDiscard);
-        }
-
         // Process the actual fishing
         _processFishCatch(
-            request, consumeBait, isOffchain, effectiveMaxFishWeight, effectiveCritRate, effectiveCritMultiplierBonus
+            request,
+            isOffchain,
+            effectiveMaxFishWeight,
+            effectiveCritRate,
+            effectiveCritMultiplierBonus,
+            effectiveEfficiency,
+            success,
+            fishToDiscard
         );
     }
 
@@ -454,21 +418,31 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
 
     function _processFishCatch(
         FishingRequest storage request,
-        bool consumeBait,
         bool isOffchain,
         uint256 effectiveMaxFishWeight,
         uint256 effectiveCritRate,
-        uint256 effectiveCritMultiplierBonus
+        uint256 effectiveCritMultiplierBonus,
+        uint256 effectiveEfficiency,
+        bool success,
+        uint256[] calldata fishToDiscard
     ) internal {
+        if (!success) {
+            emit FishingFailed(request.player, request.requestId, "Failed catch", false, isOffchain);
+            return;
+        }
+
         uint256 regionType = request.regionId & 0xFF;
 
         // Select fish
         uint256 fishId = _selectFishWithCrits(request, effectiveCritRate, effectiveCritMultiplierBonus);
 
         if (fishId == 0 || !fishSpecies[fishId].exists) {
-            emit FishingFailed(request.player, request.requestId, "No fish available", consumeBait, isOffchain);
+            emit FishingFailed(request.player, request.requestId, "No fish available", false, isOffchain);
             return;
         }
+
+        // Process bait consumption
+        bool consumeBait = _processBaitConsumption(request, effectiveEfficiency);
 
         // Calculate fish weight
         uint256 weight = _calculateFishWeight(fishId, request.randomSeed);
@@ -480,6 +454,11 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
                 emit FishingFailed(request.player, request.requestId, "Fish too heavy", consumeBait, isOffchain);
                 return;
             }
+        }
+
+        // Discard fish if needed
+        if (fishToDiscard.length > 0) {
+            _discardFish(request.player, fishToDiscard);
         }
 
         // Process catch and add to inventory
@@ -557,10 +536,9 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
                 _tryAddSecondFish(request, fishId, modifiers);
             }
 
-            emit FishingCompleted(
+            emit FishingSucceeded(
                 request.player,
                 request.requestId,
-                true,
                 fishId,
                 weight,
                 modifiers.isTrophyQuality,
@@ -568,7 +546,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
                 cooldownUntil,
                 consumeBait,
                 modifiers.actualDurabilityLoss,
-                modifiers.actualDurabilityLoss == 0,
                 isOffchain
             );
         } catch {
@@ -602,11 +579,6 @@ contract RisingTidesFishing is IRisingTidesFishing, AccessControl, Pausable, Ree
         // Try specific table first
         bytes32 key = keccak256(abi.encodePacked(mapId, regionType, baitId, _isDayTime));
         AliasTable storage table = fishingTables[key];
-
-        // Fallback to global default
-        if (!table.exists) {
-            table = globalDefaultTable;
-        }
 
         // No table available
         if (!table.exists || table.fishIds.length == 0) {
