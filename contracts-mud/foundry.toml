@@ -1,0 +1,15 @@
+[profile.default]
+optimizer = true
+optimizer_runs = 20000
+allow_paths = [
+  # pnpm symlinks to the project root's node_modules
+  "../node_modules",
+]
+extra_output_files = [
+  "abi",
+  "evm.bytecode"
+]
+fs_permissions = [{ access = "read", path = "./"}]
+
+[profile.risetestnet]
+eth_rpc_url = "https://testnet.riselabs.xyz"

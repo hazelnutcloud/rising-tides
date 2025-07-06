@@ -1,0 +1,28 @@
+{
+  "name": "contracts-mud",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "solhint": "solhint --config ./.solhint.json 'src/**/*.sol' --fix",
+    "build": "mud build",
+    "dev": "mud dev-contracts",
+    "deploy:local": "mud deploy"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "solhint": "^6.0.0",
+    "solhint-config-mud": "^2.2.22",
+    "solhint-plugin-mud": "^2.2.22"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@latticexyz/cli": "^2.2.22",
+    "@latticexyz/schema-type": "^2.2.22",
+    "@latticexyz/store": "^2.2.22",
+    "@latticexyz/world": "^2.2.22",
+    "@latticexyz/world-modules": "^2.2.22"
+  }
+}
