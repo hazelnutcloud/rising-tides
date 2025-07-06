@@ -55,3 +55,5 @@ export const regionTypes = [
     debugColor: "#FF7F50",
   },
 ] as const;
+
+export type RegionType = (typeof regionTypes)[number];

@@ -1,10 +1,19 @@
-import { regionTypes, type Region, type Coordinate, type RegionType } from 'rising-tides-data';
+import {
+	regionTypes,
+	type Region,
+	type Coordinate,
+	type RegionType,
+	type Map
+} from 'rising-tides-data';
 
 export class MapEditor {
 	regions = $state<Region[]>([]);
 	mapRadius = $state(16);
 	selectedRegionIndex = $state<number | null>(null);
-	selectedRegionType = $state<RegionType>(regionTypes[0]);
+	selectedRegionId = $state<RegionType['id']>(regionTypes[0].id);
+	selectedRegionType = $derived<RegionType>(
+		regionTypes.find(({ id }) => id === this.selectedRegionId)!
+	);
 	isSelecting = $state(false);
 	isFillMode = $state(false);
 	selectedCells = $state<Set<string>>(new Set());
@@ -86,7 +95,11 @@ export class MapEditor {
 	};
 
 	copyRegionsToClipboard = () => {
-		const regionData = JSON.stringify(this.regions, null, 2);
+		const regionData = JSON.stringify(
+			this.regions.map((region) => ({ ...region, type: region.type.id })) satisfies Map['regions'],
+			null,
+			2
+		);
 		navigator.clipboard.writeText(regionData);
 	};
 

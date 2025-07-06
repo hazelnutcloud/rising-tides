@@ -13,7 +13,7 @@ export class HexCell {
 		public q: number, // axial coordinate
 		public r: number, // axial coordinate
 		hexSize: number = 1,
-		public regionType: RegionType = regionTypes.Oceanic
+		public regionType: RegionType = regionTypes[0]
 	) {
 		// Convert axial to world position (pointy-top hexagons)
 		this.x = hexSize * Math.sqrt(3) * (q + r / 2);

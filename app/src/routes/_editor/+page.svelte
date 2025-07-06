@@ -65,7 +65,7 @@
 					<div>
 						<label class="mb-1 block text-sm font-medium" for="region-select">Region Type</label>
 						<select
-							bind:value={editor.selectedRegionType}
+							bind:value={editor.selectedRegionId}
 							class="w-full rounded border px-2 py-1"
 							id="region-select"
 						>
@@ -97,7 +97,7 @@
 							>Region Type</label
 						>
 						<select
-							bind:value={editor.selectedRegionType}
+							bind:value={editor.selectedRegionId}
 							class="w-full rounded border px-2 py-1"
 							id="region-select-fill"
 						>

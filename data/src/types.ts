@@ -1,4 +1,4 @@
-import type { regionTypes } from "./region-types";
+import type { RegionType, regionTypes } from "./region-types";
 
 export type Map = {
   id: number;
@@ -6,7 +6,7 @@ export type Map = {
   radius: number;
   travelCost: number;
   requiredLevel: 0;
-  regions: Region[];
+  regions: (Omit<Region, "type"> & { type: RegionType["id"] })[];
 };
 
 export type Region = {
@@ -22,8 +22,6 @@ export type Coordinate = {
   q: number;
   r: number;
 };
-
-export type RegionType = (typeof regionTypes)[number];
 
 export type FishSpecies = {
   id: number;
