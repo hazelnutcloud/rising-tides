@@ -23,6 +23,7 @@
     "@latticexyz/schema-type": "^2.2.22",
     "@latticexyz/store": "^2.2.22",
     "@latticexyz/world": "^2.2.22",
-    "@latticexyz/world-modules": "^2.2.22"
+    "@latticexyz/world-modules": "^2.2.22",
+    "viem": "^2.31.7"
   }
 }

@@ -13,3 +13,7 @@ fs_permissions = [{ access = "read", path = "./"}]
 
 [profile.risetestnet]
 eth_rpc_url = "https://testnet.riselabs.xyz"
+
+remappings = [
+    "@latticexyz/=node_modules/@latticexyz/"
+]
